@@ -1,0 +1,115 @@
+import { Button } from "@/components/ui/button";
+import { ArrowRight, Sparkles } from "lucide-react";
+import heroChef from "@/assets/hero-chef.jpg";
+
+interface HeroSectionProps {
+  onGetStarted: () => void;
+}
+
+export const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
+  return (
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      {/* Background gradient */}
+      <div className="absolute inset-0 bg-gradient-hero opacity-60"></div>
+      
+      {/* Enhanced floating elements */}
+      <div className="absolute top-20 left-10 w-20 h-20 bg-mint/20 rounded-full animate-float"></div>
+      <div className="absolute top-32 right-16 w-16 h-16 bg-sage/20 rounded-full animate-float" style={{ animationDelay: "1s" }}></div>
+      <div className="absolute bottom-32 left-20 w-24 h-24 bg-accent/20 rounded-full animate-float" style={{ animationDelay: "2s" }}></div>
+      
+      {/* New animated elements */}
+      <div className="absolute top-1/4 right-1/3 w-8 h-8 bg-primary/30 rounded-full animate-bounce-slow"></div>
+      <div className="absolute bottom-1/4 left-1/4 w-12 h-12 bg-leaf/20 rounded-full animate-spin-slow"></div>
+      <div className="absolute top-3/4 right-1/4 w-6 h-6 bg-forest/30 rounded-full animate-wiggle"></div>
+      
+      {/* Floating icons */}
+      <div className="absolute top-40 left-1/3 text-primary/20 animate-float" style={{ animationDelay: "3s" }}>
+        <Sparkles className="w-8 h-8" />
+      </div>
+      <div className="absolute bottom-40 right-1/3 text-accent/30 animate-bounce-slow" style={{ animationDelay: "4s" }}>
+        <Sparkles className="w-6 h-6" />
+      </div>
+
+      <div className="container mx-auto px-4 relative z-10">
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+          
+          {/* Content */}
+          <div className="space-y-8 text-center lg:text-left animate-fade-up">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full text-primary text-sm font-medium">
+                <Sparkles className="w-4 h-4" />
+                Powered by AI
+              </div>
+              
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
+                AI <span className="text-primary">Кулинар</span>
+                <br />
+                <span className="text-3xl md:text-4xl lg:text-5xl text-muted-foreground">
+                  Ваш умный помощник
+                </span>
+              </h1>
+              
+              <p className="text-lg md:text-xl text-muted-foreground max-w-lg mx-auto lg:mx-0 leading-relaxed">
+                Превратите любые ингредиенты в кулинарные шедевры с помощью искусственного интеллекта
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+              <Button 
+                size="lg" 
+                onClick={onGetStarted}
+                className="bg-gradient-primary hover:opacity-90 transition-opacity shadow-glow text-lg px-8 py-6 animate-pulse-glow"
+              >
+                Создать рецепт
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+              
+              <Button 
+                size="lg" 
+                variant="secondary"
+                className="text-lg px-8 py-6 hover:bg-secondary/80 transition-colors"
+              >
+                Посмотреть примеры
+              </Button>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-8 pt-8 border-t border-border/50">
+              <div className="text-center">
+                <div className="text-2xl md:text-3xl font-bold text-primary">1000+</div>
+                <div className="text-sm text-muted-foreground">Рецептов</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl md:text-3xl font-bold text-primary">50k+</div>
+                <div className="text-sm text-muted-foreground">Пользователей</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl md:text-3xl font-bold text-primary">98%</div>
+                <div className="text-sm text-muted-foreground">Удовлетворены</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Hero Image */}
+          <div className="relative animate-fade-up" style={{ animationDelay: "0.2s" }}>
+            <div className="relative z-10">
+              <img 
+                src={heroChef} 
+                alt="AI Chef Assistant" 
+                className="w-full h-auto rounded-2xl shadow-glow animate-float"
+              />
+            </div>
+            
+            {/* Decorative elements */}
+            <div className="absolute -top-6 -right-6 w-32 h-32 bg-gradient-primary rounded-full opacity-20 animate-pulse-glow"></div>
+            <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-accent/30 rounded-full animate-float" style={{ animationDelay: "3s" }}></div>
+            
+            {/* Additional floating decorations */}
+            <div className="absolute -top-4 -left-4 w-16 h-16 bg-mint/20 rounded-full animate-wiggle"></div>
+            <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-sage/20 rounded-full animate-bounce-slow"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};

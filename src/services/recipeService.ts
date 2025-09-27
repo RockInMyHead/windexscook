@@ -1,103 +1,161 @@
 import { Recipe, Comment, RecipeFormData, User } from '@/types/recipe';
 
-// Mock data for development
-const mockRecipes: Recipe[] = [
+// Demo recipes for testing
+const userRecipes: Recipe[] = [
   {
     id: '1',
-    title: 'Паста Карбонара',
-    description: 'Классическая итальянская паста с беконом, яйцами и пармезаном',
-    image: '/placeholder.svg',
+    title: 'Спагетти Карбонара',
+    description: 'Классический итальянский рецепт с беконом, яйцами и пармезаном',
+    ingredients: ['Спагетти - 400г', 'Бекон - 200г', 'Яйца - 4 шт', 'Пармезан - 100г', 'Черный перец - по вкусу'],
+    instructions: [
+      'Отварите спагетти в подсоленной воде до готовности',
+      'Обжарьте бекон на сковороде до хрустящего состояния',
+      'Взбейте яйца с тертым пармезаном и черным перцем',
+      'Смешайте горячие спагетти с беконом и яичной смесью',
+      'Подавайте немедленно с дополнительным пармезаном'
+    ],
     cookTime: '20 мин',
     servings: 4,
-    difficulty: 'Medium',
+    difficulty: 'Средний',
     category: 'Итальянская кухня',
-    ingredients: ['Спагетти - 400г', 'Бекон - 200г', 'Яйца - 4 шт', 'Пармезан - 100г', 'Чеснок - 2 зубчика'],
-    instructions: [
-      'Отварите спагетти в подсоленной воде до состояния аль денте',
-      'Обжарьте бекон на сковороде до хрустящего состояния',
-      'Взбейте яйца с тертым пармезаном',
-      'Смешайте горячие спагетти с беконом',
-      'Добавьте яично-сырную смесь, быстро перемешайте'
-    ],
-    tips: 'Подавайте сразу же, пока паста горячая',
+    cuisine: 'Итальянская',
     author: {
-      id: '1',
-      name: 'Мария Иванова',
-      email: 'maria@example.com'
+      id: 'demo-user',
+      name: 'Demo Chef',
+      email: 'demo@example.com',
+      avatar: ''
     },
-    createdAt: '2024-01-15T10:00:00Z',
-    updatedAt: '2024-01-15T10:00:00Z',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     rating: 4.5,
-    likes: 23,
-    favorites: 15,
-    commentsCount: 8
+    likes: 12,
+    favorites: 8,
+    commentsCount: 3,
+    isLiked: false,
+    isFavorited: false
   },
   {
     id: '2',
     title: 'Тирамису',
     description: 'Нежный итальянский десерт с кофе и маскарпоне',
-    image: '/placeholder.svg',
-    cookTime: '30 мин + охлаждение',
-    servings: 6,
-    difficulty: 'Easy',
-    category: 'Десерты',
-    ingredients: ['Маскарпоне - 500г', 'Яйца - 4 шт', 'Сахар - 100г', 'Кофе - 200мл', 'Печенье савоярди - 200г', 'Какао - 2 ст.л.'],
+    ingredients: ['Маскарпоне - 500г', 'Яйца - 4 шт', 'Сахар - 100г', 'Кофе эспрессо - 200мл', 'Печенье савоярди - 200г', 'Какао - 2 ст.л.'],
     instructions: [
       'Приготовьте крепкий кофе и остудите',
-      'Отделите желтки от белков',
-      'Взбейте желтки с сахаром до белого цвета',
-      'Добавьте маскарпоне к желткам',
-      'Взбейте белки в крепкую пену',
-      'Осторожно смешайте белки с кремом',
-      'Обмакните печенье в кофе',
-      'Выложите слоями печенье и крем',
-      'Посыпьте какао и охладите 4 часа'
+      'Взбейте желтки с сахаром до пышности',
+      'Добавьте маскарпоне и взбейте до однородности',
+      'Взбейте белки отдельно и аккуратно вмешайте в крем',
+      'Обмакните печенье в кофе и выложите в форму',
+      'Чередуйте слои печенья и крема',
+      'Поставьте в холодильник на 4 часа',
+      'Перед подачей посыпьте какао'
     ],
-    tips: 'Лучше готовить за день до подачи',
+    cookTime: '30 мин + 4 часа охлаждение',
+    servings: 8,
+    difficulty: 'Средний',
+    category: 'Десерты',
+    cuisine: 'Итальянская',
     author: {
-      id: '2',
-      name: 'Анна Петрова',
-      email: 'anna@example.com'
+      id: 'demo-user-2',
+      name: 'Sweet Chef',
+      email: 'sweet@example.com',
+      avatar: ''
     },
-    createdAt: '2024-01-14T15:30:00Z',
-    updatedAt: '2024-01-14T15:30:00Z',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     rating: 4.8,
-    likes: 45,
-    favorites: 32,
-    commentsCount: 12
+    likes: 25,
+    favorites: 18,
+    commentsCount: 7,
+    isLiked: false,
+    isFavorited: false
+  },
+  {
+    id: '3',
+    title: 'Борщ украинский',
+    description: 'Традиционный украинский борщ с говядиной и сметаной',
+    ingredients: ['Говядина - 500г', 'Свекла - 2 шт', 'Капуста - 300г', 'Морковь - 1 шт', 'Лук - 1 шт', 'Помидоры - 2 шт', 'Картофель - 3 шт', 'Сметана - 200г'],
+    instructions: [
+      'Сварите мясной бульон из говядины',
+      'Натрите свеклу и морковь на терке',
+      'Обжарьте лук и добавьте овощи',
+      'Добавьте томатную пасту и тушите 10 минут',
+      'В кипящий бульон добавьте картофель',
+      'Через 10 минут добавьте капусту',
+      'Добавьте зажарку и варите еще 15 минут',
+      'Подавайте со сметаной и зеленью'
+    ],
+    cookTime: '2 часа',
+    servings: 6,
+    difficulty: 'Легкий',
+    category: 'Обеды',
+    cuisine: 'Украинская',
+    author: {
+      id: 'demo-user-3',
+      name: 'Ukrainian Chef',
+      email: 'ukrainian@example.com',
+      avatar: ''
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    rating: 4.3,
+    likes: 15,
+    favorites: 12,
+    commentsCount: 5,
+    isLiked: false,
+    isFavorited: false
   }
 ];
 
-const mockComments: Comment[] = [
+const userComments: Comment[] = [
   {
     id: '1',
     recipeId: '1',
     author: {
-      id: '3',
-      name: 'Иван Сидоров',
-      email: 'ivan@example.com'
+      id: 'comment-user-1',
+      name: 'Food Lover',
+      email: 'food@example.com',
+      avatar: ''
     },
-    content: 'Отличный рецепт! Получилось очень вкусно, спасибо!',
-    createdAt: '2024-01-16T09:00:00Z',
-    likes: 5
+    content: 'Отличный рецепт! Получилось очень вкусно. Спасибо за подробные инструкции.',
+    createdAt: new Date().toISOString(),
+    likes: 3,
+    isLiked: false
   },
   {
     id: '2',
     recipeId: '1',
     author: {
-      id: '4',
-      name: 'Елена Козлова',
-      email: 'elena@example.com'
+      id: 'comment-user-2',
+      name: 'Italian Fan',
+      email: 'italian@example.com',
+      avatar: ''
     },
-    content: 'Попробовала с курицей вместо бекона - тоже очень вкусно!',
-    createdAt: '2024-01-16T14:20:00Z',
-    likes: 3
+    content: 'Классический карбонара! Добавил немного чеснока для аромата.',
+    createdAt: new Date().toISOString(),
+    likes: 1,
+    isLiked: false
+  },
+  {
+    id: '3',
+    recipeId: '2',
+    author: {
+      id: 'comment-user-3',
+      name: 'Dessert Queen',
+      email: 'dessert@example.com',
+      avatar: ''
+    },
+    content: 'Тирамису получился идеальным! Семья в восторге.',
+    createdAt: new Date().toISOString(),
+    likes: 5,
+    isLiked: false
   }
 ];
 
 export class RecipeService {
-  private static recipes: Recipe[] = [...mockRecipes];
-  private static comments: Comment[] = [...mockComments];
+  private static recipes: Recipe[] = [...userRecipes];
+  private static comments: Comment[] = [...userComments];
+  private static userLikes: Map<string, Set<string>> = new Map(); // recipeId -> Set of userIds
+  private static userFavorites: Map<string, Set<string>> = new Map(); // recipeId -> Set of userIds
 
   static async getRecipes(filters?: any): Promise<Recipe[]> {
     // Simulate API delay
@@ -180,6 +238,20 @@ export class RecipeService {
     const recipe = this.recipes.find(r => r.id === recipeId);
     if (!recipe) return false;
     
+    // Initialize user likes set for this recipe if it doesn't exist
+    if (!this.userLikes.has(recipeId)) {
+      this.userLikes.set(recipeId, new Set());
+    }
+    
+    const userLikes = this.userLikes.get(recipeId)!;
+    
+    // Check if user already liked this recipe
+    if (userLikes.has(userId)) {
+      return false; // User already liked this recipe
+    }
+    
+    // Add user to likes and update recipe
+    userLikes.add(userId);
     recipe.likes += 1;
     recipe.isLiked = true;
     return true;
@@ -191,6 +263,13 @@ export class RecipeService {
     const recipe = this.recipes.find(r => r.id === recipeId);
     if (!recipe) return false;
     
+    const userLikes = this.userLikes.get(recipeId);
+    if (!userLikes || !userLikes.has(userId)) {
+      return false; // User hasn't liked this recipe
+    }
+    
+    // Remove user from likes and update recipe
+    userLikes.delete(userId);
     recipe.likes -= 1;
     recipe.isLiked = false;
     return true;
@@ -202,6 +281,20 @@ export class RecipeService {
     const recipe = this.recipes.find(r => r.id === recipeId);
     if (!recipe) return false;
     
+    // Initialize user favorites set for this recipe if it doesn't exist
+    if (!this.userFavorites.has(recipeId)) {
+      this.userFavorites.set(recipeId, new Set());
+    }
+    
+    const userFavorites = this.userFavorites.get(recipeId)!;
+    
+    // Check if user already favorited this recipe
+    if (userFavorites.has(userId)) {
+      return false; // User already favorited this recipe
+    }
+    
+    // Add user to favorites and update recipe
+    userFavorites.add(userId);
     recipe.favorites += 1;
     recipe.isFavorited = true;
     return true;
@@ -213,6 +306,13 @@ export class RecipeService {
     const recipe = this.recipes.find(r => r.id === recipeId);
     if (!recipe) return false;
     
+    const userFavorites = this.userFavorites.get(recipeId);
+    if (!userFavorites || !userFavorites.has(userId)) {
+      return false; // User hasn't favorited this recipe
+    }
+    
+    // Remove user from favorites and update recipe
+    userFavorites.delete(userId);
     recipe.favorites -= 1;
     recipe.isFavorited = false;
     return true;
@@ -232,6 +332,18 @@ export class RecipeService {
   static async getComments(recipeId: string): Promise<Comment[]> {
     await new Promise(resolve => setTimeout(resolve, 200));
     return this.comments.filter(c => c.recipeId === recipeId);
+  }
+
+  static async getUserInteractionStatus(recipeId: string, userId: string): Promise<{isLiked: boolean, isFavorited: boolean}> {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    const userLikes = this.userLikes.get(recipeId);
+    const userFavorites = this.userFavorites.get(recipeId);
+    
+    return {
+      isLiked: userLikes ? userLikes.has(userId) : false,
+      isFavorited: userFavorites ? userFavorites.has(userId) : false
+    };
   }
 
   static async addComment(recipeId: string, content: string, author: User): Promise<Comment> {

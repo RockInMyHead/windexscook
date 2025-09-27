@@ -20,10 +20,12 @@ import {
   Users, 
   Settings,
   LogOut,
-  Sparkles
+  Sparkles,
+  Activity
 } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { AuthModal } from "@/components/ui/auth-modal";
+import { HealthProfileModal } from "@/components/ui/health-profile-modal";
 import { toast } from "@/hooks/use-toast";
 
 interface HeaderProps {
@@ -75,7 +77,7 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
                 <ChefHat className="w-6 h-6 text-primary-foreground" />
               </div>
               <div className="hidden sm:block">
-                <h1 className="text-xl font-bold text-foreground">AI Кулинар</h1>
+                <h1 className="text-xl font-bold text-foreground"><span className="text-primary">Windex</span> кулинар</h1>
                 <p className="text-xs text-muted-foreground">Умный помощник на кухне</p>
               </div>
             </Link>
@@ -102,34 +104,23 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
                     </Button>
                   ))}
                 </>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setAuthMode('login');
-                      onLogin();
-                    }}
-                    className="text-foreground hover:text-primary"
-                  >
-                    Войти
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setAuthMode('register');
-                      onRegister();
-                    }}
-                    className="bg-gradient-primary hover:opacity-90 transition-opacity"
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Регистрация
-                  </Button>
-                </div>
-              )}
+              ) : null}
             </nav>
 
             {/* User Menu / Auth Buttons */}
             <div className="flex items-center gap-4">
+              {/* Повар-Онлайн Button */}
+              <Button
+                variant="outline"
+                asChild
+                className="hidden sm:flex items-center gap-2 border-primary/20 hover:border-primary/40 hover:bg-primary/5"
+              >
+                <Link to="/my-chef">
+                  <ChefHat className="w-4 h-4 text-primary" />
+                  Повар-Онлайн
+                </Link>
+              </Button>
+
               {isAuthenticated ? (
                 <div className="flex items-center gap-4">
                   {/* User Avatar & Menu */}
@@ -154,13 +145,23 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
                         </div>
                       </div>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem>
-                        <User className="mr-2 h-4 w-4" />
-                        <span>Личный кабинет</span>
+                      <DropdownMenuItem asChild>
+                        <Link to="/profile">
+                          <User className="mr-2 h-4 w-4" />
+                          <span>Личный кабинет</span>
+                        </Link>
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span>Настройки</span>
+                      <HealthProfileModal>
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                          <Activity className="mr-2 h-4 w-4" />
+                          <span>Профиль здоровья</span>
+                        </DropdownMenuItem>
+                      </HealthProfileModal>
+                      <DropdownMenuItem asChild>
+                        <Link to="/profile">
+                          <Settings className="mr-2 h-4 w-4" />
+                          <span>Настройки</span>
+                        </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={handleLogout}>
@@ -232,6 +233,16 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
               <nav className="flex flex-col space-y-2">
                 {isAuthenticated ? (
                   <>
+                    <Button
+                      variant="outline"
+                      asChild
+                      className="w-full justify-start border-primary/20 hover:border-primary/40 hover:bg-primary/5"
+                    >
+                      <Link to="/my-chef" onClick={() => setIsMenuOpen(false)}>
+                        <ChefHat className="w-4 h-4 mr-2 text-primary" />
+                        Повар-Онлайн
+                      </Link>
+                    </Button>
                     {navigationItems.map((item) => (
                       <Button
                         key={item.name}
@@ -252,17 +263,32 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
                     <div className="pt-2 border-t border-border/50">
                       <Button
                         variant="ghost"
+                        asChild
                         className="w-full justify-start text-foreground hover:text-primary hover:bg-primary/10"
                       >
-                        <User className="w-4 h-4 mr-2" />
-                        Личный кабинет
+                        <Link to="/profile" onClick={() => setIsMenuOpen(false)}>
+                          <User className="w-4 h-4 mr-2" />
+                          Личный кабинет
+                        </Link>
                       </Button>
+                      <HealthProfileModal>
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-start text-foreground hover:text-primary hover:bg-primary/10"
+                        >
+                          <Activity className="w-4 h-4 mr-2" />
+                          Профиль здоровья
+                        </Button>
+                      </HealthProfileModal>
                       <Button
                         variant="ghost"
+                        asChild
                         className="w-full justify-start text-foreground hover:text-primary hover:bg-primary/10"
                       >
-                        <Settings className="w-4 h-4 mr-2" />
-                        Настройки
+                        <Link to="/profile" onClick={() => setIsMenuOpen(false)}>
+                          <Settings className="w-4 h-4 mr-2" />
+                          Настройки
+                        </Link>
                       </Button>
                       <Button
                         variant="ghost"
@@ -276,6 +302,16 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
                   </>
                 ) : (
                   <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      asChild
+                      className="w-full justify-start border-primary/20 hover:border-primary/40 hover:bg-primary/5"
+                    >
+                      <Link to="/my-chef" onClick={() => setIsMenuOpen(false)}>
+                        <ChefHat className="w-4 h-4 mr-2 text-primary" />
+                        Повар-Онлайн
+                      </Link>
+                    </Button>
                     <Button
                       variant="ghost"
                       onClick={() => {

@@ -2,22 +2,29 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Sparkles, Loader2 } from "lucide-react";
+import { X, Plus, Sparkles, Loader2, Camera } from "lucide-react";
 import { OpenAIService, Recipe } from "@/services/openai";
 import { RecipeDisplay } from "./recipe-display";
+import { CameraCapture } from "./camera-capture";
+import { ImageAnalysisService } from "@/services/imageAnalysis";
 import { toast } from "@/hooks/use-toast";
+import { useUser } from "@/contexts/UserContext";
 
 interface IngredientInputProps {
   onGenerateRecipe: (ingredients: string[]) => void;
   onRegister: () => void;
   onLogin: () => void;
+  selectedCuisine?: string;
 }
 
-export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin }: IngredientInputProps) => {
+export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin, selectedCuisine }: IngredientInputProps) => {
   const [currentIngredient, setCurrentIngredient] = useState("");
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
+  const { user } = useUser();
 
   const addIngredient = () => {
     if (currentIngredient.trim() && !ingredients.includes(currentIngredient.trim())) {
@@ -49,7 +56,7 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin }: Ingre
 
     setIsLoading(true);
     try {
-      const recipe = await OpenAIService.generateRecipe(ingredients);
+      const recipe = await OpenAIService.generateRecipe(ingredients, user?.healthProfile, selectedCuisine);
       setGeneratedRecipe(recipe);
       
       toast({
@@ -79,12 +86,47 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin }: Ingre
     setIngredients([]);
   };
 
+  const handleImageCapture = async (imageData: string) => {
+    setIsAnalyzingImage(true);
+    try {
+      const detectedProducts = await ImageAnalysisService.extractTextFromImage(imageData);
+      
+      // Добавляем обнаруженные продукты к существующим ингредиентам
+      const newIngredients = detectedProducts.filter(product => 
+        !ingredients.includes(product)
+      );
+      
+      if (newIngredients.length > 0) {
+        setIngredients([...ingredients, ...newIngredients]);
+        toast({
+          title: "📸 Продукты обнаружены!",
+          description: `Найдено ${newIngredients.length} продуктов: ${newIngredients.join(', ')}`,
+        });
+      } else {
+        toast({
+          title: "Продукты не обнаружены",
+          description: "Попробуйте сфотографировать продукты более четко",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Ошибка анализа изображения:', error);
+      toast({
+        title: "Ошибка анализа",
+        description: "Не удалось проанализировать изображение. Попробуйте еще раз.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzingImage(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6 p-6 bg-gradient-card rounded-xl shadow-card border border-border/50">
       <div className="text-center space-y-2">
         <h3 className="text-xl font-semibold text-foreground">Какие у вас есть ингредиенты?</h3>
         <p className="text-muted-foreground text-sm">
-          Добавьте продукты, и AI создаст для вас уникальный рецепт
+          Добавьте продукты вручную или сфотографируйте их - AI создаст уникальный рецепт
         </p>
       </div>
 
@@ -104,11 +146,20 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin }: Ingre
         >
           <Plus className="w-4 h-4" />
         </Button>
+        <Button 
+          onClick={() => setShowCamera(true)}
+          variant="outline"
+          size="icon"
+          className="shrink-0 hover:bg-accent/80 transition-colors"
+          title="📸 Сфотографировать продукты"
+        >
+          <Camera className="w-4 h-4" />
+        </Button>
       </div>
 
       {ingredients.length > 0 && (
         <div className="space-y-3">
-          <h4 className="text-sm font-medium text-foreground">Ваши ингредиенты:</h4>
+          <h4 className="text-sm font-medium text-foreground">Ваши ингредиенты (AI будет использовать только их):</h4>
           <div className="flex flex-wrap gap-2">
             {ingredients.map((ingredient) => (
               <Badge
@@ -122,6 +173,9 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin }: Ingre
               </Badge>
             ))}
           </div>
+          <p className="text-xs text-muted-foreground">
+            💡 AI создаст рецепт только из этих ингредиентов + базовые специи (соль, перец, масло)
+          </p>
           
           <Button 
             onClick={handleGenerate}
@@ -153,6 +207,24 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin }: Ingre
           onRegister={onRegister}
           onLogin={onLogin}
         />
+      )}
+
+      {/* Camera Capture Modal */}
+      {showCamera && (
+        <CameraCapture
+          onImageCapture={handleImageCapture}
+          onClose={() => setShowCamera(false)}
+        />
+      )}
+
+      {/* Loading overlay for image analysis */}
+      {isAnalyzingImage && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 flex items-center gap-3">
+            <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            <span className="text-sm">Анализируем изображение...</span>
+          </div>
+        </div>
       )}
     </div>
   );

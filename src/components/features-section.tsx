@@ -28,10 +28,10 @@ export const FeaturesSection = () => {
     <section className="py-20 px-4">
       <div className="container mx-auto max-w-6xl">
         <div className="text-center mb-16 space-y-4">
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-            Почему выбирают AI Кулинара?
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground drop-shadow-lg">
+            Почему выбирают <span className="text-primary drop-shadow-md">Windex</span> кулинара?
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-lg text-foreground/90 max-w-2xl mx-auto drop-shadow-md">
             Революционный подход к кулинарии с использованием искусственного интеллекта
           </p>
         </div>

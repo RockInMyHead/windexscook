@@ -8,7 +8,7 @@ const reviews = [
     role: "Домохозяйка",
     avatar: "AP",
     rating: 5,
-    text: "Невероятно! AI кулинар превратил остатки в холодильнике в изысканный ужин. Теперь готовлю каждый день с удовольствием!",
+    text: "Невероятно! <span style=\"color: hsl(150 40% 55%)\">Windex</span> кулинар превратил остатки в холодильнике в изысканный ужин. Теперь готовлю каждый день с удовольствием!",
     dish: "Рататуй с киноа"
   },
   {
@@ -52,11 +52,11 @@ export const ReviewsSection = () => {
             4.9/5 • 10,000+ отзывов
           </div>
           
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground">
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground drop-shadow-lg">
             Что говорят наши пользователи
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Тысячи людей уже открыли для себя магию AI кулинарии
+          <p className="text-lg text-foreground/90 max-w-2xl mx-auto drop-shadow-md">
+            Тысячи людей уже открыли для себя магию <span className="text-primary drop-shadow-md">Windex</span> кулинарии
           </p>
         </div>
 

@@ -177,6 +177,10 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
             </div>
             <div className="flex items-center gap-1">
               <Heart className="w-4 h-4" />
+              <span>{recipe.likes}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Star className="w-4 h-4" />
               <span>{recipe.favorites}</span>
             </div>
           </div>

@@ -74,7 +74,7 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
       });
       toast({
         title: "Регистрация успешна!",
-        description: "Добро пожаловать в AI Кулинар!",
+        description: "Добро пожаловать в кулинар!",
       });
       onClose();
       setIsLoading(false);
@@ -99,7 +99,7 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
               <ChefHat className="w-8 h-8 text-primary-foreground" />
             </div>
             <CardTitle className="text-2xl font-bold text-foreground">
-              Добро пожаловать в AI Кулинар!
+              Добро пожаловать в <span className="text-primary">Windex</span> кулинар!
             </CardTitle>
             <p className="text-muted-foreground">
               Сохраняйте рецепты, создавайте коллекции и получайте персональные рекомендации
@@ -259,3 +259,6 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
     </div>
   );
 };
+
+
+

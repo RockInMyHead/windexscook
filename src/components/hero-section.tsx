@@ -41,15 +41,15 @@ export const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
                 Powered by AI
               </div>
               
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
-                AI <span className="text-primary">Кулинар</span>
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight drop-shadow-lg">
+                <span className="text-primary drop-shadow-md">Windex</span> кулинар
                 <br />
-                <span className="text-3xl md:text-4xl lg:text-5xl text-muted-foreground">
+                <span className="text-3xl md:text-4xl lg:text-5xl text-foreground/80 drop-shadow-md">
                   Ваш умный помощник
                 </span>
               </h1>
               
-              <p className="text-lg md:text-xl text-muted-foreground max-w-lg mx-auto lg:mx-0 leading-relaxed">
+              <p className="text-lg md:text-xl text-foreground/90 max-w-lg mx-auto lg:mx-0 leading-relaxed drop-shadow-md">
                 Превратите любые ингредиенты в кулинарные шедевры с помощью искусственного интеллекта
               </p>
             </div>
@@ -67,7 +67,7 @@ export const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
               <Button 
                 size="lg" 
                 variant="secondary"
-                className="text-lg px-8 py-6 hover:bg-secondary/80 transition-colors"
+                className="text-lg px-8 py-6 hover:bg-secondary/80 transition-colors drop-shadow-md"
               >
                 Посмотреть примеры
               </Button>
@@ -76,16 +76,16 @@ export const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
             {/* Stats */}
             <div className="grid grid-cols-3 gap-8 pt-8 border-t border-border/50">
               <div className="text-center">
-                <div className="text-2xl md:text-3xl font-bold text-primary">1000+</div>
-                <div className="text-sm text-muted-foreground">Рецептов</div>
+                <div className="text-2xl md:text-3xl font-bold text-primary drop-shadow-md">1000+</div>
+                <div className="text-sm text-foreground/80 drop-shadow-sm">Рецептов</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl md:text-3xl font-bold text-primary">50k+</div>
-                <div className="text-sm text-muted-foreground">Пользователей</div>
+                <div className="text-2xl md:text-3xl font-bold text-primary drop-shadow-md">50k+</div>
+                <div className="text-sm text-foreground/80 drop-shadow-sm">Пользователей</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl md:text-3xl font-bold text-primary">98%</div>
-                <div className="text-sm text-muted-foreground">Удовлетворены</div>
+                <div className="text-2xl md:text-3xl font-bold text-primary drop-shadow-md">98%</div>
+                <div className="text-sm text-foreground/80 drop-shadow-sm">Удовлетворены</div>
               </div>
             </div>
           </div>

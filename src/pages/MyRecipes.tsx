@@ -18,16 +18,19 @@ import {
   BookOpen,
   Trash2,
   Eye,
-  Camera
+  Camera,
+  Globe
 } from "lucide-react";
 import { OpenAIService, Recipe } from "@/services/openai";
 import { RecipeDisplay } from "@/components/ui/recipe-display";
+import { CuisineSelector } from "@/components/ui/cuisine-selector";
 import { Header } from "@/components/header";
 import { AuthModal } from "@/components/ui/auth-modal";
 // import { ProductSelector } from "@/components/ui/product-selector";
 import { useUser } from "@/contexts/UserContext";
 import { toast } from "@/hooks/use-toast";
 import { useRef } from 'react';
+import { WORLD_CUISINES } from "@/types/cuisine";
 
 interface SavedRecipe extends Recipe {
   id: string;
@@ -38,11 +41,13 @@ interface SavedRecipe extends Recipe {
 export const MyRecipes = () => {
   const [currentIngredient, setCurrentIngredient] = useState("");
   const [ingredients, setIngredients] = useState<string[]>([]);
+  const [selectedCuisine, setSelectedCuisine] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDifficulty, setFilterDifficulty] = useState<string>("all");
+  const [filterCuisine, setFilterCuisine] = useState<string>("all");
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   // removed local product selector state
@@ -88,12 +93,13 @@ export const MyRecipes = () => {
 
     setIsLoading(true);
     try {
-      const recipe = await OpenAIService.generateRecipe(ingredients);
+      const recipe = await OpenAIService.generateRecipe(ingredients, user?.healthProfile, selectedCuisine);
       setGeneratedRecipe(recipe);
       
+      const cuisineName = selectedCuisine ? WORLD_CUISINES.find(c => c.id === selectedCuisine)?.name : '';
       toast({
         title: "🎉 Рецепт готов!",
-        description: `AI создал уникальный рецепт "${recipe.title}" из ваших ингредиентов`,
+        description: `AI создал ${cuisineName ? cuisineName.toLowerCase() : 'уникальный'} рецепт "${recipe.title}" из ваших ингредиентов`,
       });
     } catch (error) {
       console.error('Error generating recipe:', error);
@@ -187,8 +193,9 @@ export const MyRecipes = () => {
                          recipe.ingredients.some(ing => ing.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesDifficulty = filterDifficulty === "all" || recipe.difficulty.toLowerCase() === filterDifficulty.toLowerCase();
+    const matchesCuisine = filterCuisine === "all" || recipe.cuisine === filterCuisine;
     
-    return matchesSearch && matchesDifficulty;
+    return matchesSearch && matchesDifficulty && matchesCuisine;
   });
 
   if (!isAuthenticated) {
@@ -242,6 +249,12 @@ export const MyRecipes = () => {
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {/* Cuisine Selection */}
+                  <CuisineSelector
+                    selectedCuisine={selectedCuisine}
+                    onCuisineSelect={setSelectedCuisine}
+                  />
+
                   {/* Ingredient Input and Quick Select */}
                   <div className="space-y-4">
                     <input type="file" accept="image/*" hidden ref={fileInputRef} onChange={handleImageUpload} />
@@ -273,7 +286,7 @@ export const MyRecipes = () => {
 
                     {ingredients.length > 0 && (
                       <div className="space-y-2">
-                        <h4 className="text-sm font-medium text-foreground">Ваши ингредиенты:</h4>
+                        <h4 className="text-sm font-medium text-foreground">Ваши ингредиенты (AI будет использовать только их):</h4>
                         <div className="flex flex-wrap gap-2">
                           {ingredients.map((ingredient) => (
                             <Badge
@@ -287,6 +300,9 @@ export const MyRecipes = () => {
                             </Badge>
                           ))}
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                          💡 AI создаст рецепт только из этих ингредиентов + базовые специи (соль, перец, масло)
+                        </p>
                       </div>
                     )}
 
@@ -338,6 +354,18 @@ export const MyRecipes = () => {
                         <option value="easy">Легко</option>
                         <option value="medium">Средне</option>
                         <option value="hard">Сложно</option>
+                      </select>
+                      <select
+                        value={filterCuisine}
+                        onChange={(e) => setFilterCuisine(e.target.value)}
+                        className="px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                      >
+                        <option value="all">Все кухни</option>
+                        {WORLD_CUISINES.map((cuisine) => (
+                          <option key={cuisine.id} value={cuisine.id}>
+                            {cuisine.flag} {cuisine.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -416,6 +444,12 @@ export const MyRecipes = () => {
                             <ChefHat className="w-4 h-4" />
                             <span>{recipe.ingredients.length} ингр.</span>
                           </div>
+                          {recipe.cuisine && (
+                            <div className="flex items-center gap-1">
+                              <Globe className="w-4 h-4" />
+                              <span>{WORLD_CUISINES.find(c => c.id === recipe.cuisine)?.flag} {WORLD_CUISINES.find(c => c.id === recipe.cuisine)?.name}</span>
+                            </div>
+                          )}
                         </div>
                         
                         <div className="flex items-center justify-between">

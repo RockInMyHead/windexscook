@@ -1,14 +1,13 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-
-interface User {
-  name: string;
-  email: string;
-}
+import { UserHealthProfile } from '../types/health';
+import { User } from '../types/recipe';
 
 interface UserContextType {
   user: User | null;
   login: (userData: User) => void;
   logout: () => void;
+  updateUser: (userData: Partial<User>) => void;
+  updateHealthProfile: (healthProfile: UserHealthProfile) => void;
   isAuthenticated: boolean;
 }
 
@@ -52,10 +51,28 @@ export const UserProvider = ({ children }: UserProviderProps) => {
     localStorage.removeItem('ai-chef-user');
   };
 
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
+      localStorage.setItem('ai-chef-user', JSON.stringify(updatedUser));
+    }
+  };
+
+  const updateHealthProfile = (healthProfile: UserHealthProfile) => {
+    if (user) {
+      const updatedUser = { ...user, healthProfile };
+      setUser(updatedUser);
+      localStorage.setItem('ai-chef-user', JSON.stringify(updatedUser));
+    }
+  };
+
   const value = {
     user,
     login,
     logout,
+    updateUser,
+    updateHealthProfile,
     isAuthenticated: !!user,
   };
 
@@ -65,3 +82,6 @@ export const UserProvider = ({ children }: UserProviderProps) => {
     </UserContext.Provider>
   );
 };
+
+
+

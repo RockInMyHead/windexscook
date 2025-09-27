@@ -101,3 +101,12 @@ export const searchProducts = (query: string): string[] => {
     product.toLowerCase().includes(query.toLowerCase())
   );
 };
+
+
+
+
+
+
+
+
+

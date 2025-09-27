@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/header';
 import { AuthModal } from '@/components/ui/auth-modal';
 import { RecipeCard } from '@/components/ui/recipe-card';
@@ -42,6 +43,7 @@ const Recipes = () => {
   const [showFilters, setShowFilters] = useState(false);
 
   const { isAuthenticated, user, login } = useUser();
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadRecipes();
@@ -220,11 +222,7 @@ const Recipes = () => {
   };
 
   const handleView = (recipe: Recipe) => {
-    // TODO: Implement recipe view modal or navigate to recipe page
-    toast({
-      title: 'Просмотр рецепта',
-      description: `Открываем рецепт: ${recipe.title}`
-    });
+    navigate(`/recipes/${recipe.id}`);
   };
 
   const handleRegister = () => {

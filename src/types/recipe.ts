@@ -3,6 +3,8 @@ export interface User {
   name: string;
   email: string;
   avatar?: string;
+  bio?: string;
+  createdAt?: string;
 }
 
 export interface Recipe {
@@ -14,6 +16,7 @@ export interface Recipe {
   servings: number;
   difficulty: "Easy" | "Medium" | "Hard";
   category: string;
+  cuisine?: string;
   ingredients: string[];
   instructions: string[];
   tips?: string;
@@ -54,6 +57,7 @@ export interface RecipeFormData {
   servings: number;
   difficulty: "Easy" | "Medium" | "Hard";
   category: string;
+  cuisine?: string;
   ingredients: string[];
   instructions: string[];
   tips?: string;

@@ -31,9 +31,14 @@ cd <YOUR_PROJECT_NAME>
 
 # Step 3: Install the necessary dependencies.
 npm i
+# Step 4: Create a .env file with your OpenAI API key
+# In the project root, run:
+```sh
+echo "VITE_OPENAI_API_KEY=your_openai_api_key_here" > .env
+```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# Step 5: Start the development server with auto-reloading and an instant preview.
+`npm run dev`
 ```
 
 **Edit a file directly in GitHub**

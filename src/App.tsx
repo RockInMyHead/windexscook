@@ -6,9 +6,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { UserProvider } from "@/contexts/UserContext";
 import Index from "./pages/Index";
 import MyRecipes from "./pages/MyRecipes";
+import MyChef from "./pages/MyChef";
 import Recipes from "./pages/Recipes";
 import NotFound from "./pages/NotFound";
 import Collaborations from "./pages/Collaborations";
+import RecipeDetails from './pages/RecipeDetails';
+import UserProfile from './pages/UserProfile';
 
 const queryClient = new QueryClient();
 
@@ -22,8 +25,11 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/my-recipes" element={<MyRecipes />} />
+            <Route path="/my-chef" element={<MyChef />} />
             <Route path="/recipes" element={<Recipes />} />
+            <Route path="/recipes/:id" element={<RecipeDetails />} />
             <Route path="/collaborations" element={<Collaborations />} />
+            <Route path="/profile" element={<UserProfile />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

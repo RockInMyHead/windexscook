@@ -1,12 +1,23 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Clock, Users, ChefHat, Lightbulb, X, Heart, BookOpen, Check } from "lucide-react";
-import { Recipe } from "@/services/openai";
-import { RegistrationInvite } from "./registration-invite";
-import { useUser } from "@/contexts/UserContext";
-import { useState } from "react";
-import { toast } from "@/hooks/use-toast";
+import React from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
+import { Button } from './button';
+import { Card, CardContent, CardHeader, CardTitle } from './card';
+import { Badge } from './badge';
+import { Separator } from './separator';
+import { 
+  Clock, 
+  Users, 
+  ChefHat, 
+  X, 
+  Sparkles, 
+  Heart, 
+  BookOpen,
+  Save,
+  Share2,
+  Copy
+} from 'lucide-react';
+import { Recipe } from '@/services/openai';
+import { toast } from '@/hooks/use-toast';
 
 interface RecipeDisplayProps {
   recipe: Recipe;
@@ -14,195 +25,229 @@ interface RecipeDisplayProps {
   onGenerateNew: () => void;
   onRegister: () => void;
   onLogin: () => void;
+  onSave?: (recipe: Recipe) => void;
+  showSaveButton?: boolean;
 }
 
-export const RecipeDisplay = ({ recipe, onClose, onGenerateNew, onRegister, onLogin }: RecipeDisplayProps) => {
-  const [showRegistrationInvite, setShowRegistrationInvite] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
-  const { isAuthenticated, user } = useUser();
-  const difficultyColors = {
-    Easy: "bg-leaf text-primary-foreground",
-    Medium: "bg-sage text-foreground", 
-    Hard: "bg-forest text-primary-foreground"
+export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({
+  recipe,
+  onClose,
+  onGenerateNew,
+  onRegister,
+  onLogin,
+  onSave,
+  showSaveButton = false
+}) => {
+  const handleSave = () => {
+    if (onSave) {
+      onSave(recipe);
+    }
   };
 
-  const handleSaveRecipe = () => {
-    if (!isAuthenticated) {
-      setShowRegistrationInvite(true);
-      return;
-    }
+  const handleCopy = async () => {
+    const recipeText = `
+${recipe.title}
 
-    // Сохраняем рецепт в localStorage
-    const savedRecipes = JSON.parse(localStorage.getItem('saved-recipes') || '[]');
-    const recipeToSave = {
-      ...recipe,
-      id: Date.now().toString(),
-      savedAt: new Date().toISOString(),
-      userId: user?.email
-    };
-    
-    savedRecipes.push(recipeToSave);
-    localStorage.setItem('saved-recipes', JSON.stringify(savedRecipes));
-    
-    setIsSaved(true);
-    toast({
-      title: "Рецепт сохранен!",
-      description: `"${recipe.title}" добавлен в вашу коллекцию`,
-    });
+${recipe.description}
+
+Время приготовления: ${recipe.cookTime}
+Порций: ${recipe.servings}
+Сложность: ${recipe.difficulty}
+
+ИНГРЕДИЕНТЫ:
+${recipe.ingredients.map((ingredient, index) => `${index + 1}. ${ingredient}`).join('\n')}
+
+ИНСТРУКЦИИ:
+${recipe.instructions.map((instruction, index) => `${index + 1}. ${instruction}`).join('\n')}
+
+${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
+    `.trim();
+
+    try {
+      await navigator.clipboard.writeText(recipeText);
+      toast({
+        title: "Рецепт скопирован!",
+        description: "Рецепт скопирован в буфер обмена",
+      });
+    } catch (error) {
+      toast({
+        title: "Ошибка копирования",
+        description: "Не удалось скопировать рецепт",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty.toLowerCase()) {
+      case 'easy':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'hard':
+        return 'bg-red-100 text-red-800 border-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-card border-border/50 shadow-glow">
-        <CardHeader className="relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="absolute top-4 right-4 hover:bg-destructive/10 hover:text-destructive"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-          
-          <div className="pr-12">
-            <CardTitle className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <ChefHat className="h-6 w-6 text-primary" />
               {recipe.title}
-            </CardTitle>
-            <p className="text-muted-foreground text-lg leading-relaxed">
-              {recipe.description}
-            </p>
+            </DialogTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="h-8 w-8"
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-        </CardHeader>
+        </DialogHeader>
 
-        <CardContent className="space-y-6">
+        <div className="space-y-6">
+          {/* Recipe Description */}
+          <Card>
+            <CardContent className="p-6">
+              <p className="text-muted-foreground text-lg leading-relaxed">
+                {recipe.description}
+              </p>
+            </CardContent>
+          </Card>
+
           {/* Recipe Info */}
-          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Clock className="w-4 h-4" />
-              <span>{recipe.cookTime}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Users className="w-4 h-4" />
-              <span>{recipe.servings} порций</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <ChefHat className="w-4 h-4" />
-              <span>{recipe.ingredients.length} ингр.</span>
-            </div>
-            <Badge className={`text-xs ${difficultyColors[recipe.difficulty]}`}>
-              {recipe.difficulty}
-            </Badge>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4 text-center">
+                <Clock className="h-8 w-8 text-primary mx-auto mb-2" />
+                <h3 className="font-semibold text-foreground">Время</h3>
+                <p className="text-muted-foreground">{recipe.cookTime}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <Users className="h-8 w-8 text-primary mx-auto mb-2" />
+                <h3 className="font-semibold text-foreground">Порций</h3>
+                <p className="text-muted-foreground">{recipe.servings}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <ChefHat className="h-8 w-8 text-primary mx-auto mb-2" />
+                <h3 className="font-semibold text-foreground">Сложность</h3>
+                <Badge className={`${getDifficultyColor(recipe.difficulty)} border`}>
+                  {recipe.difficulty}
+                </Badge>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Ingredients */}
-          <div className="space-y-3">
-            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <ChefHat className="w-5 h-5 text-primary" />
-              Ингредиенты
-            </h3>
-            <div className="grid md:grid-cols-2 gap-2">
-              {recipe.ingredients.map((ingredient, index) => (
-                <div
-                  key={index}
-                  className="p-3 bg-secondary/50 rounded-lg text-sm text-foreground hover:bg-secondary/70 transition-colors"
-                >
-                  {ingredient}
-                </div>
-              ))}
-            </div>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Heart className="h-5 w-5 text-red-500" />
+                Ингредиенты
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                {recipe.ingredients.map((ingredient, index) => (
+                  <li key={index} className="flex items-start gap-3">
+                    <span className="flex-shrink-0 w-6 h-6 bg-primary/10 text-primary rounded-full flex items-center justify-center text-sm font-medium">
+                      {index + 1}
+                    </span>
+                    <span className="text-foreground">{ingredient}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
 
           {/* Instructions */}
-          <div className="space-y-3">
-            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <Clock className="w-5 h-5 text-primary" />
-              Пошаговое приготовление
-            </h3>
-            <div className="space-y-3">
-              {recipe.instructions.map((instruction, index) => (
-                <div
-                  key={index}
-                  className="flex gap-3 p-4 bg-gradient-card rounded-lg border border-border/50 hover:shadow-soft transition-all"
-                >
-                  <div className="w-8 h-8 bg-gradient-primary rounded-full flex items-center justify-center text-primary-foreground font-bold text-sm shrink-0">
-                    {index + 1}
-                  </div>
-                  <p className="text-foreground leading-relaxed">{instruction}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-blue-500" />
+                Инструкции приготовления
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ol className="space-y-4">
+                {recipe.instructions.map((instruction, index) => (
+                  <li key={index} className="flex gap-4">
+                    <span className="flex-shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
+                      {index + 1}
+                    </span>
+                    <p className="text-foreground leading-relaxed pt-1">
+                      {instruction}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            </CardContent>
+          </Card>
 
           {/* Tips */}
           {recipe.tips && (
-            <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
-              <h4 className="text-sm font-semibold text-primary flex items-center gap-2 mb-2">
-                <Lightbulb className="w-4 h-4" />
-                Совет от шеф-повара
-              </h4>
-              <p className="text-sm text-primary/80 italic">{recipe.tips}</p>
-            </div>
+            <Card className="bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-yellow-800">
+                  <Sparkles className="h-5 w-5" />
+                  Совет от шеф-повара
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-yellow-700 leading-relaxed">
+                  {recipe.tips}
+                </p>
+              </CardContent>
+            </Card>
           )}
 
-          {/* Actions */}
-          <div className="space-y-3 pt-4 border-t border-border/50">
-            {/* Save Recipe Button */}
+          <Separator />
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-3 justify-center">
             <Button
-              onClick={handleSaveRecipe}
-              disabled={isSaved}
-              className={`w-full text-lg py-6 ${
-                isSaved 
-                  ? "bg-green-500 hover:bg-green-600 text-white" 
-                  : "bg-gradient-primary hover:opacity-90 transition-opacity"
-              }`}
+              onClick={handleCopy}
+              variant="outline"
+              className="flex items-center gap-2"
             >
-              {isSaved ? (
-                <>
-                  <Check className="w-5 h-5 mr-2" />
-                  Рецепт сохранен в коллекцию
-                </>
-              ) : (
-                <>
-                  <Heart className="w-5 h-5 mr-2" />
-                  {isAuthenticated ? "Сохранить рецепт в коллекцию" : "Сохранить рецепт в коллекцию"}
-                </>
-              )}
+              <Copy className="h-4 w-4" />
+              Копировать рецепт
             </Button>
             
-            <div className="flex flex-col sm:flex-row gap-3">
+            {showSaveButton && onSave && (
               <Button
-                onClick={onGenerateNew}
-                variant="secondary"
-                className="flex-1"
+                onClick={handleSave}
+                className="bg-gradient-primary hover:opacity-90 transition-opacity flex items-center gap-2"
               >
-                Создать новый рецепт
+                <Save className="h-4 w-4" />
+                Сохранить
               </Button>
-              <Button
-                variant="outline"
-                onClick={onClose}
-                className="flex-1"
-              >
-                Закрыть
-              </Button>
-            </div>
+            )}
+            
+            <Button
+              onClick={onGenerateNew}
+              variant="secondary"
+              className="flex items-center gap-2"
+            >
+              <Sparkles className="h-4 w-4" />
+              Создать новый
+            </Button>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Registration Invite Modal */}
-      {showRegistrationInvite && (
-        <RegistrationInvite
-          onRegister={() => {
-            setShowRegistrationInvite(false);
-            onRegister();
-          }}
-          onLogin={() => {
-            setShowRegistrationInvite(false);
-            onLogin();
-          }}
-          onSkip={() => setShowRegistrationInvite(false)}
-        />
-      )}
-    </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
+
+
+

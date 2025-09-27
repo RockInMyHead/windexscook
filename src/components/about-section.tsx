@@ -62,16 +62,16 @@ export const AboutSection = () => {
         <div className="text-center mb-16 space-y-6 animate-fade-up">
           <div className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-primary/10 rounded-full text-primary font-medium animate-glow-pulse">
             <Sparkles className="w-5 h-5" />
-            О платформе AI Кулинар
+            О платформе <span className="text-primary">Windex</span> кулинар
           </div>
           
-          <h2 className="text-3xl md:text-5xl font-bold text-foreground leading-tight">
+          <h2 className="text-3xl md:text-5xl font-bold text-foreground leading-tight drop-shadow-lg">
             Революция в мире
             <br />
-            <span className="text-primary">домашней кулинарии</span>
+            <span className="text-primary drop-shadow-md">домашней кулинарии</span>
           </h2>
           
-          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+          <p className="text-lg md:text-xl text-foreground/90 max-w-3xl mx-auto leading-relaxed drop-shadow-md">
             Мы создали первого в мире AI помощника, который понимает кулинарию как искусство. 
             Наша цель — сделать готовку доступной, вдохновляющей и бесконечно творческой для каждого.
           </p>
@@ -107,7 +107,7 @@ export const AboutSection = () => {
         {/* Benefits */}
         <div className="space-y-8">
           <h3 className="text-2xl md:text-3xl font-bold text-center text-foreground mb-12 animate-fade-up">
-            Почему AI Кулинар меняет правила игры
+            Почему <span className="text-primary">Windex</span> кулинар меняет правила игры
           </h3>
 
           {benefits.map((benefit, index) => (
@@ -158,7 +158,7 @@ export const AboutSection = () => {
               
               <p className="text-lg md:text-xl leading-relaxed opacity-95">
                 Мы верим, что каждый человек способен создавать кулинарные шедевры. 
-                AI Кулинар — это мост между вашими ингредиентами и безграничными возможностями кулинарии. 
+                <span className="text-primary">Windex</span> кулинар — это мост между вашими ингредиентами и безграничными возможностями кулинарии. 
                 Мы делаем готовку не просто процессом, а увлекательным творческим путешествием.
               </p>
               

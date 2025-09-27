@@ -15,6 +15,7 @@ export default defineConfig({
     },
   },
   server: {
+    // Прокси только для разработки - в продакшене используется Express сервер
     proxy: {
       '/api/elevenlabs': {
         target: 'https://api.elevenlabs.io',

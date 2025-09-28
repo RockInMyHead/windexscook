@@ -10,31 +10,12 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  server: {
-    // Прокси для разработки - перенаправляем API запросы на отдельный сервер
-    proxy: {
-      '/api/elevenlabs': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/api/openai': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/health': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        secure: false,
-      }
-    }
-  },
+  // В продакшене прокси не нужен - используется Express сервер
   build: {
-    // Настройки для продакшена
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: false,
+    minify: 'terser',
     rollupOptions: {
       output: {
         manualChunks: {
@@ -43,9 +24,5 @@ export default defineConfig({
         }
       }
     }
-  },
-  define: {
-    // Переменные для продакшена
-    __API_BASE_URL__: JSON.stringify(process.env.API_BASE_URL || ''),
   }
 })

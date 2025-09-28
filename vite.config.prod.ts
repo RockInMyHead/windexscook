@@ -43,5 +43,9 @@ export default defineConfig({
         }
       }
     }
+  },
+  define: {
+    // Переменные для продакшена
+    __API_BASE_URL__: JSON.stringify(process.env.API_BASE_URL || ''),
   }
 })

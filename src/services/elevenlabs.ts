@@ -1,6 +1,6 @@
 // ElevenLabs API Service
 export class ElevenLabsService {
-  private static readonly BASE_URL = 'https://api.elevenlabs.io/v1';
+  private static readonly BASE_URL = '/api/elevenlabs';
   private static readonly WEBSOCKET_URL = 'wss://api.elevenlabs.io/v1/convai/conversation';
   private static readonly MIRROR_URL = 'https://app.elevenlabs.io/mirror';
   
@@ -99,7 +99,6 @@ export class ElevenLabsService {
     try {
       const response = await fetch(`${this.BASE_URL}/convai/agent/${this.AGENT_CONFIG.agentId}`, {
         headers: {
-          'Authorization': `Bearer ${this.AGENT_CONFIG.apiKey}`,
           'Content-Type': 'application/json'
         }
       });
@@ -126,9 +125,6 @@ export class ElevenLabsService {
 
       const response = await fetch(`${this.BASE_URL}/convai/conversation`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.AGENT_CONFIG.apiKey}`
-        },
         body: formData
       });
 

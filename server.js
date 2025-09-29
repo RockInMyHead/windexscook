@@ -4,9 +4,20 @@ import dotenv from 'dotenv';
 import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 // Загружаем переменные окружения
 dotenv.config();
+
+// Настройка прокси
+const PROXY_HOST = process.env.PROXY_HOST || '185.68.187.46';
+const PROXY_PORT = process.env.PROXY_PORT || '8000';
+const PROXY_USERNAME = process.env.PROXY_USERNAME || 'FeCuvT';
+const PROXY_PASSWORD = process.env.PROXY_PASSWORD || 'aeUYh';
+
+// Создаем прокси агент
+const proxyUrl = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
+const proxyAgent = new HttpsProxyAgent(proxyUrl);
 
 // Создаем директорию для логов
 const logsDir = path.join(process.cwd(), 'logs');
@@ -98,6 +109,7 @@ app.use('/api/elevenlabs', async (req, res) => {
       method: req.method,
       headers,
       body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+      agent: proxyAgent,
     });
 
     const data = await response.text();
@@ -159,6 +171,7 @@ app.use('/api/openai', async (req, res) => {
       method: req.method,
       headers,
       body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+      agent: proxyAgent,
     });
 
     const data = await response.text();
@@ -205,6 +218,10 @@ app.listen(PORT, () => {
     port: PORT,
     elevenlabsConfigured: !!process.env.ELEVENLABS_API_KEY,
     openaiConfigured: !!process.env.VITE_OPENAI_API_KEY,
+    proxyConfigured: true,
+    proxyHost: PROXY_HOST,
+    proxyPort: PROXY_PORT,
+    proxyUsername: PROXY_USERNAME,
     logsDirectory: logsDir,
     serverUrl: `http://localhost:${PORT}`
   });
@@ -212,6 +229,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Pastel Chef AI API server running on port ${PORT}`);
   console.log(`🔑 ElevenLabs API key configured: ${process.env.ELEVENLABS_API_KEY ? 'Yes' : 'No'}`);
   console.log(`🔑 OpenAI API key configured: ${process.env.VITE_OPENAI_API_KEY ? 'Yes' : 'No'}`);
+  console.log(`🌐 Proxy configured: ${PROXY_HOST}:${PROXY_PORT} (${PROXY_USERNAME})`);
   console.log(`📁 Logs directory: ${logsDir}`);
   console.log(`🌐 Server URL: http://localhost:${PORT}`);
 });

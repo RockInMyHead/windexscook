@@ -1,10 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import fetch from 'node-fetch';
+import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import tunnel from 'tunnel';
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -15,14 +14,18 @@ const PROXY_PORT = process.env.PROXY_PORT || '8000';
 const PROXY_USERNAME = process.env.PROXY_USERNAME || 'FeCuvT';
 const PROXY_PASSWORD = process.env.PROXY_PASSWORD || 'aeUYh';
 
-// Создаем туннель через прокси
-const tunnelAgent = tunnel.httpsOverHttp({
+// Настройка axios с прокси
+const axiosConfig = {
   proxy: {
+    protocol: 'http',
     host: PROXY_HOST,
     port: parseInt(PROXY_PORT),
-    proxyAuth: `${PROXY_USERNAME}:${PROXY_PASSWORD}`
+    auth: {
+      username: PROXY_USERNAME,
+      password: PROXY_PASSWORD
+    }
   }
-});
+};
 
 // Создаем директорию для логов
 const logsDir = path.join(process.cwd(), 'logs');
@@ -172,14 +175,15 @@ app.use('/api/openai', async (req, res) => {
     // Удаляем host заголовок, чтобы избежать конфликтов
     delete headers.host;
 
-    const response = await fetch(url, {
+    const response = await axios({
       method: req.method,
+      url: url,
       headers,
-      body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-      agent: tunnelAgent,
+      data: req.method !== 'GET' ? req.body : undefined,
+      ...axiosConfig
     });
 
-    const data = await response.text();
+    const data = JSON.stringify(response.data);
     
     logToFile('INFO', `OpenAI response received: ${response.status}`, {
       status: response.status,

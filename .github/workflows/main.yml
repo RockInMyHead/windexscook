@@ -2,7 +2,7 @@ name: Deploy to Server
 
 on:
   push:
-    branches: [ "main" ]  # или "master", в зависимости от твоей ветки
+    branches: [ "main" ]
 
 jobs:
   deploy:
@@ -11,11 +11,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.5.1
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_FOR_DEPLOY }}
-
       - name: Deploy via SSH
         run: |
-          ssh -o StrictHostKeyChecking=no ${{secrets.SSH_USER}}@${{ secrets.SERVER_IP }} -p ${{secrets.SSH_PORT}} './deploy.sh'
+          echo "Deploying to server..."
+          # Add your deployment commands here
+          # For example: rsync, docker commands, etc.

@@ -158,14 +158,6 @@ app.use('/api/openai', async (req, res) => {
     const path = req.path.replace('/api/openai', '');
     const url = `https://api.openai.com${path}`;
 
-    logToFile('INFO', `Proxying OpenAI ${req.method} request to: ${url}`, {
-      url,
-      method: req.method,
-      path: req.path,
-      body: req.body,
-      headers: headers
-    });
-
     // Создаем заголовки для запроса к OpenAI
     const headers = {
       'Authorization': `Bearer ${apiKey}`,
@@ -175,6 +167,14 @@ app.use('/api/openai', async (req, res) => {
 
     // Удаляем host заголовок, чтобы избежать конфликтов
     delete headers.host;
+    // Логируем запрос вместе с заголовками после их создания
+    logToFile('INFO', `Proxying OpenAI ${req.method} request to: ${url}`, {
+      url,
+      method: req.method,
+      path: req.path,
+      body: req.body,
+      headers: headers
+    });
 
     try {
       const response = await axios({

@@ -162,7 +162,8 @@ app.use('/api/openai', async (req, res) => {
       url,
       method: req.method,
       path: req.path,
-      body: req.body
+      body: req.body,
+      headers: headers
     });
 
     // Создаем заголовки для запроса к OpenAI
@@ -180,7 +181,7 @@ app.use('/api/openai', async (req, res) => {
         method: req.method,
         url: url,
         headers,
-        data: req.method !== 'GET' ? req.body : undefined,
+        data: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
         ...axiosConfig
       });
 

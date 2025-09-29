@@ -175,23 +175,38 @@ app.use('/api/openai', async (req, res) => {
     // Удаляем host заголовок, чтобы избежать конфликтов
     delete headers.host;
 
-    const response = await axios({
-      method: req.method,
-      url: url,
-      headers,
-      data: req.method !== 'GET' ? req.body : undefined,
-      ...axiosConfig
-    });
+    try {
+      const response = await axios({
+        method: req.method,
+        url: url,
+        headers,
+        data: req.method !== 'GET' ? req.body : undefined,
+        ...axiosConfig
+      });
 
-    const data = JSON.stringify(response.data);
-    
-    logToFile('INFO', `OpenAI response received: ${response.status}`, {
-      status: response.status,
-      responseSize: `${data.length} bytes`,
-      url
-    });
+      const data = JSON.stringify(response.data);
+      
+      logToFile('INFO', `OpenAI response received: ${response.status}`, {
+        status: response.status,
+        responseSize: `${data.length} bytes`,
+        url
+      });
 
-    res.status(response.status).send(data);
+      res.status(response.status).send(data);
+    } catch (axiosError) {
+      // Обрабатываем ошибки axios (включая 4xx/5xx статусы)
+      if (axiosError.response) {
+        const data = JSON.stringify(axiosError.response.data);
+        logToFile('INFO', `OpenAI response received: ${axiosError.response.status}`, {
+          status: axiosError.response.status,
+          responseSize: `${data.length} bytes`,
+          url
+        });
+        res.status(axiosError.response.status).send(data);
+      } else {
+        throw axiosError;
+      }
+    }
   } catch (error) {
     logToFile('ERROR', 'OpenAI Proxy error', {
       error: error.message,

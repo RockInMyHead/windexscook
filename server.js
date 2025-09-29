@@ -109,10 +109,7 @@ app.use('/api/elevenlabs', async (req, res) => {
       method: req.method,
       headers,
       body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-      agent: {
-        http: proxyAgent,
-        https: proxyAgent,
-      },
+      agent: proxyAgent,
     });
 
     const data = await response.text();
@@ -174,10 +171,7 @@ app.use('/api/openai', async (req, res) => {
       method: req.method,
       headers,
       body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-      agent: {
-        http: proxyAgent,
-        https: proxyAgent,
-      },
+      agent: proxyAgent,
     });
 
     const data = await response.text();

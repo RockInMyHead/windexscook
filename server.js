@@ -173,16 +173,29 @@ app.use('/api/openai', async (req, res) => {
 
     // Удаляем host заголовок, чтобы избежать конфликтов
     delete headers.host;
-    // Логируем запрос вместе с заголовками после их создания
-    logToFile('INFO', `Proxying OpenAI ${req.method} request to: ${url}`, {
-      url,
-      method: req.method,
-      path: req.path,
-      body: req.body,
-      headers: headers
-    });
+  // Логируем запрос вместе с заголовками после их создания
+  logToFile('INFO', `Proxying OpenAI ${req.method} request to: ${url}`, {
+    url,
+    method: req.method,
+    path: req.path,
+    body: req.body,
+    headers: headers
+  });
+
+  // Дополнительное логирование для отладки
+  console.log('🔍 DEBUG: OpenAI Request Details:', {
+    url,
+    method: req.method,
+    headers: headers,
+    body: req.body,
+    proxyEnv: {
+      HTTP_PROXY: process.env.HTTP_PROXY,
+      HTTPS_PROXY: process.env.HTTPS_PROXY
+    }
+  });
 
     try {
+      console.log('🚀 Sending axios request with proxy...');
       const response = await axios({
         method: req.method,
         url: url,
@@ -192,6 +205,13 @@ app.use('/api/openai', async (req, res) => {
 
       const data = JSON.stringify(response.data);
       
+      console.log('✅ OpenAI response received:', {
+        status: response.status,
+        responseSize: `${data.length} bytes`,
+        url,
+        dataPreview: data.substring(0, 200) + '...'
+      });
+      
       logToFile('INFO', `OpenAI response received: ${response.status}`, {
         status: response.status,
         responseSize: `${data.length} bytes`,
@@ -200,9 +220,19 @@ app.use('/api/openai', async (req, res) => {
 
       res.status(response.status).send(data);
     } catch (axiosError) {
+      console.log('❌ Axios error occurred:', {
+        message: axiosError.message,
+        code: axiosError.code,
+        status: axiosError.response?.status,
+        responseData: axiosError.response?.data,
+        url: axiosError.config?.url
+      });
+      
       // Обрабатываем ошибки axios (включая 4xx/5xx статусы)
       if (axiosError.response) {
         const data = JSON.stringify(axiosError.response.data);
+        console.log('📝 Error response data:', data);
+        
         logToFile('INFO', `OpenAI response received: ${axiosError.response.status}`, {
           status: axiosError.response.status,
           responseSize: `${data.length} bytes`,
@@ -210,6 +240,7 @@ app.use('/api/openai', async (req, res) => {
         });
         res.status(axiosError.response.status).send(data);
       } else {
+        console.log('🚨 Network error:', axiosError.message);
         throw axiosError;
       }
     }

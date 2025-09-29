@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -14,24 +15,16 @@ const PROXY_PORT = process.env.PROXY_PORT || '8000';
 const PROXY_USERNAME = process.env.PROXY_USERNAME || 'FeCuvT';
 const PROXY_PASSWORD = process.env.PROXY_PASSWORD || 'aeUYh';
 
-// Настройка переменных окружения для прокси
-process.env.HTTP_PROXY = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
-process.env.HTTPS_PROXY = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
-process.env.http_proxy = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
-process.env.https_proxy = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
+// Создаем прокси агент для HTTPS
+const proxyUrl = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
+const proxyAgent = new HttpsProxyAgent(proxyUrl);
 
-// Настройка axios с прокси
-const axiosConfig = {
-  proxy: {
-    protocol: 'http',
-    host: PROXY_HOST,
-    port: parseInt(PROXY_PORT),
-    auth: {
-      username: PROXY_USERNAME,
-      password: PROXY_PASSWORD
-    }
-  }
-};
+console.log('🔧 Proxy configuration:', {
+  proxyUrl: proxyUrl.replace(/:[^@]*@/, ':***@'), // Скрываем пароль в логах
+  proxyHost: PROXY_HOST,
+  proxyPort: PROXY_PORT,
+  proxyUsername: PROXY_USERNAME
+});
 
 // Создаем директорию для логов
 const logsDir = path.join(process.cwd(), 'logs');
@@ -195,12 +188,14 @@ app.use('/api/openai', async (req, res) => {
   });
 
     try {
-      console.log('🚀 Sending axios request with proxy...');
+      console.log('🚀 Sending axios request with proxy agent...');
       const response = await axios({
         method: req.method,
         url: url,
         headers,
-        data: req.method !== 'GET' ? JSON.stringify(req.body) : undefined
+        data: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+        httpsAgent: proxyAgent,
+        httpAgent: proxyAgent
       });
 
       const data = JSON.stringify(response.data);

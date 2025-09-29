@@ -23,7 +23,7 @@ RUN npm prune --production
 RUN mkdir -p logs
 
 # Открываем порт
-EXPOSE 3001
+EXPOSE 1041
 
 # Создаем пользователя для безопасности
 RUN addgroup -g 1001 -S nodejs

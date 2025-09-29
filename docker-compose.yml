@@ -4,10 +4,10 @@ services:
   pastel-chef-ai:
     build: .
     ports:
-      - "3001:3001"
+      - "1041:1041"
     environment:
       - NODE_ENV=production
-      - PORT=3001
+      - PORT=1041
       - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
       - VITE_OPENAI_API_KEY=${VITE_OPENAI_API_KEY}
       - PROXY_HOST=${PROXY_HOST:-185.68.187.46}
@@ -19,7 +19,7 @@ services:
       - ./logs:/app/logs
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:1041/health"]
       interval: 30s
       timeout: 10s
       retries: 3

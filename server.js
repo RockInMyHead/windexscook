@@ -5,6 +5,7 @@ import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import { HttpProxyAgent } from 'http-proxy-agent';
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -15,9 +16,10 @@ const PROXY_PORT = process.env.PROXY_PORT || '8000';
 const PROXY_USERNAME = process.env.PROXY_USERNAME || 'FeCuvT';
 const PROXY_PASSWORD = process.env.PROXY_PASSWORD || 'aeUYh';
 
-// Создаем прокси агент
+// Создаем прокси агенты
 const proxyUrl = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
-const proxyAgent = new HttpsProxyAgent(proxyUrl);
+const httpProxyAgent = new HttpProxyAgent(proxyUrl);
+const httpsProxyAgent = new HttpsProxyAgent(proxyUrl);
 
 // Создаем директорию для логов
 const logsDir = path.join(process.cwd(), 'logs');
@@ -109,7 +111,7 @@ app.use('/api/elevenlabs', async (req, res) => {
       method: req.method,
       headers,
       body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-      agent: proxyAgent,
+      agent: url.startsWith('https:') ? httpsProxyAgent : httpProxyAgent,
     });
 
     const data = await response.text();
@@ -171,7 +173,7 @@ app.use('/api/openai', async (req, res) => {
       method: req.method,
       headers,
       body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-      agent: proxyAgent,
+      agent: url.startsWith('https:') ? httpsProxyAgent : httpProxyAgent,
     });
 
     const data = await response.text();

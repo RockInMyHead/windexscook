@@ -4,9 +4,7 @@ import { WORLD_CUISINES } from '../types/cuisine';
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || "";
 // Guard to ensure API key is provided
 if (!OPENAI_API_KEY) {
-  throw new Error(
-    "Missing OpenAI API key. Please set VITE_OPENAI_API_KEY in your .env file."
-  );
+  console.warn("OpenAI API key not found in environment variables. API calls will be proxied through server.");
 }
 
 export interface Recipe {
@@ -23,11 +21,11 @@ export interface Recipe {
 
 export class OpenAIService {
   private static async makeRequest(messages: any[], model: string = 'gpt-4') {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Используем прокси через сервер вместо прямого обращения к API
+    const response = await fetch('/api/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
         model,

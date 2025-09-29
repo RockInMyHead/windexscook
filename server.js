@@ -14,6 +14,12 @@ const PROXY_PORT = process.env.PROXY_PORT || '8000';
 const PROXY_USERNAME = process.env.PROXY_USERNAME || 'FeCuvT';
 const PROXY_PASSWORD = process.env.PROXY_PASSWORD || 'aeUYh';
 
+// Настройка переменных окружения для прокси
+process.env.HTTP_PROXY = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
+process.env.HTTPS_PROXY = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
+process.env.http_proxy = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
+process.env.https_proxy = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
+
 // Настройка axios с прокси
 const axiosConfig = {
   proxy: {
@@ -181,8 +187,7 @@ app.use('/api/openai', async (req, res) => {
         method: req.method,
         url: url,
         headers,
-        data: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-        ...axiosConfig
+        data: req.method !== 'GET' ? JSON.stringify(req.body) : undefined
       });
 
       const data = JSON.stringify(response.data);

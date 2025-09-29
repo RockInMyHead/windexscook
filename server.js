@@ -72,16 +72,6 @@ app.use(cors());
 app.use(express.json());
 app.use(requestLogger);
 
-// Отключаем кэширование для API endpoints
-app.use('/api', (req, res, next) => {
-  res.set({
-    'Cache-Control': 'no-cache, no-store, must-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0'
-  });
-  next();
-});
-
 // ElevenLabs API роут - используем middleware для обработки всех запросов
 app.use('/api/elevenlabs', async (req, res) => {
   try {
@@ -215,32 +205,8 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Configuration check
-app.get('/config', (req, res) => {
-  res.json({
-    elevenlabsConfigured: !!process.env.ELEVENLABS_API_KEY,
-    openaiConfigured: !!process.env.VITE_OPENAI_API_KEY,
-    proxyConfigured: true,
-    proxyHost: PROXY_HOST,
-    proxyPort: PROXY_PORT,
-    proxyUsername: PROXY_USERNAME,
-    nodeEnv: process.env.NODE_ENV,
-    port: PORT
-  });
-});
-
-// Статическая раздача файлов из dist с отключением кэширования
-app.use(express.static('dist', {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.html')) {
-      res.set({
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      });
-    }
-  }
-}));
+// Статическая раздача файлов из dist
+app.use(express.static('dist'));
 
 // Fallback для SPA - все остальные запросы возвращают index.html
 app.use((req, res) => {

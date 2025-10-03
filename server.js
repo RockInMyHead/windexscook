@@ -9,20 +9,22 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 // Загружаем переменные окружения
 dotenv.config();
 
-// Настройка прокси: без значений в .env прокси отключён
-const PROXY_HOST = process.env.PROXY_HOST;
-const PROXY_PORT = process.env.PROXY_PORT;
-const PROXY_USERNAME = process.env.PROXY_USERNAME;
-const PROXY_PASSWORD = process.env.PROXY_PASSWORD;
-// Создаем прокси агент для HTTPS только при указанных настройках
-let proxyAgent;
-if (PROXY_HOST && PROXY_PORT && PROXY_USERNAME && PROXY_PASSWORD) {
-  const proxyUrl = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
-  proxyAgent = new HttpsProxyAgent(proxyUrl);
-  console.log('🔧 Proxy configuration:', { proxyHost: PROXY_HOST, proxyPort: PROXY_PORT, proxyUsername: PROXY_USERNAME });
-} else {
-  console.log('🔧 Proxy disabled');
-}
+// Настройка прокси
+const PROXY_HOST = process.env.PROXY_HOST || '185.68.187.46';
+const PROXY_PORT = process.env.PROXY_PORT || '8000';
+const PROXY_USERNAME = process.env.PROXY_USERNAME || 'FeCuvT';
+const PROXY_PASSWORD = process.env.PROXY_PASSWORD || 'aeUYh';
+
+// Создаем прокси агент для HTTPS
+const proxyUrl = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
+const proxyAgent = new HttpsProxyAgent(proxyUrl);
+
+console.log('🔧 Proxy configuration:', {
+  proxyUrl: proxyUrl.replace(/:[^@]*@/, ':***@'), // Скрываем пароль в логах
+  proxyHost: PROXY_HOST,
+  proxyPort: PROXY_PORT,
+  proxyUsername: PROXY_USERNAME
+});
 
 // Создаем директорию для логов
 const logsDir = path.join(process.cwd(), 'logs');
@@ -74,8 +76,7 @@ const PORT = process.env.PORT || 1041;
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json());
 app.use(requestLogger);
 
 // ElevenLabs API роут - используем middleware для обработки всех запросов
@@ -83,14 +84,8 @@ app.use('/api/elevenlabs', async (req, res) => {
   try {
     const apiKey = process.env.ELEVENLABS_API_KEY;
     
-    if (!apiKey || apiKey === 'your_elevenlabs_api_key_here') {
-      logToFile('WARN', 'ElevenLabs API key not configured, using demo mode');
-      
-      // Демо-ответ для ElevenLabs
-      if (path.includes('/text-to-speech')) {
-        return res.status(200).send('Demo audio response - ElevenLabs API key not configured');
-      }
-      
+    if (!apiKey) {
+      logToFile('ERROR', 'ElevenLabs API key not configured');
       return res.status(500).json({ 
         error: 'ElevenLabs API key not configured' 
       });
@@ -121,7 +116,7 @@ app.use('/api/elevenlabs', async (req, res) => {
       method: req.method,
       headers,
       body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-      agent: proxyAgent,
+      agent: tunnelAgent,
     });
 
     const data = await response.text();
@@ -150,55 +145,16 @@ app.use('/api/elevenlabs', async (req, res) => {
 app.use('/api/openai', async (req, res) => {
   try {
     const apiKey = process.env.VITE_OPENAI_API_KEY;
-    // Получаем путь до OpenAI
-    const path = req.path.replace('/api/openai', '');
     
-    if (!apiKey || apiKey === 'your_openai_api_key_here') {
-      logToFile('WARN', 'OpenAI API key not configured, using demo mode');
-      
-      // Демо-ответ для чата
-      if (path === '/v1/chat/completions') {
-        const demoResponse = {
-          choices: [{
-            message: {
-              content: "Привет! Я ваш Windex кулинар 👨‍🍳 В демо-режиме я могу давать базовые советы по готовке. Для полной функциональности настройте OpenAI API ключ в .env файле.\n\nПопробуйте спросить о простых рецептах или кулинарных техниках!"
-            }
-          }]
-        };
-        return res.json(demoResponse);
-      }
-      
-      // Демо-ответ для генерации рецептов
-      if (path === '/v1/chat/completions' && req.body.messages && req.body.messages.some(msg => msg.content.includes('ингредиенты'))) {
-        const demoRecipe = {
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                title: "Демо-рецепт",
-                description: "Вкусное блюдо из ваших ингредиентов",
-                cookTime: "30 мин",
-                servings: 4,
-                difficulty: "Easy",
-                ingredients: ["Ваши ингредиенты", "Соль", "Перец", "Масло"],
-                instructions: [
-                  "1. Подготовьте все ингредиенты",
-                  "2. Обжарьте на сковороде",
-                  "3. Добавьте специи",
-                  "4. Подавайте горячим"
-                ],
-                tips: "Для полной функциональности настройте OpenAI API ключ"
-              })
-            }
-          }]
-        };
-        return res.json(demoRecipe);
-      }
-      
+    if (!apiKey) {
+      logToFile('ERROR', 'OpenAI API key not configured');
       return res.status(500).json({ 
         error: 'OpenAI API key not configured' 
       });
     }
 
+    // Получаем путь после /api/openai
+    const path = req.path.replace('/api/openai', '');
     const url = `https://api.openai.com${path}`;
 
     // Создаем заголовки для запроса к OpenAI
@@ -232,12 +188,15 @@ app.use('/api/openai', async (req, res) => {
   });
 
     try {
-      console.log('🚀 Sending request to OpenAI:', url);
-      const axiosConfig = { method: req.method, url, headers };
-      if (req.method !== 'GET') axiosConfig.data = JSON.stringify(req.body);
-      // Прокси агент, если настроен
-      if (proxyAgent) { axiosConfig.httpsAgent = proxyAgent; axiosConfig.httpAgent = proxyAgent; }
-      const response = await axios(axiosConfig);
+      console.log('🚀 Sending axios request with proxy agent...');
+      const response = await axios({
+        method: req.method,
+        url: url,
+        headers,
+        data: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+        httpsAgent: proxyAgent,
+        httpAgent: proxyAgent
+      });
 
       const data = JSON.stringify(response.data);
       
@@ -315,7 +274,7 @@ app.listen(PORT, () => {
     port: PORT,
     elevenlabsConfigured: !!process.env.ELEVENLABS_API_KEY,
     openaiConfigured: !!process.env.VITE_OPENAI_API_KEY,
-    proxyConfigured: !!proxyAgent,
+    proxyConfigured: true,
     proxyHost: PROXY_HOST,
     proxyPort: PROXY_PORT,
     proxyUsername: PROXY_USERNAME,
@@ -326,7 +285,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Pastel Chef AI API server running on port ${PORT}`);
   console.log(`🔑 ElevenLabs API key configured: ${process.env.ELEVENLABS_API_KEY ? 'Yes' : 'No'}`);
   console.log(`🔑 OpenAI API key configured: ${process.env.VITE_OPENAI_API_KEY ? 'Yes' : 'No'}`);
-  console.log(`🌐 Proxy configured: ${PROXY_HOST ? `${PROXY_HOST}:${PROXY_PORT}` : 'Disabled'}`);
+  console.log(`🌐 Proxy configured: ${PROXY_HOST}:${PROXY_PORT} (${PROXY_USERNAME})`);
   console.log(`📁 Logs directory: ${logsDir}`);
   console.log(`🌐 Server URL: http://localhost:${PORT}`);
 });

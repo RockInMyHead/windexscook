@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  pastel-chef-ai:
+    build: .
+    ports:
+      - "1031:1041"
+    environment:
+      - NODE_ENV=production
+      - PORT=1041
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - VITE_OPENAI_API_KEY=${VITE_OPENAI_API_KEY}
+      - PROXY_HOST=${PROXY_HOST:-185.68.187.46}
+      - PROXY_PORT=${PROXY_PORT:-8000}
+      - PROXY_USERNAME=${PROXY_USERNAME:-FeCuvT}
+      - PROXY_PASSWORD=${PROXY_PASSWORD:-aeUYh}
+    volumes:
+      # Монтируем директорию логов для доступа с хоста
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1041/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

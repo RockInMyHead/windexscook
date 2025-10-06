@@ -81,7 +81,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="bg-muted/20 py-12 px-4 border-t border-border/50">
         <div className="container mx-auto max-w-6xl text-center">
-          <h3 className="text-2xl font-bold text-foreground mb-2"><span className="text-primary">Windex</span> кулинар</h3>
+          <h3 className="text-2xl font-bold text-foreground mb-2"><span className="text-primary">Windexs</span> кулинар</h3>
           <p className="text-muted-foreground text-sm">
             Превращаем ингредиенты в кулинарные шедевры с помощью ИИ
           </p>

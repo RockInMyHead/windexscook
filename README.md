@@ -1,4 +1,4 @@
-# 🍳 Windex Cook - AI-Powered Recipe Generator
+# 🍳 Windexs Cook - AI-Powered Recipe Generator
 
 Интеллектуальный помощник по приготовлению блюд с использованием GPT-4 и ElevenLabs.
 

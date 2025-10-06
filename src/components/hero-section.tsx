@@ -42,7 +42,7 @@ export const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
               </div>
               
               <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight drop-shadow-lg">
-                <span className="text-primary drop-shadow-md">Windex</span> кулинар
+                <span className="text-primary drop-shadow-md">Windexs</span> кулинар
                 <br />
                 <span className="block text-lg sm:text-xl md:text-3xl lg:text-5xl text-foreground/80 drop-shadow-md">
                   Ваш умный помощник

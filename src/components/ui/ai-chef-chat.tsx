@@ -90,7 +90,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
     // Добавляем сообщение о том, что AI печатает
     const typingMessage: Message = {
       id: 'typing',
-      content: 'Windex кулинар печатает...',
+      content: 'Windexs кулинар печатает...',
       role: 'assistant',
       timestamp: new Date(),
       isTyping: true
@@ -198,8 +198,8 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   };
 
   const formatMessageContent = (content: string) => {
-    // Заменяем "Windex" на стилизованную версию
-    const parts = content.split('Windex');
+    // Заменяем "Windexs" на стилизованную версию
+    const parts = content.split('Windexs');
     if (parts.length === 1) {
       return content;
     }
@@ -211,7 +211,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
       return (
         <React.Fragment key={index}>
           {part}
-          <span className="text-primary font-semibold">Windex</span>
+          <span className="text-primary font-semibold">Windexs</span>
         </React.Fragment>
       );
     });
@@ -363,7 +363,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
             </div>
             <div>
               <CardTitle className="text-lg flex items-center gap-2">
-                <span className="text-primary">Windex</span> кулинар
+                <span className="text-primary">Windexs</span> кулинар
                 {isRecording && (
                   <div className="flex items-center gap-1 text-red-500">
                     <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>

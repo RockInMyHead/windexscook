@@ -56,7 +56,7 @@ export const RoadmapSection = () => {
           </h2>
           
           <p className="text-lg text-foreground/90 max-w-2xl mx-auto drop-shadow-md">
-            Магия <span className="text-primary drop-shadow-md">Windex</span> кулинарии: превращаем обычные продукты в необыкновенные блюда
+            Магия <span className="text-primary drop-shadow-md">Windexs</span> кулинарии: превращаем обычные продукты в необыкновенные блюда
           </p>
         </div>
 
@@ -131,7 +131,7 @@ export const RoadmapSection = () => {
               Готовы начать кулинарное приключение?
             </h3>
             <p className="text-background/90 mb-6">
-              Присоединяйтесь к тысячам поваров, которые уже открыли магию <span className="text-primary">Windex</span> кулинарии
+              Присоединяйтесь к тысячам поваров, которые уже открыли магию <span className="text-primary">Windexs</span> кулинарии
             </p>
             <div className="flex items-center justify-center gap-3 text-background/80 text-sm">
               <CheckCircle className="w-5 h-5 fill-current" />

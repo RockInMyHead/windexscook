@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Deploy script for Windex Cook
+# Deploy script for Windexs Cook
 # Server: svr@37.110.51.35:1030
 # Domain: cook.windexs.ru:1031
 
-echo "🚀 Deploying Windex Cook to production server..."
+echo "🚀 Deploying Windexs Cook to production server..."
 
 # SSH connection details
 SSH_USER="svr"

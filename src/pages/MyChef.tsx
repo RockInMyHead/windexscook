@@ -29,7 +29,7 @@ export const MyChef = () => {
             <ChefHat className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-foreground mb-2">Войдите в аккаунт</h2>
             <p className="text-muted-foreground mb-4">
-              Чтобы общаться с <span className="text-primary">Windex</span> кулинаром, необходимо войти в аккаунт
+              Чтобы общаться с <span className="text-primary">Windexs</span> кулинаром, необходимо войти в аккаунт
             </p>
             <Button className="bg-gradient-primary hover:opacity-90 transition-opacity">
               Войти
@@ -50,7 +50,7 @@ export const MyChef = () => {
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-3">
               <ChefHat className="w-8 h-8 text-primary" />
-              <span className="text-primary">Windex</span> кулинар
+              <span className="text-primary">Windexs</span> кулинар
             </h1>
             <p className="text-muted-foreground">
               Ваш персональный кулинарный помощник готов ответить на любые вопросы о готовке

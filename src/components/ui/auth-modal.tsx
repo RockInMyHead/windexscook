@@ -115,7 +115,7 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
               <ChefHat className="w-8 h-8 text-primary-foreground" />
             </div>
             <CardTitle className="text-2xl font-bold text-foreground">
-              Добро пожаловать в <span className="text-primary">Windex</span> кулинар!
+              Добро пожаловать в <span className="text-primary">Windexs</span> кулинар!
             </CardTitle>
             <p className="text-muted-foreground">
               Сохраняйте рецепты, создавайте коллекции и получайте персональные рекомендации

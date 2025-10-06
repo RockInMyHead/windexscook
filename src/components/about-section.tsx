@@ -105,8 +105,8 @@ export const AboutSection = () => {
         </div>
 
         {/* Benefits */}
-        <div className="space-y-8">
-          <h3 className="text-2xl md:text-3xl font-bold text-center text-foreground mb-12 animate-fade-up">
+        <div className="space-y-6 sm:space-y-8">
+          <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-center text-foreground mb-8 sm:mb-12 animate-fade-up px-4">
             Почему <span className="text-primary">Windexs</span> кулинар меняет правила игры
           </h3>
 
@@ -116,22 +116,22 @@ export const AboutSection = () => {
               className="group animate-slide-in-right"
               style={{ animationDelay: `${index * 0.2}s` }}
             >
-              <div className="max-w-4xl mx-auto p-8 bg-gradient-card rounded-2xl border border-border/50 hover:shadow-card transition-all duration-500 hover:-translate-y-2">
-                <div className="flex items-start gap-6">
-                  <div className="w-16 h-16 bg-gradient-primary rounded-xl flex items-center justify-center shrink-0 group-hover:animate-wiggle shadow-soft">
-                    <benefit.icon className="w-8 h-8 text-primary-foreground" />
+              <div className="max-w-4xl mx-auto p-4 sm:p-6 md:p-8 bg-gradient-card rounded-2xl border border-border/50 hover:shadow-card transition-all duration-500 hover:-translate-y-2">
+                <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-gradient-primary rounded-xl flex items-center justify-center shrink-0 group-hover:animate-wiggle shadow-soft mx-auto sm:mx-0">
+                    <benefit.icon className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-primary-foreground" />
                   </div>
                   
-                  <div className="flex-1 space-y-3">
-                    <h4 className="text-xl md:text-2xl font-bold text-foreground group-hover:text-primary transition-colors">
+                  <div className="flex-1 space-y-2 sm:space-y-3 text-center sm:text-left">
+                    <h4 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground group-hover:text-primary transition-colors">
                       {benefit.title}
                     </h4>
                     
-                    <p className="text-muted-foreground leading-relaxed text-lg">
+                    <p className="text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed">
                       {benefit.description}
                     </p>
                     
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full text-primary text-sm font-medium animate-pulse-glow">
+                    <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-primary/10 rounded-full text-primary text-xs sm:text-sm font-medium animate-pulse-glow">
                       {benefit.highlight}
                     </div>
                   </div>
@@ -142,8 +142,8 @@ export const AboutSection = () => {
         </div>
 
         {/* Mission Statement */}
-        <div className="mt-20 text-center animate-fade-up" style={{ animationDelay: "0.6s" }}>
-          <div className="max-w-4xl mx-auto p-8 bg-gradient-hero rounded-2xl shadow-glow text-background relative overflow-hidden">
+        <div className="mt-12 sm:mt-16 md:mt-20 text-center animate-fade-up" style={{ animationDelay: "0.6s" }}>
+          <div className="max-w-4xl mx-auto p-6 sm:p-8 bg-gradient-hero rounded-2xl shadow-glow text-background relative overflow-hidden">
             {/* Background pattern */}
             <div className="absolute inset-0 opacity-20">
               <div className="absolute top-4 left-4 w-8 h-8 border-2 border-background rounded-full animate-spin-slow"></div>
@@ -151,18 +151,18 @@ export const AboutSection = () => {
               <div className="absolute top-1/2 left-1/2 w-4 h-4 bg-background/50 rounded-full animate-float"></div>
             </div>
             
-            <div className="relative z-10 space-y-4">
-              <h3 className="text-2xl md:text-3xl font-bold">
+            <div className="relative z-10 space-y-3 sm:space-y-4">
+              <h3 className="text-xl sm:text-2xl md:text-3xl font-bold">
                 Наша миссия
               </h3>
               
-              <p className="text-lg md:text-xl leading-relaxed opacity-95">
+              <p className="text-sm sm:text-base md:text-lg lg:text-xl leading-relaxed opacity-95 px-2">
                 Мы верим, что каждый человек способен создавать кулинарные шедевры. 
                 <span className="text-primary">Windexs</span> кулинар — это мост между вашими ингредиентами и безграничными возможностями кулинарии. 
                 Мы делаем готовку не просто процессом, а увлекательным творческим путешествием.
               </p>
               
-              <div className="text-background/80 text-sm italic">
+              <div className="text-background/80 text-xs sm:text-sm italic">
                 "Искусственный интеллект + человеческое творчество = кулинарная магия"
               </div>
             </div>

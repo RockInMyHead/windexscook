@@ -20,6 +20,45 @@ export interface Recipe {
 }
 
 export class OpenAIService {
+  // Функция сжатия изображения
+  private static async compressImage(file: File, quality: number = 0.7, maxWidth: number = 1024): Promise<File> {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      const img = new Image();
+      
+      img.onload = () => {
+        // Вычисляем новые размеры
+        let { width, height } = img;
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Рисуем сжатое изображение
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Конвертируем в Blob
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now()
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(file); // Fallback к оригинальному файлу
+          }
+        }, 'image/jpeg', quality);
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
   private static async makeRequest(messages: any[], model: string = 'gpt-4o-mini') {
     // Используем прокси через сервер вместо прямого обращения к API
     const response = await fetch('/api/openai/v1/chat/completions', {
@@ -229,6 +268,14 @@ ${constraints.join('\n')}
 
   static async recognizeIngredientsFromImage(imageFile: File): Promise<string[]> {
     try {
+      // Проверяем размер файла (максимум 10MB)
+      if (imageFile.size > 10 * 1024 * 1024) {
+        throw new Error('Размер изображения слишком большой. Пожалуйста, выберите файл меньше 10MB.');
+      }
+      
+      // Сжимаем изображение перед отправкой
+      const compressedImage = await this.compressImage(imageFile, 0.7, 1024);
+      
       // Конвертируем файл в base64
       const base64Image = await new Promise<string>((resolve) => {
         const reader = new FileReader();
@@ -236,7 +283,7 @@ ${constraints.join('\n')}
           const result = reader.result as string;
           resolve(result.split(',')[1]); // Убираем data:image/jpeg;base64,
         };
-        reader.readAsDataURL(imageFile);
+        reader.readAsDataURL(compressedImage);
       });
 
       const response = await this.makeRequest([
@@ -276,13 +323,21 @@ ${constraints.join('\n')}
 
   static async analyzeCaloriesFromImage(imageFile: File): Promise<string> {
     try {
+      // Проверяем размер файла (максимум 10MB)
+      if (imageFile.size > 10 * 1024 * 1024) {
+        throw new Error('Размер изображения слишком большой. Пожалуйста, выберите файл меньше 10MB.');
+      }
+      
+      // Сжимаем изображение перед отправкой
+      const compressedImage = await this.compressImage(imageFile, 0.7, 1024);
+      
       const base64Image = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = () => {
           const result = reader.result as string;
           resolve(result.split(',')[1]);
         };
-        reader.readAsDataURL(imageFile);
+        reader.readAsDataURL(compressedImage);
       });
 
       const response = await this.makeRequest([

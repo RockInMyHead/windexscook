@@ -48,7 +48,18 @@ const Collaborations = () => {
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) handleAnalyze(file);
+    if (file) {
+      // Проверяем размер файла
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: 'Файл слишком большой',
+          description: 'Пожалуйста, выберите изображение меньше 10MB',
+          variant: 'destructive'
+        });
+        return;
+      }
+      handleAnalyze(file);
+    }
   };
 
   const clearResults = () => {

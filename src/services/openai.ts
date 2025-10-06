@@ -20,7 +20,7 @@ export interface Recipe {
 }
 
 export class OpenAIService {
-  private static async makeRequest(messages: any[], model: string = 'gpt-4') {
+  private static async makeRequest(messages: any[], model: string = 'gpt-4o-mini') {
     // Используем прокси через сервер вместо прямого обращения к API
     const response = await fetch('/api/openai/v1/chat/completions', {
       method: 'POST',
@@ -38,6 +38,17 @@ export class OpenAIService {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenAI API Error Details:', errorText);
+      
+      // Пытаемся распарсить JSON ошибку
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.error && errorData.error.code === 'regional_restriction') {
+          throw new Error('AI функции временно недоступны в вашем регионе. Мы работаем над решением этой проблемы.');
+        }
+      } catch (parseError) {
+        // Если не удалось распарсить JSON, используем стандартную ошибку
+      }
+      
       throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
     }
 
@@ -305,7 +316,7 @@ ${healthProfile.notes ? `Дополнительные заметки: ${healthPr
 - Можешь адаптировать рецепты под диетические потребности
 - Даешь практичные и безопасные советы
 
-Отвечай на русском языке, будь полезным и вдохновляющим. Если вопрос не связан с кулинарией, вежливо направь разговор в нужное русло.`;
+Отвечай на русском языке, будь полезным и вдохновляющим. Всегда давай подробное пошаговое описание рецепта с указанием нужного оборудования, времени приготовления каждого шага и детальным описанием техники выполнения. Если вопрос не связан с кулинарией, вежливо направь разговор в нужное русло.`;
 
     try {
       const response = await this.makeRequest([

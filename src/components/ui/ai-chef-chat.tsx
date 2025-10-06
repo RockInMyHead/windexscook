@@ -554,7 +554,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
           </div>
         </ScrollArea>
 
-        <div className="p-3 sm:p-4 border-t flex-shrink-0 bg-background">
+        <div className="p-3 sm:p-4 border-t flex-shrink-0 bg-background relative">
           <div className="flex gap-2">
             <Input
               ref={inputRef}
@@ -597,14 +597,18 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
               )}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 hidden sm:block">
-            💡 Спросите о рецептах, техниках готовки, ингредиентах или любых кулинарных вопросах. 
-            {audioSupported ? (
-              <span className="text-blue-500">🎤 Используйте микрофон для голосового ввода (Chrome, Edge, Safari)</span>
-            ) : (
-              <span className="text-gray-500">🎤 Голосовой ввод недоступен в вашем браузере. Используйте Chrome, Edge или Safari.</span>
-            )}
-          </p>
+          
+          {/* Fixed hint at the bottom */}
+          <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 bg-background border-t">
+            <p className="text-xs text-muted-foreground text-center">
+              💡 Спросите о рецептах, техниках готовки, ингредиентах или любых кулинарных вопросах. 
+              {audioSupported ? (
+                <span className="text-blue-500"> 🎤 Используйте микрофон для голосового ввода (Chrome, Edge, Safari)</span>
+              ) : (
+                <span className="text-gray-500"> 🎤 Голосовой ввод недоступен в вашем браузере. Используйте Chrome, Edge или Safari.</span>
+              )}
+            </p>
+          </div>
         </div>
       </CardContent>
     </Card>

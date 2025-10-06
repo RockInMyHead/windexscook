@@ -67,7 +67,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
   };
 
   return (
-    <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+    <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full flex flex-col">
       <div className="relative">
         {recipe.image && (
           <div className="aspect-video w-full overflow-hidden rounded-t-lg">
@@ -133,7 +133,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
         </p>
       </CardHeader>
 
-      <CardContent className="space-y-3 sm:space-y-4 lg:space-y-5 p-4 sm:p-6 lg:p-8 pt-0">
+      <CardContent className="space-y-3 sm:space-y-4 lg:space-y-5 p-4 sm:p-6 lg:p-8 pt-0 flex-1 flex flex-col">
         {/* Recipe info */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-4 lg:gap-6 text-xs sm:text-sm lg:text-base text-muted-foreground">
           <div className="flex items-center gap-1">
@@ -225,7 +225,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-2 lg:gap-3">
+        <div className="flex gap-2 lg:gap-3 mt-auto">
           <Button
             onClick={() => onView(recipe)}
             className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity text-xs sm:text-sm lg:text-base h-8 sm:h-10 lg:h-12"

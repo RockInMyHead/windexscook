@@ -43,7 +43,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: 'Привет! Я ваш Windex кулинар 👨‍🍳 Готов помочь с любыми вопросами о готовке, рецептах, ингредиентах и кулинарных техниках. Что бы вы хотели узнать?',
+      content: 'Здравствуйте!',
       role: 'assistant',
       timestamp: new Date()
     }

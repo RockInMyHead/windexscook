@@ -11,6 +11,7 @@ interface UserContextType {
   isAuthenticated: boolean;
   hasActiveSubscription: boolean;
   activateSubscription: () => void;
+  isAdmin: boolean;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -92,6 +93,8 @@ export const UserProvider = ({ children }: UserProviderProps) => {
     new Date(user.subscription.expiresAt) > new Date()
   );
 
+  const isAdmin = user?.role === 'admin';
+
   const value = {
     user,
     login,
@@ -101,6 +104,7 @@ export const UserProvider = ({ children }: UserProviderProps) => {
     isAuthenticated: !!user,
     hasActiveSubscription,
     activateSubscription,
+    isAdmin,
   };
 
   return (

@@ -26,7 +26,8 @@ import {
   Copy,
   Send,
   Heart as HeartIcon,
-  Bookmark
+  Bookmark,
+  Trash2
 } from 'lucide-react';
 import { Header } from '@/components/header';
 import { toast } from '@/hooks/use-toast';
@@ -35,7 +36,7 @@ import { useUser } from '@/contexts/UserContext';
 const RecipeDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useUser();
+  const { user, isAdmin } = useUser();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -219,6 +220,27 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
       });
     } finally {
       setIsSubmittingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!user || (!isAdmin && comments.find(c => c.id === commentId)?.author.id !== user.id)) return;
+    
+    if (window.confirm('Вы уверены, что хотите удалить этот комментарий?')) {
+      try {
+        await RecipeService.deleteComment(commentId);
+        setComments(prev => prev.filter(c => c.id !== commentId));
+        toast({
+          title: "Успех",
+          description: "Комментарий удален",
+        });
+      } catch (error) {
+        toast({
+          title: "Ошибка",
+          description: "Не удалось удалить комментарий",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -519,24 +541,43 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
-                            <div className="font-medium text-gray-900 text-sm">{comment.author.name}</div>
+                            <div className="flex items-center gap-2">
+                              <div className="font-medium text-gray-900 text-sm">{comment.author.name}</div>
+                              {isAdmin && comment.author.id !== user?.id && (
+                                <Badge variant="outline" className="text-xs bg-amber-50 text-amber-600 border-amber-200">
+                                  👑 Admin
+                                </Badge>
+                              )}
+                            </div>
                             <div className="text-xs text-gray-500">
                               {new Date(comment.createdAt).toLocaleString()}
                             </div>
                           </div>
-                          {user && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleLikeComment(comment.id)}
-                              className={`p-1 h-auto ${
-                                comment.isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
-                              }`}
-                            >
-                              <ThumbsUp className={`w-4 h-4 mr-1 ${comment.isLiked ? 'fill-current' : ''}`} />
-                              {comment.likes}
-                            </Button>
-                          )}
+                          <div className="flex items-center gap-1">
+                            {user && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleLikeComment(comment.id)}
+                                className={`p-1 h-auto ${
+                                  comment.isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
+                                }`}
+                              >
+                                <ThumbsUp className={`w-4 h-4 mr-1 ${comment.isLiked ? 'fill-current' : ''}`} />
+                                {comment.likes}
+                              </Button>
+                            )}
+                            {user && (isAdmin || comment.author.id === user.id) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteComment(comment.id)}
+                                className="p-1 h-auto text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         <p className="text-gray-700 text-sm leading-relaxed">{comment.content}</p>
                       </div>

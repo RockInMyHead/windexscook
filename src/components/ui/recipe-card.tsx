@@ -31,6 +31,7 @@ interface RecipeCardProps {
   onEdit?: (recipe: Recipe) => void;
   onDelete?: (recipeId: string) => void;
   currentUserId?: string;
+  isAdmin?: boolean;
 }
 
 export const RecipeCard: React.FC<RecipeCardProps> = ({
@@ -41,9 +42,11 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
   onView,
   onEdit,
   onDelete,
-  currentUserId
+  currentUserId,
+  isAdmin
 }) => {
   const isAuthor = currentUserId === recipe.author.id;
+  const canModerate = isAdmin || isAuthor;
   const difficultyColors = {
     Easy: 'bg-green-100 text-green-800',
     Medium: 'bg-yellow-100 text-yellow-800',
@@ -76,8 +79,8 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
           </div>
         )}
         
-        {/* Author actions */}
-        {isAuthor && (
+        {/* Author/Admin actions */}
+        {canModerate && (
           <div className="absolute top-2 right-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -86,7 +89,12 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {onEdit && (
+                {isAdmin && !isAuthor && (
+                  <div className="px-2 py-1.5 text-xs font-semibold text-amber-600">
+                    👑 Модератор
+                  </div>
+                )}
+                {onEdit && isAuthor && (
                   <DropdownMenuItem onClick={() => onEdit(recipe)}>
                     <Edit className="mr-2 h-4 w-4" />
                     Редактировать
@@ -98,7 +106,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
                     className="text-red-600"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Удалить
+                    {isAdmin && !isAuthor ? 'Удалить (админ)' : 'Удалить'}
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>

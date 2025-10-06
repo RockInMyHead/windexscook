@@ -5,6 +5,7 @@ export interface User {
   avatar?: string;
   bio?: string;
   createdAt?: string;
+  role?: 'user' | 'admin';
   subscription?: {
     active: boolean;
     expiresAt?: string;

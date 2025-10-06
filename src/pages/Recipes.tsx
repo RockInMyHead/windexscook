@@ -42,7 +42,7 @@ const Recipes = () => {
   });
   const [showFilters, setShowFilters] = useState(false);
 
-  const { isAuthenticated, user, login } = useUser();
+  const { isAuthenticated, user, login, isAdmin } = useUser();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -477,6 +477,7 @@ const Recipes = () => {
                   onEdit={handleEditRecipe}
                   onDelete={handleDeleteRecipe}
                   currentUserId={user?.id}
+                  isAdmin={isAdmin}
                 />
               ))}
             </div>

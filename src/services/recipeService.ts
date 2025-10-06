@@ -32,7 +32,8 @@ const userRecipes: Recipe[] = [
     favorites: 8,
     commentsCount: 3,
     isLiked: false,
-    isFavorited: false
+    isFavorited: false,
+    status: 'approved'
   },
   {
     id: '2',
@@ -67,7 +68,8 @@ const userRecipes: Recipe[] = [
     favorites: 18,
     commentsCount: 7,
     isLiked: false,
-    isFavorited: false
+    isFavorited: false,
+    status: 'approved'
   },
   {
     id: '3',
@@ -102,7 +104,8 @@ const userRecipes: Recipe[] = [
     favorites: 12,
     commentsCount: 5,
     isLiked: false,
-    isFavorited: false
+    isFavorited: false,
+    status: 'approved'
   }
 ];
 
@@ -161,8 +164,11 @@ export class RecipeService {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 300));
     
-    // Показываем только одобренные рецепты
-    let filteredRecipes = [...this.recipes.filter(recipe => recipe.status === 'approved' || !recipe.status)];
+    // Показываем только одобренные рецепты (исключаем отклоненные и pending)
+    let filteredRecipes = [...this.recipes.filter(recipe => 
+      recipe.status === 'approved' || 
+      (!recipe.status && recipe.status !== 'rejected' && recipe.status !== 'pending')
+    )];
     
     if (filters) {
       if (filters.category && filters.category !== 'all') {
@@ -384,6 +390,12 @@ export class RecipeService {
 
   static getCategories(): string[] {
     return ['Все категории', 'Итальянская кухня', 'Десерты', 'Завтраки', 'Обеды', 'Ужины', 'Закуски', 'Напитки'];
+  }
+
+  // Метод для администратора - возвращает все рецепты
+  static async getAllRecipes(): Promise<Recipe[]> {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return [...this.recipes];
   }
 
   // Методы для модерации рецептов

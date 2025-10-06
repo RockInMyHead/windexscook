@@ -44,8 +44,8 @@ const AdminPanel: React.FC = () => {
   const loadPendingRecipes = async () => {
     setLoading(true);
     try {
-      // В реальном приложении здесь был бы API вызов для получения рецептов на модерации
-      const allRecipes = await RecipeService.getRecipes();
+      // Получаем все рецепты для администратора
+      const allRecipes = await RecipeService.getAllRecipes();
       const pending = allRecipes.filter(recipe => recipe.status === 'pending' || !recipe.status);
       setPendingRecipes(pending);
     } catch (error) {
@@ -153,12 +153,20 @@ const AdminPanel: React.FC = () => {
                 </div>
               </div>
               
-              <div className="flex items-center gap-4 p-4 bg-white rounded-lg shadow-sm border">
+              <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border">
                 <div className="flex items-center gap-2">
                   <Clock className="w-5 h-5 text-yellow-600" />
                   <span className="font-medium">На модерации:</span>
                   <Badge className="bg-yellow-100 text-yellow-800">{pendingRecipes.length}</Badge>
                 </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={loadPendingRecipes}
+                  disabled={loading}
+                >
+                  {loading ? "Загрузка..." : "Обновить"}
+                </Button>
               </div>
             </div>
 

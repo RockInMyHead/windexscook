@@ -36,91 +36,40 @@ export const MyChef = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header onRegister={() => {}} onLogin={() => {}} />
       
-      <div className="container mx-auto px-4 py-4 sm:py-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Header with Tab Navigation */}
-          <div className="mb-4 sm:mb-8">
-            <div className="flex justify-center">
-              {/* Tab Navigation in Header */}
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
-                <TabsList className="grid w-full grid-cols-2 sm:w-auto">
-                  <TabsTrigger value="chat" className="flex items-center gap-2 text-xs sm:text-sm">
-                    <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span className="hidden sm:inline">Текстовый чат</span>
-                    <span className="sm:hidden">Чат</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="mirror" className="flex items-center gap-2 text-xs sm:text-sm">
-                    <Video className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span className="hidden sm:inline">Видеозвонок</span>
-                    <span className="sm:hidden">Видео</span>
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-          </div>
-
-          <div className="grid lg:grid-cols-3 gap-4 sm:gap-6 h-[calc(100vh-180px)] sm:h-[calc(100vh-200px)] min-h-[500px] sm:min-h-[600px]">
-            {/* Main Content Section */}
-            <div className="lg:col-span-2 flex flex-col">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-                <TabsContent value="chat" className="flex-1 mt-0">
-                  <AiChefChat className="h-full" />
-                </TabsContent>
-                
-                <TabsContent value="mirror" className="flex-1 mt-0">
-                  <ElevenLabsMirror className="h-full" />
-                </TabsContent>
-              </Tabs>
-            </div>
-
-            {/* Sidebar - Hidden on Mobile */}
-            <div className="hidden lg:block space-y-6 h-fit">
-              {/* Health Profile Status */}
-              {user?.healthProfile && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Heart className="w-5 h-5 text-red-500" />
-                      Ваш профиль здоровья
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {user.healthProfile.conditions.length > 0 && (
-                      <div>
-                        <p className="text-sm font-medium mb-2">Состояния:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {user.healthProfile.conditions.map((condition, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {condition.name}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {user.healthProfile.dietaryRestrictions.length > 0 && (
-                      <div>
-                        <p className="text-sm font-medium mb-2">Диеты:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {user.healthProfile.dietaryRestrictions.map((diet, index) => (
-                            <Badge key={index} variant="secondary" className="text-xs">
-                              {diet}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      AI учитывает ваши особенности при даче советов
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </div>
+      {/* Tab Navigation */}
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+              <TabsTrigger value="chat" className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" />
+                <span className="hidden sm:inline">Текстовый чат</span>
+                <span className="sm:hidden">Чат</span>
+              </TabsTrigger>
+              <TabsTrigger value="mirror" className="flex items-center gap-2">
+                <Video className="w-4 h-4" />
+                <span className="hidden sm:inline">Видеозвонок</span>
+                <span className="sm:hidden">Видео</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
+      </div>
+      
+      {/* Full screen chat */}
+      <div className="flex-1 flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+          <TabsContent value="chat" className="flex-1 mt-0">
+            <AiChefChat className="h-full" />
+          </TabsContent>
+          
+          <TabsContent value="mirror" className="flex-1 mt-0">
+            <ElevenLabsMirror className="h-full" />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

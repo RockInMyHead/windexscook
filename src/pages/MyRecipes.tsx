@@ -26,6 +26,7 @@ import { RecipeDisplay } from "@/components/ui/recipe-display";
 import { CuisineSelector } from "@/components/ui/cuisine-selector";
 import { Header } from "@/components/header";
 import { AuthModal } from "@/components/ui/auth-modal";
+import { PremiumModal } from "@/components/ui/premium-modal";
 // import { ProductSelector } from "@/components/ui/product-selector";
 import { useUser } from "@/contexts/UserContext";
 import { toast } from "@/hooks/use-toast";
@@ -50,6 +51,8 @@ export const MyRecipes = () => {
   const [filterCuisine, setFilterCuisine] = useState<string>("all");
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [premiumFeature, setPremiumFeature] = useState<string>('');
   // removed local product selector state
   const { isAuthenticated, user, hasActiveSubscription } = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -83,11 +86,8 @@ export const MyRecipes = () => {
 
   const handleGenerateRecipe = async () => {
     if (!hasActiveSubscription) {
-      toast({
-        title: "Premium функция",
-        description: "Генерация рецептов доступна только с Premium подпиской. Подключите её в личном кабинете.",
-        variant: "destructive",
-      });
+      setPremiumFeature('recipe');
+      setShowPremiumModal(true);
       return;
     }
 
@@ -178,11 +178,8 @@ export const MyRecipes = () => {
     if (!file) return;
 
     if (!hasActiveSubscription) {
-      toast({
-        title: "Premium функция",
-        description: "Распознавание продуктов доступно только с Premium подпиской.",
-        variant: "destructive",
-      });
+      setPremiumFeature('image');
+      setShowPremiumModal(true);
       return;
     }
 
@@ -518,6 +515,13 @@ export const MyRecipes = () => {
             description: `Привет, ${userData.name}!`,
           });
         }}
+      />
+
+      {/* Premium Modal */}
+      <PremiumModal
+        isOpen={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+        feature={premiumFeature}
       />
     </div>
   );

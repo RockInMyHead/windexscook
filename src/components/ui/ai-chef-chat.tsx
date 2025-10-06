@@ -558,7 +558,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
       </Card>
 
       {/* Fixed input at bottom of page */}
-      <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50">
+      <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50">
         <div className="container mx-auto max-w-4xl">
           <div className="flex gap-2">
             <Input

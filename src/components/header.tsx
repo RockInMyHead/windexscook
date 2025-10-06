@@ -110,17 +110,6 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
 
             {/* User Menu / Auth Buttons */}
             <div className="flex items-center gap-4">
-              {/* Повар-Онлайн Button */}
-              <Button
-                variant="outline"
-                asChild
-                className="hidden sm:flex items-center gap-2 border-primary/20 hover:border-primary/40 hover:bg-primary/5"
-              >
-                <Link to="/my-chef">
-                  <ChefHat className="w-4 h-4 text-primary" />
-                  Повар-Онлайн
-                </Link>
-              </Button>
 
               {isAuthenticated ? (
                 <div className="flex items-center gap-4">
@@ -242,16 +231,6 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
               <nav className="flex flex-col space-y-2">
                 {isAuthenticated ? (
                   <>
-                    <Button
-                      variant="outline"
-                      asChild
-                      className="w-full justify-start border-primary/20 hover:border-primary/40 hover:bg-primary/5"
-                    >
-                      <Link to="/my-chef" onClick={() => setIsMenuOpen(false)}>
-                        <ChefHat className="w-4 h-4 mr-2 text-primary" />
-                        Повар-Онлайн
-                      </Link>
-                    </Button>
                     {navigationItems.map((item) => (
                       <Button
                         key={item.name}
@@ -323,16 +302,6 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
                   </>
                 ) : (
                   <div className="space-y-2">
-                    <Button
-                      variant="outline"
-                      asChild
-                      className="w-full justify-start border-primary/20 hover:border-primary/40 hover:bg-primary/5"
-                    >
-                      <Link to="/my-chef" onClick={() => setIsMenuOpen(false)}>
-                        <ChefHat className="w-4 h-4 mr-2 text-primary" />
-                        Повар-Онлайн
-                      </Link>
-                    </Button>
                     <Button
                       variant="ghost"
                       onClick={() => {

@@ -45,8 +45,22 @@ export const UserProvider = ({ children }: UserProviderProps) => {
   }, []);
 
   const login = (userData: User) => {
-    setUser(userData);
-    localStorage.setItem('ai-chef-user', JSON.stringify(userData));
+    // Если это администратор, добавляем Premium подписку
+    if (userData.role === 'admin') {
+      const adminUser = {
+        ...userData,
+        subscription: {
+          active: true,
+          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          plan: 'premium' as const
+        }
+      };
+      setUser(adminUser);
+      localStorage.setItem('ai-chef-user', JSON.stringify(adminUser));
+    } else {
+      setUser(userData);
+      localStorage.setItem('ai-chef-user', JSON.stringify(userData));
+    }
   };
 
   const logout = () => {

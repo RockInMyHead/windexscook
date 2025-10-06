@@ -29,7 +29,23 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Симуляция API вызова
+    // Проверка на администратора
+    if (loginData.email === "admin@cook.windexs.ru" && loginData.password === "admin123") {
+      onSuccess({ 
+        name: "Администратор", 
+        email: "admin@cook.windexs.ru",
+        role: "admin"
+      });
+      toast({
+        title: "Добро пожаловать, Администратор!",
+        description: "Вы вошли с правами администратора",
+      });
+      onClose();
+      setIsLoading(false);
+      return;
+    }
+
+    // Симуляция API вызова для обычных пользователей
     setTimeout(() => {
       if (loginData.email && loginData.password) {
         onSuccess({ 

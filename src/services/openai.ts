@@ -280,6 +280,8 @@ ${constraints.join('\n')}
   }
 
   static async chatWithChef(message: string, healthProfile?: UserHealthProfile): Promise<string> {
+    console.log('🔍 DEBUG: chatWithChef called with message:', JSON.stringify(message));
+    
     // Проверяем, является ли сообщение простым приветствием
     const greetingPatterns = [
       /^привет$/i,
@@ -294,10 +296,20 @@ ${constraints.join('\n')}
       /^здравствуйте!$/i
     ];
 
-    const isGreeting = greetingPatterns.some(pattern => pattern.test(message.trim()));
+    const trimmedMessage = message.trim();
+    console.log('🔍 DEBUG: trimmed message:', JSON.stringify(trimmedMessage));
+    
+    const isGreeting = greetingPatterns.some(pattern => {
+      const matches = pattern.test(trimmedMessage);
+      console.log('🔍 DEBUG: pattern', pattern, 'matches:', matches);
+      return matches;
+    });
+    
+    console.log('🔍 DEBUG: isGreeting:', isGreeting);
     
     if (isGreeting) {
       // Отвечаем на приветствия коротким сообщением
+      console.log('🔍 DEBUG: Returning greeting response');
       return 'Здравствуйте! Готов помочь с кулинарными вопросами. Что хотите приготовить?';
     }
 

@@ -4,14 +4,10 @@ import { AiChefChat } from '@/components/ui/ai-chef-chat';
 import { ElevenLabsMirror } from '@/components/ui/elevenlabs-mirror';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   ChefHat, 
   Heart, 
-  BookOpen,
-  Users,
-  Utensils,
   MessageSquare,
   Video
 } from 'lucide-react';
@@ -44,47 +40,55 @@ export const MyChef = () => {
     <div className="min-h-screen bg-background">
       <Header onRegister={() => {}} onLogin={() => {}} />
       
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-4 sm:py-8">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-3">
-              <ChefHat className="w-8 h-8 text-primary" />
-              <span className="text-primary">Windexs</span> кулинар
-            </h1>
-            <p className="text-muted-foreground">
-              Ваш персональный кулинарный помощник готов ответить на любые вопросы о готовке
-            </p>
+          {/* Header with Tab Navigation */}
+          <div className="mb-4 sm:mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 flex items-center gap-3">
+                  <ChefHat className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+                  <span className="text-primary">Windexs</span> кулинар
+                </h1>
+                <p className="text-sm sm:text-base text-muted-foreground">
+                  Ваш персональный помощник на кухне
+                </p>
+              </div>
+              
+              {/* Tab Navigation in Header */}
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
+                <TabsList className="grid w-full grid-cols-2 sm:w-auto">
+                  <TabsTrigger value="chat" className="flex items-center gap-2 text-xs sm:text-sm">
+                    <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">Текстовый чат</span>
+                    <span className="sm:hidden">Чат</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="mirror" className="flex items-center gap-2 text-xs sm:text-sm">
+                    <Video className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">Видеозвонок</span>
+                    <span className="sm:hidden">Видео</span>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-6 h-[calc(100vh-200px)] min-h-[600px]">
+          <div className="grid lg:grid-cols-3 gap-4 sm:gap-6 h-[calc(100vh-180px)] sm:h-[calc(100vh-200px)] min-h-[500px] sm:min-h-[600px]">
             {/* Main Content Section */}
             <div className="lg:col-span-2 flex flex-col">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-                <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger value="chat" className="flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4" />
-                    Текстовый чат
-                  </TabsTrigger>
-                  <TabsTrigger value="mirror" className="flex items-center gap-2">
-                    <Video className="w-4 h-4" />
-                    Видеозвонок
-                  </TabsTrigger>
-                </TabsList>
-                
                 <TabsContent value="chat" className="flex-1 mt-0">
-                  <AiChefChat className="h-full min-h-[500px] max-h-[calc(100vh-300px)]" />
+                  <AiChefChat className="h-full" />
                 </TabsContent>
                 
                 <TabsContent value="mirror" className="flex-1 mt-0">
-                  <ElevenLabsMirror className="h-full min-h-[500px] max-h-[calc(100vh-300px)]" />
+                  <ElevenLabsMirror className="h-full" />
                 </TabsContent>
               </Tabs>
             </div>
 
-            {/* Sidebar */}
-            <div className="space-y-6 h-fit">
-
+            {/* Sidebar - Hidden on Mobile */}
+            <div className="hidden lg:block space-y-6 h-fit">
               {/* Health Profile Status */}
               {user?.healthProfile && (
                 <Card>
@@ -125,34 +129,6 @@ export const MyChef = () => {
                   </CardContent>
                 </Card>
               )}
-
-              {/* Quick Actions */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Utensils className="w-5 h-5 text-green-500" />
-                    Быстрые действия
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={() => window.location.href = '/my-recipes'}
-                  >
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    Мои рецепты
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={() => window.location.href = '/recipes'}
-                  >
-                    <Users className="w-4 h-4 mr-2" />
-                    Все рецепты
-                  </Button>
-                </CardContent>
-              </Card>
             </div>
           </div>
         </div>

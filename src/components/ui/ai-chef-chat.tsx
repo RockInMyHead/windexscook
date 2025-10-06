@@ -15,7 +15,6 @@ import {
   Copy,
   ThumbsUp,
   ThumbsDown,
-  RefreshCw,
   Mic,
   Square,
   Volume2
@@ -395,15 +394,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClearChat}
-              className="text-xs"
-            >
-              <RefreshCw className="w-3 h-3 mr-1" />
-              Очистить
-            </Button>
+            {/* Clear button removed for mobile optimization */}
           </div>
         </div>
       </CardHeader>

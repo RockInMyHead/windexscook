@@ -9,7 +9,6 @@ import {
   Send, 
   Bot, 
   User, 
-  ChefHat, 
   Sparkles, 
   Loader2,
   Copy,
@@ -426,35 +425,18 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   return (
     <div className={`h-full flex flex-col overflow-hidden ${className}`}>
       <Card className="flex-1 flex flex-col overflow-hidden mb-20 border-0 shadow-none">
-        <CardHeader className="pb-4 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-primary rounded-full flex items-center justify-center">
-                <ChefHat className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <span className="text-primary">Windexs</span> кулинар
-                  {isRecording && (
-                    <div className="flex items-center gap-1 text-red-500">
-                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                      <span className="text-xs">Запись...</span>
-                    </div>
-                  )}
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {isRecording ? "Говорите в микрофон..." : "Ваш персональный помощник на кухне"}
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              {/* Clear button removed for mobile optimization */}
+        {/* Recording indicator - only show when recording */}
+        {isRecording && (
+          <div className="p-4 flex-shrink-0">
+            <div className="flex items-center gap-2 text-red-500">
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+              <span className="text-sm">Запись...</span>
             </div>
           </div>
-        </CardHeader>
+        )}
 
         <CardContent className="flex-1 flex flex-col p-0 min-h-0">
-        <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 sm:px-6 min-h-0">
+        <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 sm:px-6 lg:px-[10%] min-h-0">
           <div className="space-y-4 pb-4">
             {messages.map((message) => (
               <div

@@ -234,17 +234,27 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   };
 
   const formatMessageContent = (content: string) => {
-    // Сначала заменяем #### на ** для жирного шрифта
-    let formattedContent = content.replace(/\n#### (.*?)(?=\n|$)/g, '\n**$1**');
+    // Сначала заменяем ### на ** для жирного текста большего шрифта
+    let formattedContent = content.replace(/\n### (.*?)(?=\n|$)/g, '\n**$1**');
+    
+    // Затем заменяем #### на ** для обычного жирного шрифта
+    formattedContent = formattedContent.replace(/\n#### (.*?)(?=\n|$)/g, '\n**$1**');
     
     // Затем обрабатываем markdown для жирного текста
     const parts = formattedContent.split(/(\*\*.*?\*\*)/g);
     
     const formattedParts = parts.map((part, index) => {
       if (part.startsWith('**') && part.endsWith('**')) {
-        // Это жирный текст
+        // Это жирный текст - проверяем, был ли это ### (больший шрифт)
         const text = part.slice(2, -2);
-        return <strong key={index} className="font-bold">{text}</strong>;
+        const originalText = content;
+        const isLargeFont = originalText.includes(`### ${text}`);
+        
+        if (isLargeFont) {
+          return <strong key={index} className="font-bold text-lg">{text}</strong>;
+        } else {
+          return <strong key={index} className="font-bold">{text}</strong>;
+        }
       }
       return part;
     });

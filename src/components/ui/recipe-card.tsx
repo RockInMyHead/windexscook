@@ -233,25 +233,6 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
             <span className="hidden sm:inline">Посмотреть рецепт</span>
             <span className="sm:hidden">Смотреть</span>
           </Button>
-          
-          {/* Rating buttons */}
-          <div className="flex gap-1 lg:gap-2">
-            {[1, 2, 3, 4, 5].map((rating) => (
-              <Button
-                key={rating}
-                variant="ghost"
-                size="sm"
-                onClick={() => onRate(recipe.id, rating)}
-                className="h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 p-0 hover:bg-yellow-50"
-              >
-                <Star className={`w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 ${
-                  rating <= recipe.rating 
-                    ? 'text-yellow-400 fill-current' 
-                    : 'text-gray-300'
-                }`} />
-              </Button>
-            ))}
-          </div>
         </div>
       </CardContent>
     </Card>

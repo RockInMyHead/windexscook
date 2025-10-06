@@ -59,6 +59,19 @@ const Collaborations = () => {
     }
   };
 
+  // Новый обработчик клика по кнопке загрузки фото
+  const handleUploadClick = () => {
+    if (!isAuthenticated) {
+      handleLogin();
+      return;
+    }
+    if (!hasActiveSubscription) {
+      setShowPremiumModal(true);
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header onRegister={handleRegister} onLogin={handleLogin} />
@@ -69,7 +82,7 @@ const Collaborations = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <input type="file" accept="image/*" hidden ref={fileInputRef} onChange={onFileChange} />
-            <Button onClick={() => fileInputRef.current?.click()} className="w-full">
+            <Button onClick={handleUploadClick} className="w-full">
               {isLoading ? 'Анализирую...' : 'Загрузить фото блюда'}
             </Button>
           </CardContent>
@@ -114,10 +127,7 @@ const Collaborations = () => {
         isOpen={showPremiumModal}
         onClose={() => setShowPremiumModal(false)}
         feature="image"
-        onSuccess={() => {
-          // После успешной подписки можно выполнить дополнительные действия
-          console.log('Premium subscription activated for image analysis');
-        }}
+        onSuccess={() => console.log('Premium subscription activated for image analysis')}
       />
     </div>
   );

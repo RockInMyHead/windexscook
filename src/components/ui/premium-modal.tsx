@@ -91,7 +91,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" hideCloseButton>
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

@@ -136,15 +136,21 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
     try {
       const response = await OpenAIService.chatWithChef(messageText, user?.healthProfile);
       
-      // Удаляем сообщение о мышлении и добавляем ответ
+      // Удаляем сообщение о мышлении
       setMessages(prev => {
         const withoutThinking = prev.filter(msg => msg.id !== 'thinking');
-        return [...withoutThinking, {
-          id: Date.now().toString(),
-          content: response,
-          role: 'assistant',
-          timestamp: new Date()
-        }];
+        
+        // Добавляем ответ только если он не пустой
+        if (response && response.trim()) {
+          return [...withoutThinking, {
+            id: Date.now().toString(),
+            content: response,
+            role: 'assistant',
+            timestamp: new Date()
+          }];
+        }
+        
+        return withoutThinking;
       });
     } catch (error) {
       console.error('Error sending message:', error);

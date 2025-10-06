@@ -280,6 +280,27 @@ ${constraints.join('\n')}
   }
 
   static async chatWithChef(message: string, healthProfile?: UserHealthProfile): Promise<string> {
+    // Проверяем, является ли сообщение простым приветствием
+    const greetingPatterns = [
+      /^привет$/i,
+      /^здравствуй$/i,
+      /^здравствуйте$/i,
+      /^hi$/i,
+      /^hello$/i,
+      /^добро пожаловать$/i,
+      /^добро пожаловать!$/i,
+      /^привет!$/i,
+      /^здравствуй!$/i,
+      /^здравствуйте!$/i
+    ];
+
+    const isGreeting = greetingPatterns.some(pattern => pattern.test(message.trim()));
+    
+    if (isGreeting) {
+      // Не отвечаем на простые приветствия
+      return '';
+    }
+
     const prompt = `Ты - профессиональный Windexs кулинар с 20-летним опытом работы на кухне, рейтинг Top-1, знаешь все тонкости продуктов и техник.
 
 Требования для описания рецепта:

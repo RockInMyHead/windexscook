@@ -51,8 +51,20 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [audioSupported, setAudioSupported] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [thinkingStep, setThinkingStep] = useState(0);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Массив "мыслей" AI для визуализации
+  const thinkingSteps = [
+    "Анализирую ваш запрос...",
+    "Подбираю подходящие ингредиенты...",
+    "Составляю пошаговый план...",
+    "Учитываю ваши предпочтения...",
+    "Формирую детальный ответ...",
+    "Проверяю рецепт на точность..."
+  ];
 
   // Автоскролл к последнему сообщению
   useEffect(() => {
@@ -63,6 +75,28 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
       }
     }
   }, [messages]);
+
+  // Анимация мыслей AI
+  useEffect(() => {
+    if (isThinking) {
+      const interval = setInterval(() => {
+        setThinkingStep(prev => {
+          const nextStep = (prev + 1) % thinkingSteps.length;
+          // Обновляем содержимое сообщения о мышлении
+          setMessages(currentMessages => 
+            currentMessages.map(msg => 
+              msg.id === 'thinking' 
+                ? { ...msg, content: thinkingSteps[nextStep] }
+                : msg
+            )
+          );
+          return nextStep;
+        });
+      }, 1500); // Меняем мысль каждые 1.5 секунды
+
+      return () => clearInterval(interval);
+    }
+  }, [isThinking, thinkingSteps]);
 
   // Проверка поддержки аудио при загрузке
   useEffect(() => {
@@ -85,25 +119,27 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
 
   const sendMessageToAI = async (messageText: string) => {
     setIsLoading(true);
+    setIsThinking(true);
+    setThinkingStep(0);
 
-    // Добавляем сообщение о том, что AI печатает
-    const typingMessage: Message = {
-      id: 'typing',
-      content: 'Windexs кулинар печатает...',
+    // Добавляем сообщение о том, что AI думает
+    const thinkingMessage: Message = {
+      id: 'thinking',
+      content: thinkingSteps[0],
       role: 'assistant',
       timestamp: new Date(),
       isTyping: true
     };
 
-    setMessages(prev => [...prev, typingMessage]);
+    setMessages(prev => [...prev, thinkingMessage]);
 
     try {
       const response = await OpenAIService.chatWithChef(messageText, user?.healthProfile);
       
-      // Удаляем сообщение о печати и добавляем ответ
+      // Удаляем сообщение о мышлении и добавляем ответ
       setMessages(prev => {
-        const withoutTyping = prev.filter(msg => msg.id !== 'typing');
-        return [...withoutTyping, {
+        const withoutThinking = prev.filter(msg => msg.id !== 'thinking');
+        return [...withoutThinking, {
           id: Date.now().toString(),
           content: response,
           role: 'assistant',
@@ -113,10 +149,10 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
     } catch (error) {
       console.error('Error sending message:', error);
       
-      // Удаляем сообщение о печати и добавляем сообщение об ошибке
+      // Удаляем сообщение о мышлении и добавляем сообщение об ошибке
       setMessages(prev => {
-        const withoutTyping = prev.filter(msg => msg.id !== 'typing');
-        return [...withoutTyping, {
+        const withoutThinking = prev.filter(msg => msg.id !== 'thinking');
+        return [...withoutThinking, {
           id: Date.now().toString(),
           content: 'Извините, я временно недоступен. Попробуйте позже или обратитесь к другим функциям приложения.',
           role: 'assistant',
@@ -125,6 +161,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
       });
     } finally {
       setIsLoading(false);
+      setIsThinking(false);
     }
   };
 
@@ -182,7 +219,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
     setMessages([
       {
         id: '1',
-        content: 'Привет! Я ваш Windex кулинар 👨‍🍳 Готов помочь с любыми вопросами о готовке, рецептах, ингредиентах и кулинарных техниках. Что бы вы хотели узнать?',
+        content: 'Готов помочь с кулинарными вопросами! Что хотите приготовить?',
         role: 'assistant',
         timestamp: new Date()
       }
@@ -439,6 +476,15 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
                         <div className="flex-1">
                           <p className="text-sm font-medium mb-1">🎤 Голосовое сообщение</p>
                           <p className="text-sm whitespace-pre-wrap opacity-90">{message.content}</p>
+                        </div>
+                      </div>
+                    ) : message.isTyping ? (
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm whitespace-pre-wrap">{formatMessageContent(message.content)}</p>
+                        <div className="flex gap-1">
+                          <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                          <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                          <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                         </div>
                       </div>
                     ) : (

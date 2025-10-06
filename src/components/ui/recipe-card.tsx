@@ -135,7 +135,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
 
       <CardContent className="space-y-3 sm:space-y-4 lg:space-y-5 p-4 sm:p-6 lg:p-8 pt-0 flex-1 flex flex-col">
         {/* Recipe info */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4 lg:gap-6 text-xs sm:text-sm lg:text-base text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 lg:gap-6 text-xs sm:text-sm lg:text-base text-muted-foreground min-h-[1.5rem] sm:min-h-[1.75rem] lg:min-h-[2rem]">
           <div className="flex items-center gap-1">
             <Clock className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
             <span>{recipe.cookTime}</span>
@@ -151,7 +151,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
         </div>
 
         {/* Category and difficulty */}
-        <div className="flex flex-wrap items-center gap-1 sm:gap-2 lg:gap-3">
+        <div className="flex flex-wrap items-center gap-1 sm:gap-2 lg:gap-3 min-h-[1.75rem] sm:min-h-[2rem] lg:min-h-[2.25rem]">
           <Badge variant="secondary" className="text-xs sm:text-sm px-2 py-1 lg:px-3 lg:py-1.5">
             {recipe.category}
           </Badge>
@@ -161,7 +161,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
         </div>
 
         {/* Author info */}
-        <div className="flex items-center gap-2 lg:gap-3">
+        <div className="flex items-center gap-2 lg:gap-3 min-h-[1.75rem] sm:min-h-[2rem] lg:min-h-[2.25rem]">
           <Avatar className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7">
             <AvatarImage src={recipe.author.avatar} alt={recipe.author.name} />
             <AvatarFallback className="text-xs sm:text-sm">
@@ -177,7 +177,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
         </div>
 
         {/* Stats and actions */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between min-h-[2rem] sm:min-h-[2.25rem] lg:min-h-[2.5rem]">
           <div className="flex items-center gap-2 sm:gap-4 lg:gap-6 text-xs sm:text-sm lg:text-base text-muted-foreground">
             <div className="flex items-center gap-1">
               <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />

@@ -416,7 +416,7 @@ export const MyRecipes = () => {
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredRecipes.map((recipe) => (
-                    <Card key={recipe.id} className="group hover:shadow-card transition-all duration-300 hover:-translate-y-1 bg-gradient-card border-border/50">
+                    <Card key={recipe.id} className="group hover:shadow-card transition-all duration-300 hover:-translate-y-1 bg-gradient-card border-border/50 h-full flex flex-col">
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
                           <CardTitle className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
@@ -446,7 +446,7 @@ export const MyRecipes = () => {
                         </p>
                       </CardHeader>
                       
-                      <CardContent className="space-y-3">
+                      <CardContent className="space-y-3 flex-1 flex flex-col">
                         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Clock className="w-4 h-4" />

@@ -218,7 +218,7 @@ export const RecipesSection = () => {
                   animationDelay: `${index * 0.1}s`,
                   opacity: 0
                 }}
-                className="animate-fade-in hover:transform hover:scale-105 transition-all duration-300"
+                className="animate-fade-in hover:transform hover:scale-105 transition-all duration-300 h-full"
               >
                 <RecipeCard
                   recipe={recipe}

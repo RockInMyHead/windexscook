@@ -4,9 +4,9 @@ import { AiChefChat } from '@/components/ui/ai-chef-chat';
 import { ElevenLabsMirror } from '@/components/ui/elevenlabs-mirror';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  ChefHat, 
   Heart, 
   MessageSquare,
   Video
@@ -22,7 +22,6 @@ export const MyChef = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="w-full max-w-md text-center">
           <CardContent className="p-8">
-            <ChefHat className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-foreground mb-2">Войдите в аккаунт</h2>
             <p className="text-muted-foreground mb-4">
               Чтобы общаться с <span className="text-primary">Windexs</span> кулинаром, необходимо войти в аккаунт
@@ -44,17 +43,7 @@ export const MyChef = () => {
         <div className="max-w-7xl mx-auto">
           {/* Header with Tab Navigation */}
           <div className="mb-4 sm:mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 flex items-center gap-3">
-                  <ChefHat className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
-                  <span className="text-primary">Windexs</span> кулинар
-                </h1>
-                <p className="text-sm sm:text-base text-muted-foreground">
-                  Ваш персональный помощник на кухне
-                </p>
-              </div>
-              
+            <div className="flex justify-center">
               {/* Tab Navigation in Header */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
                 <TabsList className="grid w-full grid-cols-2 sm:w-auto">

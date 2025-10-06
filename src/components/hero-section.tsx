@@ -8,7 +8,7 @@ interface HeroSectionProps {
 
 export const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <section className="relative h-auto py-20 sm:py-32 flex items-center justify-center overflow-hidden">
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-hero opacity-60"></div>
       
@@ -31,7 +31,7 @@ export const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
       </div>
 
       <div className="container mx-auto px-4 relative z-10">
-        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 items-center">
           
           {/* Content */}
           <div className="space-y-8 text-center lg:text-left animate-fade-up">
@@ -41,15 +41,15 @@ export const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
                 Powered by AI
               </div>
               
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight drop-shadow-lg">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight drop-shadow-lg">
                 <span className="text-primary drop-shadow-md">Windex</span> кулинар
                 <br />
-                <span className="text-3xl md:text-4xl lg:text-5xl text-foreground/80 drop-shadow-md">
+                <span className="block text-lg sm:text-xl md:text-3xl lg:text-5xl text-foreground/80 drop-shadow-md">
                   Ваш умный помощник
                 </span>
               </h1>
               
-              <p className="text-lg md:text-xl text-foreground/90 max-w-lg mx-auto lg:mx-0 leading-relaxed drop-shadow-md">
+              <p className="text-base sm:text-lg md:text-xl text-foreground/90 max-w-lg mx-auto lg:mx-0 leading-relaxed drop-shadow-md">
                 Превратите любые ингредиенты в кулинарные шедевры с помощью искусственного интеллекта
               </p>
             </div>

@@ -5,6 +5,11 @@ export interface User {
   avatar?: string;
   bio?: string;
   createdAt?: string;
+  subscription?: {
+    active: boolean;
+    expiresAt?: string;
+    plan: 'free' | 'premium';
+  };
 }
 
 export interface Recipe {

@@ -79,6 +79,24 @@ app.use(cors());
 app.use(express.json());
 app.use(requestLogger);
 
+// Disable caching for all responses
+app.disable('etag');
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
+// Static serve files from dist with no-cache for HTML
+app.use(express.static('dist', {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    }
+  }
+}));
+
 // ElevenLabs API роут - используем middleware для обработки всех запросов
 app.use('/api/elevenlabs', async (req, res) => {
   try {
@@ -112,14 +130,16 @@ app.use('/api/elevenlabs', async (req, res) => {
     // Удаляем host заголовок, чтобы избежать конфликтов
     delete headers.host;
 
-    const response = await fetch(url, {
+    const response = await axios({
       method: req.method,
+      url: url,
       headers,
-      body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-      agent: tunnelAgent,
+      data: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+      httpsAgent: proxyAgent,
+      httpAgent: proxyAgent
     });
 
-    const data = await response.text();
+    const data = JSON.stringify(response.data);
     
     logToFile('INFO', `ElevenLabs response received: ${response.status}`, {
       status: response.status,
@@ -134,10 +154,17 @@ app.use('/api/elevenlabs', async (req, res) => {
       stack: error.stack,
       url: `https://api.elevenlabs.io${req.path.replace('/api/elevenlabs', '/v1')}`
     });
-    res.status(500).json({ 
-      error: 'Internal server error',
-      details: error.message 
-    });
+    
+    // Обрабатываем ошибки axios (включая 4xx/5xx статусы)
+    if (error.response) {
+      const data = JSON.stringify(error.response.data);
+      res.status(error.response.status).send(data);
+    } else {
+      res.status(500).json({ 
+        error: 'Internal server error',
+        details: error.message 
+      });
+    }
   }
 });
 
@@ -261,11 +288,12 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Статическая раздача файлов из dist
-app.use(express.static('dist'));
-
 // Fallback для SPA - все остальные запросы возвращают index.html
 app.use((req, res) => {
+  // Отключаем кэширование для HTML файлов
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile('dist/index.html', { root: '.' });
 });
 

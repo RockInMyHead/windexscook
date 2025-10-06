@@ -51,7 +51,7 @@ export const MyRecipes = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   // removed local product selector state
-  const { isAuthenticated, user } = useUser();
+  const { isAuthenticated, user, hasActiveSubscription } = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Загружаем сохраненные рецепты при монтировании компонента
@@ -82,6 +82,15 @@ export const MyRecipes = () => {
   };
 
   const handleGenerateRecipe = async () => {
+    if (!hasActiveSubscription) {
+      toast({
+        title: "Premium функция",
+        description: "Генерация рецептов доступна только с Premium подпиской. Подключите её в личном кабинете.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (ingredients.length === 0) {
       toast({
         title: "Добавьте ингредиенты",
@@ -167,6 +176,16 @@ export const MyRecipes = () => {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!hasActiveSubscription) {
+      toast({
+        title: "Premium функция",
+        description: "Распознавание продуктов доступно только с Premium подпиской.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       const recognizedIngredients = await OpenAIService.recognizeIngredientsFromImage(file);

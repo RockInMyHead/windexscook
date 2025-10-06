@@ -119,19 +119,7 @@ server {
 ### Apache конфигурация
 
 ```apache
-<VirtualHost *:80>
-    ServerName your-domain.com
-    
-    ProxyPreserveHost On
-    ProxyPass / http://localhost:3001/
-    ProxyPassReverse / http://localhost:3001/
-    
-    # Кэширование статических файлов
-    <LocationMatch "/assets/.*">
-        ExpiresActive On
-        ExpiresDefault "access plus 1 year"
-    </LocationMatch>
-</VirtualHost>
+<Remove this Apache configuration example block>
 ```
 
 ## 🔒 SSL сертификаты

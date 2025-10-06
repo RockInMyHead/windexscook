@@ -70,31 +70,12 @@ ENDSSH
 
 echo "🌐 Step 6: Configure Nginx..."
 ssh -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
-# Create Nginx config
-sudo tee /etc/nginx/sites-available/cook.windexs.ru > /dev/null << 'EOF'
-server {
-    listen 1031;
-    server_name cook.windexs.ru;
-
-    location / {
-        proxy_pass http://localhost:1031;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        
-        # Увеличенный размер для загрузки изображений
-        client_max_body_size 50M;
-    }
-}
-EOF
-
-# Enable site
-sudo ln -sf /etc/nginx/sites-available/cook.windexs.ru /etc/nginx/sites-enabled/
+cd ~/cook
+# Копируем готовый конфиг nginx из репозитория
+sudo cp cook.windexs.ru.nginx.conf /etc/nginx/sites-available/cook.windexs.ru.conf
+# Включаем сайт
+sudo ln -sf /etc/nginx/sites-available/cook.windexs.ru.conf /etc/nginx/sites-enabled/
+# Проверяем и перезагружаем nginx
 sudo nginx -t && sudo systemctl reload nginx
 ENDSSH
 

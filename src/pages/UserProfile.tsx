@@ -32,6 +32,7 @@ import { useUser } from '@/contexts/UserContext';
 import { RecipeService } from '@/services/recipeService';
 import { Recipe } from '@/types/recipe';
 import { toast } from '@/hooks/use-toast';
+import { SubscriptionCard } from '@/components/ui/subscription-card';
 
 const UserProfile: React.FC = () => {
   const { user, updateUser } = useUser();
@@ -297,25 +298,32 @@ const UserProfile: React.FC = () => {
 
           {/* Tab Navigation */}
           <div className="space-y-6">
-            <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
+            <div className="flex gap-2 p-1 bg-gray-100 rounded-lg overflow-x-auto">
               <Button
                 variant={activeTab === 'recipes' ? 'default' : 'ghost'}
                 onClick={() => setActiveTab('recipes')}
-                className="flex-1"
+                className="flex-1 whitespace-nowrap"
               >
                 Мои рецепты
               </Button>
               <Button
                 variant={activeTab === 'favorites' ? 'default' : 'ghost'}
                 onClick={() => setActiveTab('favorites')}
-                className="flex-1"
+                className="flex-1 whitespace-nowrap"
               >
                 Избранное
               </Button>
               <Button
+                variant={activeTab === 'subscription' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('subscription')}
+                className="flex-1 whitespace-nowrap"
+              >
+                Premium
+              </Button>
+              <Button
                 variant={activeTab === 'settings' ? 'default' : 'ghost'}
                 onClick={() => setActiveTab('settings')}
-                className="flex-1"
+                className="flex-1 whitespace-nowrap"
               >
                 Настройки
               </Button>
@@ -465,6 +473,11 @@ const UserProfile: React.FC = () => {
                   )}
                 </CardContent>
               </Card>
+            )}
+
+            {/* Subscription Tab */}
+            {activeTab === 'subscription' && (
+              <SubscriptionCard />
             )}
 
             {/* Settings Tab */}

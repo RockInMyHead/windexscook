@@ -9,6 +9,8 @@ interface UserContextType {
   updateUser: (userData: Partial<User>) => void;
   updateHealthProfile: (healthProfile: UserHealthProfile) => void;
   isAuthenticated: boolean;
+  hasActiveSubscription: boolean;
+  activateSubscription: () => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -67,6 +69,29 @@ export const UserProvider = ({ children }: UserProviderProps) => {
     }
   };
 
+  const activateSubscription = () => {
+    if (user) {
+      const expiresAt = new Date();
+      expiresAt.setMonth(expiresAt.getMonth() + 1);
+      const updatedUser = { 
+        ...user, 
+        subscription: {
+          active: true,
+          expiresAt: expiresAt.toISOString(),
+          plan: 'premium' as const
+        }
+      };
+      setUser(updatedUser);
+      localStorage.setItem('ai-chef-user', JSON.stringify(updatedUser));
+    }
+  };
+
+  const hasActiveSubscription = !!(
+    user?.subscription?.active && 
+    user?.subscription?.expiresAt && 
+    new Date(user.subscription.expiresAt) > new Date()
+  );
+
   const value = {
     user,
     login,
@@ -74,6 +99,8 @@ export const UserProvider = ({ children }: UserProviderProps) => {
     updateUser,
     updateHealthProfile,
     isAuthenticated: !!user,
+    hasActiveSubscription,
+    activateSubscription,
   };
 
   return (

@@ -198,23 +198,41 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   };
 
   const formatMessageContent = (content: string) => {
-    // Заменяем "Windexs" на стилизованную версию
-    const parts = content.split('Windexs');
-    if (parts.length === 1) {
-      return content;
-    }
+    // Сначала заменяем #### на ** для жирного шрифта
+    let formattedContent = content.replace(/\n#### (.*?)(?=\n|$)/g, '\n**$1**');
     
-    return parts.map((part, index) => {
-      if (index === parts.length - 1) {
-        return part;
+    // Затем обрабатываем markdown для жирного текста
+    const parts = formattedContent.split(/(\*\*.*?\*\*)/g);
+    
+    const formattedParts = parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        // Это жирный текст
+        const text = part.slice(2, -2);
+        return <strong key={index} className="font-bold">{text}</strong>;
       }
-      return (
-        <React.Fragment key={index}>
-          {part}
-          <span className="text-primary font-semibold">Windexs</span>
-        </React.Fragment>
-      );
+      return part;
     });
+
+    // Теперь обрабатываем Windexs
+    const finalParts: React.ReactNode[] = [];
+    
+    formattedParts.forEach((part, index) => {
+      if (typeof part === 'string') {
+        const windexsParts = part.split('Windexs');
+        windexsParts.forEach((subPart, subIndex) => {
+          if (subIndex > 0) {
+            finalParts.push(<span key={`${index}-${subIndex}`} className="text-primary font-semibold">Windexs</span>);
+          }
+          if (subPart) {
+            finalParts.push(subPart);
+          }
+        });
+      } else {
+        finalParts.push(part);
+      }
+    });
+
+    return finalParts;
   };
 
   // Функции для работы с аудио

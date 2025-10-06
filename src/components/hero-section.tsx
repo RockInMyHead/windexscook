@@ -8,7 +8,7 @@ interface HeroSectionProps {
 
 export const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
   return (
-    <section className="relative h-auto py-20 sm:py-32 flex items-center justify-center overflow-hidden">
+    <section className="relative h-auto py-12 sm:py-20 md:py-32 flex items-center justify-center overflow-hidden">
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-hero opacity-60"></div>
       
@@ -31,20 +31,20 @@ export const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
       </div>
 
       <div className="container mx-auto px-4 relative z-10">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 items-center">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12 items-center">
           
           {/* Content */}
-          <div className="space-y-8 text-center lg:text-left animate-fade-up">
-            <div className="space-y-4">
+          <div className="space-y-6 lg:space-y-8 text-center lg:text-left animate-fade-up">
+            <div className="space-y-3 lg:space-y-4">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full text-primary text-sm font-medium">
                 <Sparkles className="w-4 h-4" />
                 Powered by AI
               </div>
               
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight drop-shadow-lg">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-foreground leading-tight drop-shadow-lg">
                 <span className="text-primary drop-shadow-md">Windexs</span> кулинар
                 <br />
-                <span className="block text-lg sm:text-xl md:text-3xl lg:text-5xl text-foreground/80 drop-shadow-md">
+                <span className="block text-base sm:text-lg md:text-2xl lg:text-3xl xl:text-5xl text-foreground/80 drop-shadow-md">
                   Ваш умный помощник
                 </span>
               </h1>
@@ -54,38 +54,38 @@ export const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start">
               <Button 
                 size="lg" 
                 onClick={onGetStarted}
-                className="bg-gradient-primary hover:opacity-90 transition-opacity shadow-glow text-lg px-8 py-6 animate-pulse-glow"
+                className="bg-gradient-primary hover:opacity-90 transition-opacity shadow-glow text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 animate-pulse-glow"
               >
                 Создать рецепт
-                <ArrowRight className="ml-2 w-5 h-5" />
+                <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
               
               <Button 
                 size="lg" 
                 variant="secondary"
-                className="text-lg px-8 py-6 hover:bg-secondary/80 transition-colors drop-shadow-md"
+                className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 hover:bg-secondary/80 transition-colors drop-shadow-md"
               >
                 Посмотреть примеры
               </Button>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-8 pt-8 border-t border-border/50">
+            <div className="grid grid-cols-3 gap-4 sm:gap-6 lg:gap-8 pt-6 sm:pt-8 border-t border-border/50">
               <div className="text-center">
-                <div className="text-2xl md:text-3xl font-bold text-primary drop-shadow-md">1000+</div>
-                <div className="text-sm text-foreground/80 drop-shadow-sm">Рецептов</div>
+                <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-primary drop-shadow-md">1000+</div>
+                <div className="text-xs sm:text-sm text-foreground/80 drop-shadow-sm">Рецептов</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl md:text-3xl font-bold text-primary drop-shadow-md">50k+</div>
-                <div className="text-sm text-foreground/80 drop-shadow-sm">Пользователей</div>
+                <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-primary drop-shadow-md">50k+</div>
+                <div className="text-xs sm:text-sm text-foreground/80 drop-shadow-sm">Пользователей</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl md:text-3xl font-bold text-primary drop-shadow-md">98%</div>
-                <div className="text-sm text-foreground/80 drop-shadow-sm">Удовлетворены</div>
+                <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-primary drop-shadow-md">98%</div>
+                <div className="text-xs sm:text-sm text-foreground/80 drop-shadow-sm">Удовлетворены</div>
               </div>
             </div>
           </div>

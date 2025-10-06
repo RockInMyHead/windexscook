@@ -61,7 +61,7 @@ const Index = () => {
       <HeroSection onGetStarted={handleGetStarted} />
       
       {showIngredientInput && (
-        <section id="ingredient-input" className="py-20 px-4 bg-background">
+        <section id="ingredient-input" className="py-12 sm:py-16 md:py-20 px-4 bg-background">
           <div className="container mx-auto">
             <IngredientInput 
               onGenerateRecipe={handleGenerateRecipe}
@@ -79,10 +79,10 @@ const Index = () => {
       <ReviewsSection />
       
       {/* Footer */}
-      <footer className="bg-muted/20 py-12 px-4 border-t border-border/50">
+      <footer className="bg-muted/20 py-8 sm:py-12 px-4 border-t border-border/50">
         <div className="container mx-auto max-w-6xl text-center">
-          <h3 className="text-2xl font-bold text-foreground mb-2"><span className="text-primary">Windexs</span> кулинар</h3>
-          <p className="text-muted-foreground text-sm">
+          <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-2"><span className="text-primary">Windexs</span> кулинар</h3>
+          <p className="text-muted-foreground text-xs sm:text-sm">
             Превращаем ингредиенты в кулинарные шедевры с помощью ИИ
           </p>
         </div>

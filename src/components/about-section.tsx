@@ -50,7 +50,7 @@ const benefits = [
 
 export const AboutSection = () => {
   return (
-    <section className="py-20 px-4 bg-gradient-to-br from-sage/5 to-mint/10 relative overflow-hidden">
+    <section className="py-12 sm:py-16 md:py-20 px-4 bg-gradient-to-br from-sage/5 to-mint/10 relative overflow-hidden">
       {/* Decorative floating elements */}
       <div className="absolute top-16 right-20 w-20 h-20 bg-gradient-primary rounded-full opacity-20 animate-float"></div>
       <div className="absolute bottom-24 left-16 w-32 h-32 bg-accent/20 rounded-full animate-spin-slow"></div>
@@ -59,45 +59,45 @@ export const AboutSection = () => {
 
       <div className="container mx-auto max-w-6xl relative z-10">
         {/* Header */}
-        <div className="text-center mb-16 space-y-6 animate-fade-up">
-          <div className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-primary/10 rounded-full text-primary font-medium animate-glow-pulse">
-            <Sparkles className="w-5 h-5" />
+        <div className="text-center mb-12 sm:mb-16 space-y-4 sm:space-y-6 animate-fade-up">
+          <div className="inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-gradient-primary/10 rounded-full text-primary font-medium animate-glow-pulse text-sm sm:text-base">
+            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
             О платформе <span className="text-primary">Windexs</span> кулинар
           </div>
           
-          <h2 className="text-3xl md:text-5xl font-bold text-foreground leading-tight drop-shadow-lg">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-foreground leading-tight drop-shadow-lg">
             Революция в мире
             <br />
             <span className="text-primary drop-shadow-md">домашней кулинарии</span>
           </h2>
           
-          <p className="text-lg md:text-xl text-foreground/90 max-w-3xl mx-auto leading-relaxed drop-shadow-md">
+          <p className="text-sm sm:text-base md:text-lg lg:text-xl text-foreground/90 max-w-3xl mx-auto leading-relaxed drop-shadow-md">
             Мы создали первого в мире AI помощника, который понимает кулинарию как искусство. 
             Наша цель — сделать готовку доступной, вдохновляющей и бесконечно творческой для каждого.
           </p>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-12 sm:mb-16 lg:mb-20">
           {stats.map((stat, index) => (
             <div 
               key={index}
-              className="text-center p-6 bg-gradient-card rounded-xl border border-border/50 hover:shadow-card transition-all duration-300 hover:-translate-y-1 animate-slide-in-left group"
+              className="text-center p-4 sm:p-6 bg-gradient-card rounded-xl border border-border/50 hover:shadow-card transition-all duration-300 hover:-translate-y-1 animate-slide-in-left group"
               style={{ animationDelay: `${index * 0.1}s` }}
             >
-              <div className="w-12 h-12 bg-gradient-primary rounded-lg flex items-center justify-center mx-auto mb-4 group-hover:animate-scale-pulse">
-                <stat.icon className="w-6 h-6 text-primary-foreground" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-primary rounded-lg flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:animate-scale-pulse">
+                <stat.icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
               </div>
               
-              <div className="text-2xl md:text-3xl font-bold text-primary mb-1 group-hover:animate-glow-pulse">
+              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-primary mb-1 group-hover:animate-glow-pulse">
                 {stat.number}
               </div>
               
-              <div className="text-sm font-semibold text-foreground mb-2">
+              <div className="text-xs sm:text-sm font-semibold text-foreground mb-2">
                 {stat.label}
               </div>
               
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs sm:text-xs text-muted-foreground">
                 {stat.description}
               </div>
             </div>

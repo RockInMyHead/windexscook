@@ -93,55 +93,55 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <ChefHat className="h-6 w-6 text-primary" />
-              {recipe.title}
+            <DialogTitle className="text-lg sm:text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
+              <ChefHat className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+              <span className="truncate">{recipe.title}</span>
             </DialogTitle>
             <Button
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="h-8 w-8"
+              className="h-8 w-8 shrink-0"
             >
               <X className="h-4 w-4" />
             </Button>
           </div>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Recipe Description */}
           <Card>
-            <CardContent className="p-6">
-              <p className="text-muted-foreground text-lg leading-relaxed">
+            <CardContent className="p-4 sm:p-6">
+              <p className="text-muted-foreground text-sm sm:text-base md:text-lg leading-relaxed">
                 {recipe.description}
               </p>
             </CardContent>
           </Card>
 
           {/* Recipe Info */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
             <Card>
-              <CardContent className="p-4 text-center">
-                <Clock className="h-8 w-8 text-primary mx-auto mb-2" />
-                <h3 className="font-semibold text-foreground">Время</h3>
-                <p className="text-muted-foreground">{recipe.cookTime}</p>
+              <CardContent className="p-3 sm:p-4 text-center">
+                <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-primary mx-auto mb-2" />
+                <h3 className="font-semibold text-foreground text-sm sm:text-base">Время</h3>
+                <p className="text-muted-foreground text-xs sm:text-sm">{recipe.cookTime}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4 text-center">
-                <Users className="h-8 w-8 text-primary mx-auto mb-2" />
-                <h3 className="font-semibold text-foreground">Порций</h3>
-                <p className="text-muted-foreground">{recipe.servings}</p>
+              <CardContent className="p-3 sm:p-4 text-center">
+                <Users className="h-6 w-6 sm:h-8 sm:w-8 text-primary mx-auto mb-2" />
+                <h3 className="font-semibold text-foreground text-sm sm:text-base">Порций</h3>
+                <p className="text-muted-foreground text-xs sm:text-sm">{recipe.servings}</p>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <ChefHat className="h-8 w-8 text-primary mx-auto mb-2" />
-                <h3 className="font-semibold text-foreground">Сложность</h3>
-                <Badge className={`${getDifficultyColor(recipe.difficulty)} border`}>
+            <Card className="sm:col-span-2 md:col-span-1">
+              <CardContent className="p-3 sm:p-4 text-center">
+                <ChefHat className="h-6 w-6 sm:h-8 sm:w-8 text-primary mx-auto mb-2" />
+                <h3 className="font-semibold text-foreground text-sm sm:text-base">Сложность</h3>
+                <Badge className={`${getDifficultyColor(recipe.difficulty)} border text-xs sm:text-sm`}>
                   {recipe.difficulty}
                 </Badge>
               </CardContent>

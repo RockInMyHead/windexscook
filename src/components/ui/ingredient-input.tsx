@@ -122,10 +122,10 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin, selecte
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-6 p-6 bg-gradient-card rounded-xl shadow-card border border-border/50">
+    <div className="w-full max-w-2xl mx-auto space-y-4 sm:space-y-6 p-4 sm:p-6 bg-gradient-card rounded-xl shadow-card border border-border/50">
       <div className="text-center space-y-2">
-        <h3 className="text-xl font-semibold text-foreground">Какие у вас есть ингредиенты?</h3>
-        <p className="text-muted-foreground text-sm">
+        <h3 className="text-lg sm:text-xl font-semibold text-foreground">Какие у вас есть ингредиенты?</h3>
+        <p className="text-muted-foreground text-xs sm:text-sm">
           Добавьте продукты вручную или сфотографируйте их - AI создаст уникальный рецепт
         </p>
       </div>
@@ -136,13 +136,13 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin, selecte
           onChange={(e) => setCurrentIngredient(e.target.value)}
           onKeyPress={handleKeyPress}
           placeholder="Введите ингредиент..."
-          className="flex-1 border-border/60 focus:border-primary/60 focus:ring-primary/20"
+          className="flex-1 border-border/60 focus:border-primary/60 focus:ring-primary/20 text-sm sm:text-base"
         />
         <Button 
           onClick={addIngredient}
           variant="secondary"
           size="icon"
-          className="shrink-0 hover:bg-accent/80 transition-colors"
+          className="shrink-0 hover:bg-accent/80 transition-colors h-10 w-10"
         >
           <Plus className="w-4 h-4" />
         </Button>
@@ -150,7 +150,7 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin, selecte
           onClick={() => setShowCamera(true)}
           variant="outline"
           size="icon"
-          className="shrink-0 hover:bg-accent/80 transition-colors"
+          className="shrink-0 hover:bg-accent/80 transition-colors h-10 w-10"
           title="📸 Сфотографировать продукты"
         >
           <Camera className="w-4 h-4" />
@@ -159,13 +159,13 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin, selecte
 
       {ingredients.length > 0 && (
         <div className="space-y-3">
-          <h4 className="text-sm font-medium text-foreground">Ваши ингредиенты (AI будет использовать только их):</h4>
+          <h4 className="text-xs sm:text-sm font-medium text-foreground">Ваши ингредиенты (AI будет использовать только их):</h4>
           <div className="flex flex-wrap gap-2">
             {ingredients.map((ingredient) => (
               <Badge
                 key={ingredient}
                 variant="secondary"
-                className="px-3 py-1 bg-secondary/80 text-secondary-foreground hover:bg-secondary group cursor-pointer transition-colors"
+                className="px-2 sm:px-3 py-1 bg-secondary/80 text-secondary-foreground hover:bg-secondary group cursor-pointer transition-colors text-xs sm:text-sm"
                 onClick={() => removeIngredient(ingredient)}
               >
                 {ingredient}
@@ -180,18 +180,20 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin, selecte
           <Button 
             onClick={handleGenerate}
             disabled={isLoading}
-            className="w-full bg-gradient-primary hover:opacity-90 transition-opacity shadow-soft animate-pulse-glow disabled:opacity-50"
+            className="w-full bg-gradient-primary hover:opacity-90 transition-opacity shadow-soft animate-pulse-glow disabled:opacity-50 text-sm sm:text-base"
             size="lg"
           >
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                AI создает рецепт...
+                <span className="hidden sm:inline">AI создает рецепт...</span>
+                <span className="sm:hidden">Создаем...</span>
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4 mr-2" />
-                Создать рецепт с AI
+                <span className="hidden sm:inline">Создать рецепт с AI</span>
+                <span className="sm:hidden">Создать рецепт</span>
               </>
             )}
           </Button>

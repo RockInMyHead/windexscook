@@ -424,7 +424,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
 
   return (
     <div className={`h-full flex flex-col overflow-hidden ${className}`}>
-      <Card className="flex-1 flex flex-col overflow-hidden mb-20 border-0 shadow-none mt-[5%]">
+      <Card className="flex-1 flex flex-col overflow-hidden mb-32 border-0 shadow-none mt-[5%]">
         {/* Recording indicator - only show when recording */}
         {isRecording && (
           <div className="p-4 flex-shrink-0">

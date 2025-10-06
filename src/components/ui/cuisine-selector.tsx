@@ -87,7 +87,7 @@ export const CuisineSelector: React.FC<CuisineSelectorProps> = ({
             <TabsTrigger value="african" className="text-xs sm:text-sm">Африка</TabsTrigger>
           </TabsList>
 
-          <TabsContent value={selectedCategory} className="space-y-4">
+          <TabsContent value={selectedCategory} className="space-y-4 mt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
               {(searchQuery ? filteredCuisines : categoryCuisines).map((cuisine) => {
                 const isHalal = cuisine.id.startsWith('halal-');

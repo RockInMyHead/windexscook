@@ -93,7 +93,10 @@ ENDSSH
 
 echo "🌐 Step 6: Configure Nginx..."
 sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
-cd ~/cook
+  # Отключаем Apache, чтобы Nginx мог слушать порт 443
+  sudo systemctl stop apache2
+  sudo systemctl disable apache2
+  cd ~/cook
 # Копируем готовый конфиг nginx из репозитория
 sudo cp cook.windexs.ru.nginx.conf /etc/nginx/sites-available/cook.windexs.ru.conf
 # Включаем сайт

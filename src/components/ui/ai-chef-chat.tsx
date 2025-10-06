@@ -418,35 +418,36 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
 
 
   return (
-    <Card className={`h-full flex flex-col overflow-hidden ${className}`}>
-      <CardHeader className="pb-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-primary rounded-full flex items-center justify-center">
-              <ChefHat className="w-5 h-5 text-primary-foreground" />
+    <div className={`h-full flex flex-col overflow-hidden ${className}`}>
+      <Card className="flex-1 flex flex-col overflow-hidden">
+        <CardHeader className="pb-4 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-primary rounded-full flex items-center justify-center">
+                <ChefHat className="w-5 h-5 text-primary-foreground" />
+              </div>
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <span className="text-primary">Windexs</span> кулинар
+                  {isRecording && (
+                    <div className="flex items-center gap-1 text-red-500">
+                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                      <span className="text-xs">Запись...</span>
+                    </div>
+                  )}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {isRecording ? "Говорите в микрофон..." : "Ваш персональный помощник на кухне"}
+                </p>
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <span className="text-primary">Windexs</span> кулинар
-                {isRecording && (
-                  <div className="flex items-center gap-1 text-red-500">
-                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs">Запись...</span>
-                  </div>
-                )}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {isRecording ? "Говорите в микрофон..." : "Ваш персональный помощник на кухне"}
-              </p>
+            <div className="flex gap-2">
+              {/* Clear button removed for mobile optimization */}
             </div>
           </div>
-          <div className="flex gap-2">
-            {/* Clear button removed for mobile optimization */}
-          </div>
-        </div>
-      </CardHeader>
+        </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col p-0 min-h-0">
+        <CardContent className="flex-1 flex flex-col p-0 min-h-0">
         <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 sm:px-6 min-h-0">
           <div className="space-y-4 pb-4">
             {messages.map((message) => (
@@ -553,64 +554,62 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
             ))}
           </div>
         </ScrollArea>
+        </CardContent>
+      </Card>
 
-        <div className="p-3 sm:p-4 border-t flex-shrink-0 bg-background relative">
-          <div className="flex gap-2">
-            <Input
-              ref={inputRef}
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Спросите что-нибудь о готовке..."
-              disabled={isLoading || isRecording}
-              className="flex-1 text-sm sm:text-base"
-            />
-            <Button
-              onClick={isRecording ? stopRecording : startRecording}
-              disabled={isLoading || !audioSupported}
-              size="icon"
-              className={`shrink-0 h-10 w-10 ${
-                isRecording 
-                  ? 'bg-red-500 hover:bg-red-600 text-white' 
-                  : audioSupported 
-                    ? 'bg-blue-500 hover:bg-blue-600 text-white'
-                    : 'bg-gray-400 text-gray-600 cursor-not-allowed'
-              }`}
-              title={audioSupported ? (isRecording ? 'Остановить запись' : 'Начать запись') : 'Запись аудио не поддерживается'}
-            >
-              {isRecording ? (
-                <Square className="w-4 h-4" />
-              ) : (
-                <Mic className="w-4 h-4" />
-              )}
-            </Button>
-            <Button
-              onClick={handleSendMessage}
-              disabled={!inputMessage.trim() || isLoading || isRecording}
-              size="icon"
-              className="shrink-0 h-10 w-10"
-            >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-            </Button>
-          </div>
-          
-          {/* Fixed hint at the bottom */}
-          <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 bg-background border-t">
-            <p className="text-xs text-muted-foreground text-center">
-              💡 Спросите о рецептах, техниках готовки, ингредиентах или любых кулинарных вопросах. 
-              {audioSupported ? (
-                <span className="text-blue-500"> 🎤 Используйте микрофон для голосового ввода (Chrome, Edge, Safari)</span>
-              ) : (
-                <span className="text-gray-500"> 🎤 Голосовой ввод недоступен в вашем браузере. Используйте Chrome, Edge или Safari.</span>
-              )}
-            </p>
-          </div>
+      {/* Fixed input at bottom */}
+      <div className="p-3 sm:p-4 border-t flex-shrink-0 bg-background">
+        <div className="flex gap-2">
+          <Input
+            ref={inputRef}
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Спросите что-нибудь о готовке..."
+            disabled={isLoading || isRecording}
+            className="flex-1 text-sm sm:text-base"
+          />
+          <Button
+            onClick={isRecording ? stopRecording : startRecording}
+            disabled={isLoading || !audioSupported}
+            size="icon"
+            className={`shrink-0 h-10 w-10 ${
+              isRecording 
+                ? 'bg-red-500 hover:bg-red-600 text-white' 
+                : audioSupported 
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                  : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+            }`}
+            title={audioSupported ? (isRecording ? 'Остановить запись' : 'Начать запись') : 'Запись аудио не поддерживается'}
+          >
+            {isRecording ? (
+              <Square className="w-4 h-4" />
+            ) : (
+              <Mic className="w-4 h-4" />
+            )}
+          </Button>
+          <Button
+            onClick={handleSendMessage}
+            disabled={!inputMessage.trim() || isLoading || isRecording}
+            size="icon"
+            className="shrink-0 h-10 w-10"
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+        <p className="text-xs text-muted-foreground mt-2 hidden sm:block">
+          💡 Спросите о рецептах, техниках готовки, ингредиентах или любых кулинарных вопросах. 
+          {audioSupported ? (
+            <span className="text-blue-500">🎤 Используйте микрофон для голосового ввода (Chrome, Edge, Safari)</span>
+          ) : (
+            <span className="text-gray-500">🎤 Голосовой ввод недоступен в вашем браузере. Используйте Chrome, Edge или Safari.</span>
+          )}
+        </p>
+      </div>
+    </div>
   );
 };

@@ -161,7 +161,8 @@ export class RecipeService {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 300));
     
-    let filteredRecipes = [...this.recipes];
+    // Показываем только одобренные рецепты
+    let filteredRecipes = [...this.recipes.filter(recipe => recipe.status === 'approved' || !recipe.status)];
     
     if (filters) {
       if (filters.category && filters.category !== 'all') {
@@ -200,7 +201,8 @@ export class RecipeService {
       rating: 0,
       likes: 0,
       favorites: 0,
-      commentsCount: 0
+      commentsCount: 0,
+      status: 'pending' // Новые рецепты отправляются на модерацию
     };
     
     this.recipes.unshift(newRecipe);
@@ -382,5 +384,30 @@ export class RecipeService {
 
   static getCategories(): string[] {
     return ['Все категории', 'Итальянская кухня', 'Десерты', 'Завтраки', 'Обеды', 'Ужины', 'Закуски', 'Напитки'];
+  }
+
+  // Методы для модерации рецептов
+  static async approveRecipe(recipeId: string, moderatorId: string, reason?: string): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    const recipe = this.recipes.find(r => r.id === recipeId);
+    if (recipe) {
+      recipe.status = 'approved';
+      recipe.moderatedBy = moderatorId;
+      recipe.moderatedAt = new Date().toISOString();
+      recipe.moderationReason = reason;
+    }
+  }
+
+  static async rejectRecipe(recipeId: string, moderatorId: string, reason: string): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    const recipe = this.recipes.find(r => r.id === recipeId);
+    if (recipe) {
+      recipe.status = 'rejected';
+      recipe.moderatedBy = moderatorId;
+      recipe.moderatedAt = new Date().toISOString();
+      recipe.moderationReason = reason;
+    }
   }
 }

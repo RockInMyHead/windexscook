@@ -21,7 +21,8 @@ import {
   Settings,
   LogOut,
   Sparkles,
-  Activity
+  Activity,
+  Shield
 } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { AuthModal } from "@/components/ui/auth-modal";
@@ -37,7 +38,7 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const { user, login, logout, isAuthenticated } = useUser();
+  const { user, login, logout, isAuthenticated, isAdmin } = useUser();
   const location = useLocation();
 
   const handleAuthSuccess = (userData: { name: string; email: string }) => {
@@ -163,6 +164,14 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
                           <span>Настройки</span>
                         </Link>
                       </DropdownMenuItem>
+                      {isAdmin && (
+                        <DropdownMenuItem asChild>
+                          <Link to="/admin">
+                            <Shield className="mr-2 h-4 w-4" />
+                            <span>Панель администратора</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={handleLogout}>
                         <LogOut className="mr-2 h-4 w-4" />
@@ -290,6 +299,18 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
                           Настройки
                         </Link>
                       </Button>
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          asChild
+                          className="w-full justify-start text-foreground hover:text-primary hover:bg-primary/10"
+                        >
+                          <Link to="/admin" onClick={() => setIsMenuOpen(false)}>
+                            <Shield className="w-4 h-4 mr-2" />
+                            Панель администратора
+                          </Link>
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         onClick={handleLogout}

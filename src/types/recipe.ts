@@ -35,6 +35,10 @@ export interface Recipe {
   commentsCount: number;
   isLiked?: boolean;
   isFavorited?: boolean;
+  status?: 'pending' | 'approved' | 'rejected';
+  moderatedBy?: string;
+  moderatedAt?: string;
+  moderationReason?: string;
 }
 
 export interface Comment {

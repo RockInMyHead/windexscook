@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 import Collaborations from "./pages/Collaborations";
 import RecipeDetails from './pages/RecipeDetails';
 import UserProfile from './pages/UserProfile';
+import AdminPanel from './pages/AdminPanel';
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/recipes/:id" element={<RecipeDetails />} />
             <Route path="/collaborations" element={<Collaborations />} />
             <Route path="/profile" element={<UserProfile />} />
+            <Route path="/admin" element={<AdminPanel />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

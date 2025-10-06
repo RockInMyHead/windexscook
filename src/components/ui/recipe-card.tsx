@@ -57,7 +57,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
     return Array.from({ length: 5 }, (_, i) => (
       <Star
         key={i}
-        className={`w-4 h-4 ${
+        className={`w-4 h-4 lg:w-5 lg:h-5 ${
           i < Math.floor(rating) 
             ? 'text-yellow-400 fill-current' 
             : 'text-gray-300'
@@ -115,96 +115,96 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
         )}
       </div>
 
-      <CardHeader className="pb-3 p-4 sm:p-6">
+      <CardHeader className="pb-3 p-4 sm:p-6 lg:p-8">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-base sm:text-lg font-semibold line-clamp-2 group-hover:text-primary transition-colors flex-1 min-w-0">
+          <CardTitle className="text-base sm:text-lg lg:text-xl font-semibold line-clamp-2 group-hover:text-primary transition-colors flex-1 min-w-0">
             {recipe.title}
           </CardTitle>
           <div className="flex items-center gap-1 ml-2 flex-shrink-0">
             {renderStars(recipe.rating)}
-            <span className="text-xs sm:text-sm text-muted-foreground ml-1">
+            <span className="text-xs sm:text-sm lg:text-base text-muted-foreground ml-1">
               ({recipe.rating.toFixed(1)})
             </span>
           </div>
         </div>
         
-        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mt-2">
+        <p className="text-xs sm:text-sm lg:text-base text-muted-foreground line-clamp-2 mt-2">
           {recipe.description}
         </p>
       </CardHeader>
 
-      <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
+      <CardContent className="space-y-3 sm:space-y-4 lg:space-y-5 p-4 sm:p-6 lg:p-8 pt-0">
         {/* Recipe info */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 lg:gap-6 text-xs sm:text-sm lg:text-base text-muted-foreground">
           <div className="flex items-center gap-1">
-            <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+            <Clock className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
             <span>{recipe.cookTime}</span>
           </div>
           <div className="flex items-center gap-1">
-            <Users className="w-3 h-3 sm:w-4 sm:h-4" />
+            <Users className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
             <span>{recipe.servings} порций</span>
           </div>
           <div className="flex items-center gap-1">
-            <ChefHat className="w-3 h-3 sm:w-4 sm:h-4" />
+            <ChefHat className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
             <span>{recipe.ingredients.length} ингр.</span>
           </div>
         </div>
 
         {/* Category and difficulty */}
-        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-          <Badge variant="secondary" className="text-xs px-2 py-1">
+        <div className="flex flex-wrap items-center gap-1 sm:gap-2 lg:gap-3">
+          <Badge variant="secondary" className="text-xs sm:text-sm px-2 py-1 lg:px-3 lg:py-1.5">
             {recipe.category}
           </Badge>
-          <Badge className={`text-xs px-2 py-1 ${difficultyColors[recipe.difficulty]}`}>
+          <Badge className={`text-xs sm:text-sm px-2 py-1 lg:px-3 lg:py-1.5 ${difficultyColors[recipe.difficulty]}`}>
             {recipe.difficulty}
           </Badge>
         </div>
 
         {/* Author info */}
-        <div className="flex items-center gap-2">
-          <Avatar className="h-5 w-5 sm:h-6 sm:w-6">
+        <div className="flex items-center gap-2 lg:gap-3">
+          <Avatar className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7">
             <AvatarImage src={recipe.author.avatar} alt={recipe.author.name} />
-            <AvatarFallback className="text-xs">
+            <AvatarFallback className="text-xs sm:text-sm">
               {recipe.author.name.charAt(0)}
             </AvatarFallback>
           </Avatar>
-          <span className="text-xs sm:text-sm text-muted-foreground truncate">
+          <span className="text-xs sm:text-sm lg:text-base text-muted-foreground truncate">
             {recipe.author.name}
           </span>
-          <span className="text-xs text-muted-foreground flex-shrink-0">
+          <span className="text-xs sm:text-sm text-muted-foreground flex-shrink-0">
             • {new Date(recipe.createdAt).toLocaleDateString()}
           </span>
         </div>
 
         {/* Stats and actions */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 sm:gap-4 lg:gap-6 text-xs sm:text-sm lg:text-base text-muted-foreground">
             <div className="flex items-center gap-1">
-              <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+              <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
               <span>{recipe.commentsCount}</span>
             </div>
             <div className="flex items-center gap-1">
-              <Heart className="w-3 h-3 sm:w-4 sm:h-4" />
+              <Heart className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
               <span>{recipe.likes}</span>
             </div>
             <div className="flex items-center gap-1">
-              <Star className="w-3 h-3 sm:w-4 sm:h-4" />
+              <Star className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
               <span>{recipe.favorites}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 lg:gap-3">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onLike(recipe.id)}
-              className={`h-7 sm:h-8 px-1 sm:px-2 text-xs sm:text-sm ${
+              className={`h-7 sm:h-8 lg:h-9 px-1 sm:px-2 lg:px-3 text-xs sm:text-sm lg:text-base ${
                 recipe.isLiked 
                   ? 'text-red-500 hover:text-red-600' 
                   : 'text-muted-foreground hover:text-red-500'
               }`}
             >
-              <Heart className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 ${recipe.isLiked ? 'fill-current' : ''}`} />
+              <Heart className={`w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 mr-1 ${recipe.isLiked ? 'fill-current' : ''}`} />
               {recipe.likes}
             </Button>
             
@@ -212,39 +212,39 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
               variant="ghost"
               size="sm"
               onClick={() => onFavorite(recipe.id)}
-              className={`h-7 sm:h-8 px-1 sm:px-2 text-xs sm:text-sm ${
+              className={`h-7 sm:h-8 lg:h-9 px-1 sm:px-2 lg:px-3 text-xs sm:text-sm lg:text-base ${
                 recipe.isFavorited 
                   ? 'text-yellow-500 hover:text-yellow-600' 
                   : 'text-muted-foreground hover:text-yellow-500'
               }`}
             >
-              <Star className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 ${recipe.isFavorited ? 'fill-current' : ''}`} />
+              <Star className={`w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 mr-1 ${recipe.isFavorited ? 'fill-current' : ''}`} />
               {recipe.favorites}
             </Button>
           </div>
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 lg:gap-3">
           <Button
             onClick={() => onView(recipe)}
-            className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity text-xs sm:text-sm h-8 sm:h-10"
+            className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity text-xs sm:text-sm lg:text-base h-8 sm:h-10 lg:h-12"
           >
             <span className="hidden sm:inline">Посмотреть рецепт</span>
             <span className="sm:hidden">Смотреть</span>
           </Button>
           
           {/* Rating buttons */}
-          <div className="flex gap-1">
+          <div className="flex gap-1 lg:gap-2">
             {[1, 2, 3, 4, 5].map((rating) => (
               <Button
                 key={rating}
                 variant="ghost"
                 size="sm"
                 onClick={() => onRate(recipe.id, rating)}
-                className="h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-yellow-50"
+                className="h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 p-0 hover:bg-yellow-50"
               >
-                <Star className={`w-3 h-3 sm:w-4 sm:h-4 ${
+                <Star className={`w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 ${
                   rating <= recipe.rating 
                     ? 'text-yellow-400 fill-current' 
                     : 'text-gray-300'

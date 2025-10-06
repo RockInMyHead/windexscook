@@ -45,8 +45,16 @@ export class OpenAIService {
         if (errorData.error && errorData.error.code === 'regional_restriction') {
           throw new Error('AI функции временно недоступны в вашем регионе. Мы работаем над решением этой проблемы.');
         }
+        if (errorData.error && errorData.error.message) {
+          throw new Error(errorData.error.message);
+        }
       } catch (parseError) {
-        // Если не удалось распарсить JSON, используем стандартную ошибку
+        // Если не удалось распарсить JSON, проверяем, содержит ли текст ошибку на русском
+        if (errorText.includes('Не удалось') || errorText.includes('ошибка') || errorText.includes('Ошибка')) {
+          throw new Error(errorText);
+        }
+        // Если это не русский текст, используем стандартную ошибку
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
       }
       
       throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
@@ -151,7 +159,13 @@ ${constraints.join('\n')}
       ]);
 
       // Парсим JSON ответ
-      const recipeData = JSON.parse(response);
+      let recipeData;
+      try {
+        recipeData = JSON.parse(response);
+      } catch (parseError) {
+        console.error('Failed to parse recipe JSON:', response);
+        throw new Error('Не удалось сгенерировать рецепт. Попробуйте еще раз.');
+      }
       
       // Валидируем и форматируем данные
       const validatedIngredients = recipeData.ingredients || ingredients;

@@ -431,7 +431,7 @@ export const MyRecipes = () => {
                       </CardHeader>
                       
                       <CardContent className="space-y-3">
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Clock className="w-4 h-4" />
                             <span>{recipe.cookTime}</span>
@@ -445,9 +445,9 @@ export const MyRecipes = () => {
                             <span>{recipe.ingredients.length} ингр.</span>
                           </div>
                           {recipe.cuisine && (
-                            <div className="flex items-center gap-1">
-                              <Globe className="w-4 h-4" />
-                              <span>{WORLD_CUISINES.find(c => c.id === recipe.cuisine)?.flag} {WORLD_CUISINES.find(c => c.id === recipe.cuisine)?.name}</span>
+                            <div className="flex items-center gap-1 min-w-0">
+                              <Globe className="w-4 h-4 flex-shrink-0" />
+                              <span className="truncate">{WORLD_CUISINES.find(c => c.id === recipe.cuisine)?.flag} {WORLD_CUISINES.find(c => c.id === recipe.cuisine)?.name}</span>
                             </div>
                           )}
                         </div>

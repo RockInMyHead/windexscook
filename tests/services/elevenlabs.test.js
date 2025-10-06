@@ -1,8 +1,7 @@
 import { ElevenLabsTTS } from '../../src/services/elevenlabs-tts.js';
 
-// Мокаем axios
-jest.mock('axios');
-import axios from 'axios';
+// Мокаем fetch
+global.fetch = jest.fn();
 
 describe('ElevenLabsTTS', () => {
   beforeEach(() => {
@@ -13,13 +12,12 @@ describe('ElevenLabsTTS', () => {
     test('should synthesize speech successfully', async () => {
       const mockAudioData = Buffer.from('fake audio data');
       const mockResponse = {
-        data: mockAudioData,
-        headers: {
-          'content-type': 'audio/mpeg'
-        }
+        ok: true,
+        status: 200,
+        arrayBuffer: jest.fn().mockResolvedValue(mockAudioData.buffer)
       };
       
-      axios.post.mockResolvedValue(mockResponse);
+      fetch.mockResolvedValue(mockResponse);
       
       const text = 'Привет, это тестовый текст';
       const voiceId = 'test-voice-id';
@@ -28,25 +26,27 @@ describe('ElevenLabsTTS', () => {
       
       expect(result).toBeDefined();
       expect(Buffer.isBuffer(result)).toBe(true);
-      expect(axios.post).toHaveBeenCalledWith(
-        expect.stringContaining(`/text-to-speech/${voiceId}`),
+      expect(fetch).toHaveBeenCalledWith(
+        `/api/elevenlabs/text-to-speech/${voiceId}`,
         expect.objectContaining({
-          text: text,
-          model_id: 'eleven_multilingual_v2',
-          voice_settings: expect.any(Object)
-        }),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'xi-api-key': expect.any(String),
+          method: 'POST',
+          headers: {
             'Content-Type': 'application/json'
-          }),
-          responseType: 'arraybuffer'
+          },
+          body: JSON.stringify({
+            text: text,
+            model_id: 'eleven_multilingual_v2',
+            voice_settings: {
+              stability: 0.5,
+              similarity_boost: 0.75
+            }
+          })
         })
       );
     });
     
     test('should handle synthesis errors', async () => {
-      axios.post.mockRejectedValue(new Error('TTS Error'));
+      fetch.mockRejectedValue(new Error('TTS Error'));
       
       const text = 'Test text';
       const voiceId = 'test-voice-id';
@@ -59,21 +59,19 @@ describe('ElevenLabsTTS', () => {
     test('should use default voice if not provided', async () => {
       const mockAudioData = Buffer.from('fake audio data');
       const mockResponse = {
-        data: mockAudioData,
-        headers: {
-          'content-type': 'audio/mpeg'
-        }
+        ok: true,
+        status: 200,
+        arrayBuffer: jest.fn().mockResolvedValue(mockAudioData.buffer)
       };
       
-      axios.post.mockResolvedValue(mockResponse);
+      fetch.mockResolvedValue(mockResponse);
       
       const text = 'Test text';
       
       await ElevenLabsTTS.synthesizeSpeech(text);
       
-      expect(axios.post).toHaveBeenCalledWith(
+      expect(fetch).toHaveBeenCalledWith(
         expect.stringContaining('/text-to-speech/'),
-        expect.any(Object),
         expect.any(Object)
       );
     });
@@ -95,28 +93,30 @@ describe('ElevenLabsTTS', () => {
       ];
       
       const mockResponse = {
-        data: {
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
           voices: mockVoices
-        }
+        })
       };
       
-      axios.get.mockResolvedValue(mockResponse);
+      fetch.mockResolvedValue(mockResponse);
       
       const result = await ElevenLabsTTS.getVoices();
       
       expect(result).toEqual(mockVoices);
-      expect(axios.get).toHaveBeenCalledWith(
-        expect.stringContaining('/voices'),
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/elevenlabs/voices',
         expect.objectContaining({
-          headers: expect.objectContaining({
-            'xi-api-key': expect.any(String)
-          })
+          headers: {
+            'Content-Type': 'application/json'
+          }
         })
       );
     });
     
     test('should handle get voices errors', async () => {
-      axios.get.mockRejectedValue(new Error('Voices Error'));
+      fetch.mockRejectedValue(new Error('Voices Error'));
       
       await expect(ElevenLabsTTS.getVoices())
         .rejects
@@ -134,27 +134,29 @@ describe('ElevenLabsTTS', () => {
       };
       
       const mockResponse = {
-        data: mockSettings
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue(mockSettings)
       };
       
-      axios.get.mockResolvedValue(mockResponse);
+      fetch.mockResolvedValue(mockResponse);
       
       const voiceId = 'test-voice-id';
       const result = await ElevenLabsTTS.getVoiceSettings(voiceId);
       
       expect(result).toEqual(mockSettings);
-      expect(axios.get).toHaveBeenCalledWith(
-        expect.stringContaining(`/voices/${voiceId}/settings`),
+      expect(fetch).toHaveBeenCalledWith(
+        `/api/elevenlabs/voices/${voiceId}/settings`,
         expect.objectContaining({
-          headers: expect.objectContaining({
-            'xi-api-key': expect.any(String)
-          })
+          headers: {
+            'Content-Type': 'application/json'
+          }
         })
       );
     });
     
     test('should handle get voice settings errors', async () => {
-      axios.get.mockRejectedValue(new Error('Voice Settings Error'));
+      fetch.mockRejectedValue(new Error('Voice Settings Error'));
       
       const voiceId = 'test-voice-id';
       

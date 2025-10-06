@@ -10,12 +10,14 @@ echo "🚀 Deploying Windexs Cook to production server..."
 SSH_USER="svr"
 SSH_HOST="37.110.51.35"
 SSH_PORT="1030"
+SSH_PASS="640509040147"
 APP_DIR="~/cook"
 DOMAIN="cook.windexs.ru"
 APP_PORT="1031"
+SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 echo "📦 Step 1: Clone repository on server..."
-ssh -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
+sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
 cd ~
 if [ -d "cook" ]; then
   echo "Directory exists, updating..."
@@ -29,13 +31,23 @@ fi
 ENDSSH
 
 echo "🔧 Step 2: Install dependencies..."
-ssh -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
+sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
 cd ~/cook
-npm install --production
+
+# Install Node.js 18 if not exists
+if ! command -v node &> /dev/null; then
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+  export NVM_DIR="$HOME/.nvm"
+  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+  nvm install 18
+  nvm use 18
+fi
+
+npm install
 ENDSSH
 
 echo "⚙️ Step 3: Setup environment..."
-ssh -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
+sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
 cd ~/cook
 if [ ! -f .env ]; then
   cp .env.example .env
@@ -44,14 +56,25 @@ fi
 ENDSSH
 
 echo "🏗️ Step 4: Build production version..."
-ssh -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
+sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
 cd ~/cook
+
+# Use Node.js 18
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use 18
+
 npm run build
 ENDSSH
 
 echo "🔄 Step 5: Setup PM2..."
-ssh -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
+sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
 cd ~/cook
+
+# Use Node.js 18
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use 18
 
 # Install PM2 if not exists
 if ! command -v pm2 &> /dev/null; then
@@ -69,7 +92,7 @@ pm2 startup
 ENDSSH
 
 echo "🌐 Step 6: Configure Nginx..."
-ssh -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
+sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
 cd ~/cook
 # Копируем готовый конфиг nginx из репозитория
 sudo cp cook.windexs.ru.nginx.conf /etc/nginx/sites-available/cook.windexs.ru.conf

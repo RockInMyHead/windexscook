@@ -16,7 +16,7 @@ const userRecipes: Recipe[] = [
     ],
     cookTime: '20 мин',
     servings: 4,
-    difficulty: 'Средний',
+    difficulty: 'Medium',
     category: 'Итальянская кухня',
     cuisine: 'Итальянская',
     author: {
@@ -52,7 +52,7 @@ const userRecipes: Recipe[] = [
     ],
     cookTime: '30 мин + 4 часа охлаждение',
     servings: 8,
-    difficulty: 'Средний',
+    difficulty: 'Medium',
     category: 'Десерты',
     cuisine: 'Итальянская',
     author: {
@@ -88,7 +88,7 @@ const userRecipes: Recipe[] = [
     ],
     cookTime: '2 часа',
     servings: 6,
-    difficulty: 'Легкий',
+    difficulty: 'Easy',
     category: 'Обеды',
     cuisine: 'Украинская',
     author: {

@@ -95,6 +95,12 @@ const createIntegrationServer = () => {
   
   // Error handling middleware
   app.use((error, req, res, next) => {
+    // Обработка ошибок JSON парсинга
+    if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
+      return res.status(400).json({ error: 'Invalid JSON' });
+    }
+    
+    // Обработка других ошибок
     console.error('Unhandled error:', error);
     res.status(500).json({ error: 'Internal server error' });
   });

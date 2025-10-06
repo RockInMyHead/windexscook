@@ -28,6 +28,70 @@ export class ElevenLabsTTS {
   }
 
   /**
+   * Синтезирует речь из текста (для тестов)
+   */
+  static async synthesizeSpeech(text: string, voiceId: string = 'JBFqnCBsd6RMkjVDRZzb'): Promise<Buffer> {
+    try {
+      console.log('📤 Отправляем запрос в ElevenLabs через прокси...');
+      console.log('🎯 URL:', `${this.BASE_URL}/text-to-speech/${voiceId}`);
+      console.log('📝 Текст:', text);
+      
+      const response = await fetch(`${this.BASE_URL}/text-to-speech/${voiceId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text: text,
+          model_id: 'eleven_multilingual_v2',
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.75
+          }
+        })
+      });
+
+      console.log('📡 Статус ответа:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Ошибка ответа:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      console.log('✅ Получен аудио buffer, размер:', buffer.length, 'bytes');
+      return buffer;
+    } catch (error) {
+      console.error('❌ Ошибка синтеза речи:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Получает настройки голоса
+   */
+  static async getVoiceSettings(voiceId: string): Promise<any> {
+    try {
+      const response = await fetch(`${this.BASE_URL}/voices/${voiceId}/settings`, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching voice settings:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Преобразует текст в речь
    */
   static async textToSpeech(text: string, voiceId: string = 'pNInz6obpgDQGcFmaJgB'): Promise<Blob> {

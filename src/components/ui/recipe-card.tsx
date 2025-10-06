@@ -115,96 +115,96 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
         )}
       </div>
 
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <CardTitle className="text-lg font-semibold line-clamp-2 group-hover:text-primary transition-colors">
+      <CardHeader className="pb-3 p-4 sm:p-6">
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="text-base sm:text-lg font-semibold line-clamp-2 group-hover:text-primary transition-colors flex-1 min-w-0">
             {recipe.title}
           </CardTitle>
-          <div className="flex items-center gap-1 ml-2">
+          <div className="flex items-center gap-1 ml-2 flex-shrink-0">
             {renderStars(recipe.rating)}
-            <span className="text-sm text-muted-foreground ml-1">
+            <span className="text-xs sm:text-sm text-muted-foreground ml-1">
               ({recipe.rating.toFixed(1)})
             </span>
           </div>
         </div>
         
-        <p className="text-sm text-muted-foreground line-clamp-2">
+        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mt-2">
           {recipe.description}
         </p>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
         {/* Recipe info */}
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
           <div className="flex items-center gap-1">
-            <Clock className="w-4 h-4" />
+            <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
             <span>{recipe.cookTime}</span>
           </div>
           <div className="flex items-center gap-1">
-            <Users className="w-4 h-4" />
+            <Users className="w-3 h-3 sm:w-4 sm:h-4" />
             <span>{recipe.servings} порций</span>
           </div>
           <div className="flex items-center gap-1">
-            <ChefHat className="w-4 h-4" />
+            <ChefHat className="w-3 h-3 sm:w-4 sm:h-4" />
             <span>{recipe.ingredients.length} ингр.</span>
           </div>
         </div>
 
         {/* Category and difficulty */}
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-xs">
+        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+          <Badge variant="secondary" className="text-xs px-2 py-1">
             {recipe.category}
           </Badge>
-          <Badge className={`text-xs ${difficultyColors[recipe.difficulty]}`}>
+          <Badge className={`text-xs px-2 py-1 ${difficultyColors[recipe.difficulty]}`}>
             {recipe.difficulty}
           </Badge>
         </div>
 
         {/* Author info */}
         <div className="flex items-center gap-2">
-          <Avatar className="h-6 w-6">
+          <Avatar className="h-5 w-5 sm:h-6 sm:w-6">
             <AvatarImage src={recipe.author.avatar} alt={recipe.author.name} />
             <AvatarFallback className="text-xs">
               {recipe.author.name.charAt(0)}
             </AvatarFallback>
           </Avatar>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-xs sm:text-sm text-muted-foreground truncate">
             {recipe.author.name}
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground flex-shrink-0">
             • {new Date(recipe.createdAt).toLocaleDateString()}
           </span>
         </div>
 
         {/* Stats and actions */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
-              <MessageCircle className="w-4 h-4" />
+              <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
               <span>{recipe.commentsCount}</span>
             </div>
             <div className="flex items-center gap-1">
-              <Heart className="w-4 h-4" />
+              <Heart className="w-3 h-3 sm:w-4 sm:h-4" />
               <span>{recipe.likes}</span>
             </div>
             <div className="flex items-center gap-1">
-              <Star className="w-4 h-4" />
+              <Star className="w-3 h-3 sm:w-4 sm:h-4" />
               <span>{recipe.favorites}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onLike(recipe.id)}
-              className={`h-8 px-2 ${
+              className={`h-7 sm:h-8 px-1 sm:px-2 text-xs sm:text-sm ${
                 recipe.isLiked 
                   ? 'text-red-500 hover:text-red-600' 
                   : 'text-muted-foreground hover:text-red-500'
               }`}
             >
-              <Heart className={`w-4 h-4 mr-1 ${recipe.isLiked ? 'fill-current' : ''}`} />
+              <Heart className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 ${recipe.isLiked ? 'fill-current' : ''}`} />
               {recipe.likes}
             </Button>
             
@@ -212,13 +212,13 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
               variant="ghost"
               size="sm"
               onClick={() => onFavorite(recipe.id)}
-              className={`h-8 px-2 ${
+              className={`h-7 sm:h-8 px-1 sm:px-2 text-xs sm:text-sm ${
                 recipe.isFavorited 
                   ? 'text-yellow-500 hover:text-yellow-600' 
                   : 'text-muted-foreground hover:text-yellow-500'
               }`}
             >
-              <Star className={`w-4 h-4 mr-1 ${recipe.isFavorited ? 'fill-current' : ''}`} />
+              <Star className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 ${recipe.isFavorited ? 'fill-current' : ''}`} />
               {recipe.favorites}
             </Button>
           </div>
@@ -228,9 +228,10 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
         <div className="flex gap-2">
           <Button
             onClick={() => onView(recipe)}
-            className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity"
+            className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity text-xs sm:text-sm h-8 sm:h-10"
           >
-            Посмотреть рецепт
+            <span className="hidden sm:inline">Посмотреть рецепт</span>
+            <span className="sm:hidden">Смотреть</span>
           </Button>
           
           {/* Rating buttons */}
@@ -241,9 +242,9 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => onRate(recipe.id, rating)}
-                className="h-8 w-8 p-0 hover:bg-yellow-50"
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-yellow-50"
               >
-                <Star className={`w-4 h-4 ${
+                <Star className={`w-3 h-3 sm:w-4 sm:h-4 ${
                   rating <= recipe.rating 
                     ? 'text-yellow-400 fill-current' 
                     : 'text-gray-300'

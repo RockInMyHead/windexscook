@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Header } from "@/components/header";
 import { AuthModal } from "@/components/ui/auth-modal";
+import { PremiumModal } from "@/components/ui/premium-modal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/contexts/UserContext";
@@ -11,8 +12,9 @@ const Collaborations = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login'|'register'>('login');
-  const { isAuthenticated, login } = useUser();
+  const { isAuthenticated, login, hasActiveSubscription } = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleRegister = () => { setAuthMode('register'); setShowAuthModal(true); };
@@ -23,6 +25,12 @@ const Collaborations = () => {
       handleLogin();
       return;
     }
+    
+    if (!hasActiveSubscription) {
+      setShowPremiumModal(true);
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const result = await OpenAIService.analyzeCaloriesFromImage(file);
@@ -62,6 +70,11 @@ const Collaborations = () => {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         onSuccess={(userData) => { login(userData); setShowAuthModal(false); toast({ title: 'Добро пожаловать!', description: `Привет, ${userData.name}!` }); }}
+      />
+      <PremiumModal
+        isOpen={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+        feature="image"
       />
     </div>
   );

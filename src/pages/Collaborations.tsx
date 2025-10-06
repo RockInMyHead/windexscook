@@ -2,15 +2,18 @@ import React, { useState, useRef } from 'react';
 import { Header } from "@/components/header";
 import { AuthModal } from "@/components/ui/auth-modal";
 import { PremiumModal } from "@/components/ui/premium-modal";
+import { CalorieAnalysisResult } from "@/components/ui/calorie-analysis-result";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/contexts/UserContext";
 import { toast } from "@/hooks/use-toast";
 import { OpenAIService } from "@/services/openai";
+import { X } from "lucide-react";
 
 const Collaborations = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+  const [analysisTimestamp, setAnalysisTimestamp] = useState<Date | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login'|'register'>('login');
@@ -35,6 +38,7 @@ const Collaborations = () => {
     try {
       const result = await OpenAIService.analyzeCaloriesFromImage(file);
       setAnalysisResult(result);
+      setAnalysisTimestamp(new Date());
     } catch (error: any) {
       toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
     } finally {
@@ -45,6 +49,14 @@ const Collaborations = () => {
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) handleAnalyze(file);
+  };
+
+  const clearResults = () => {
+    setAnalysisResult(null);
+    setAnalysisTimestamp(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   return (
@@ -60,11 +72,38 @@ const Collaborations = () => {
             <Button onClick={() => fileInputRef.current?.click()} className="w-full">
               {isLoading ? 'Анализирую...' : 'Загрузить фото блюда'}
             </Button>
-            {analysisResult && (
-              <pre className="whitespace-pre-wrap bg-muted/20 p-4 rounded">{analysisResult}</pre>
-            )}
           </CardContent>
         </Card>
+        
+        {/* Результаты анализа в стиле чата */}
+        {analysisResult && analysisTimestamp && (
+          <div className="max-w-4xl mx-auto mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">Результат анализа</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearResults}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Очистить
+              </Button>
+            </div>
+            <div className="space-y-4">
+              <CalorieAnalysisResult 
+                result={analysisResult}
+                timestamp={analysisTimestamp}
+                onLike={() => {
+                  toast({
+                    title: "👍 Спасибо!",
+                    description: "Ваша оценка помогает улучшить анализ",
+                  });
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
       <AuthModal
         isOpen={showAuthModal}

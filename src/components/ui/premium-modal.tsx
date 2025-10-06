@@ -2,7 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, Crown, Sparkles, X, Loader2 } from 'lucide-react';
+import { Check, Crown, Sparkles, Loader2 } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
 import { toast } from '@/hooks/use-toast';
 
@@ -91,22 +91,11 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md" hideCloseButton>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Crown className="w-6 h-6 text-amber-500" />
-              <DialogTitle>Premium подписка</DialogTitle>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClose}
-              className="h-6 w-6 p-0"
-              disabled={isLoading}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+          <div className="flex items-center gap-2">
+            <Crown className="w-6 h-6 text-amber-500" />
+            <DialogTitle>Premium подписка</DialogTitle>
           </div>
           <DialogDescription>
             Для использования {featureDescription} требуется Premium подписка

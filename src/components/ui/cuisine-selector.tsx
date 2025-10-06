@@ -79,12 +79,12 @@ export const CuisineSelector: React.FC<CuisineSelectorProps> = ({
       {/* Cuisine Selection */}
       {!selectedCuisineData && (
         <Tabs value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as keyof typeof CUISINE_CATEGORIES)}>
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="european">Европа</TabsTrigger>
-            <TabsTrigger value="asian">Азия</TabsTrigger>
-            <TabsTrigger value="american">Америка</TabsTrigger>
-            <TabsTrigger value="middle_eastern">Ближний Восток</TabsTrigger>
-            <TabsTrigger value="african">Африка</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1">
+            <TabsTrigger value="european" className="text-xs sm:text-sm">Европа</TabsTrigger>
+            <TabsTrigger value="asian" className="text-xs sm:text-sm">Азия</TabsTrigger>
+            <TabsTrigger value="american" className="text-xs sm:text-sm">Америка</TabsTrigger>
+            <TabsTrigger value="middle_eastern" className="text-xs sm:text-sm">Ближний Восток</TabsTrigger>
+            <TabsTrigger value="african" className="text-xs sm:text-sm">Африка</TabsTrigger>
           </TabsList>
 
           <TabsContent value={selectedCategory} className="space-y-4">

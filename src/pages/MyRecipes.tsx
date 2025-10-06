@@ -522,6 +522,10 @@ export const MyRecipes = () => {
         isOpen={showPremiumModal}
         onClose={() => setShowPremiumModal(false)}
         feature={premiumFeature}
+        onSuccess={() => {
+          // После успешной подписки можно выполнить дополнительные действия
+          console.log('Premium subscription activated for:', premiumFeature);
+        }}
       />
     </div>
   );

@@ -75,6 +75,10 @@ const Collaborations = () => {
         isOpen={showPremiumModal}
         onClose={() => setShowPremiumModal(false)}
         feature="image"
+        onSuccess={() => {
+          // После успешной подписки можно выполнить дополнительные действия
+          console.log('Premium subscription activated for image analysis');
+        }}
       />
     </div>
   );

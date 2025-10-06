@@ -98,9 +98,10 @@ export const ReviewsSection = () => {
                   ))}
                 </div>
 
-                <blockquote className="text-sm text-muted-foreground leading-relaxed italic group-hover:text-foreground transition-colors">
-                  "{review.text}"
-                </blockquote>
+                <blockquote 
+                  className="text-sm text-muted-foreground leading-relaxed italic group-hover:text-foreground transition-colors"
+                  dangerouslySetInnerHTML={{ __html: `"${review.text}"` }}
+                />
 
                 <div className="pt-2 border-t border-border/50">
                   <div className="text-xs text-primary font-medium">

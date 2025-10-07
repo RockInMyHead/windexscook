@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,18 @@ export const MyRecipes = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
+  // Handler to save generated recipe to collection
+  const handleSaveGeneratedRecipe = useCallback((recipeToSave: Recipe) => {
+    const newSaved: SavedRecipe = {
+      ...recipeToSave,
+      id: Date.now().toString(),
+      savedAt: new Date().toISOString(),
+      userId: user?.id || ''
+    };
+    setSavedRecipes(prev => [newSaved, ...prev]);
+    setGeneratedRecipe(null);
+    toast({ title: 'Сохранено', description: 'Рецепт добавлен в вашу коллекцию' });
+  }, [user]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDifficulty, setFilterDifficulty] = useState<string>("all");
   const [filterCuisine, setFilterCuisine] = useState<string>("all");
@@ -498,6 +510,8 @@ export const MyRecipes = () => {
           onGenerateNew={handleGenerateNew}
           onRegister={() => {}}
           onLogin={() => {}}
+          onSave={handleSaveGeneratedRecipe}
+          showSaveButton={true}
         />
       )}
 

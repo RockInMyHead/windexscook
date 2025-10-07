@@ -173,24 +173,36 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
           {/* Instructions */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-blue-500" />
-                Инструкции приготовления
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-blue-500" />
+                  <CardTitle>Инструкции приготовления</CardTitle>
+                </div>
+                {showSaveButton && onSave && (
+                  <Button variant="primary" size="sm" onClick={handleSave} className="ml-auto">
+                    Сохранить
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
-              <ol className="space-y-4">
-                {recipe.instructions.map((instruction, index) => (
-                  <li key={index} className="flex gap-4">
-                    <span className="flex-shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
-                      {index + 1}
-                    </span>
-                    <p className="text-foreground leading-relaxed pt-1">
-                      {instruction}
-                    </p>
-                  </li>
-                ))}
-              </ol>
+              <div className="space-y-4">
+                {recipe.instructions.map((instruction, index) => {
+                  const isMeta = /^(Оборудование|Время|Важно)/i.test(instruction);
+                  return (
+                    <div key={index} className={isMeta ? "" : "flex gap-4"}>
+                      {!isMeta && (
+                        <span className="flex-shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
+                          {index + 1}
+                        </span>
+                      )}
+                      <p className={isMeta ? "font-semibold text-foreground leading-relaxed" : "text-foreground leading-relaxed pt-1"}>
+                        {instruction.replace(/^[0-9\.\s]+/, '')}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
 

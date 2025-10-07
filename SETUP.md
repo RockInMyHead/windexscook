@@ -8,7 +8,16 @@
 
 Для полной функциональности приложения рекомендуется настроить API ключи:
 
-### 1. ElevenLabs API (для голосового синтеза)
+### 1. NanoBanana API (для генерации изображений блюд)
+
+1. Зарегистрируйтесь на https://nanobanana.io/
+2. Получите API ключ в вашем аккаунте
+3. Добавьте в файл `.env`:
+```bash
+NANOBANANA_API_KEY=ваш_nanobanana_api_ключ_здесь
+```
+
+### 2. ElevenLabs API (для голосового синтеза)
 
 1. Зарегистрируйтесь на [elevenlabs.io](https://elevenlabs.io/)
 2. Получите API ключ в разделе Profile → API Key
@@ -17,7 +26,7 @@
 VITE_ELEVENLABS_API_KEY=ваш_api_ключ_здесь
 ```
 
-### 2. OpenAI API (для AI функций)
+### 3. OpenAI API (для AI функций)
 
 1. Зарегистрируйтесь на [platform.openai.com](https://platform.openai.com/)
 2. Создайте API ключ в разделе API Keys

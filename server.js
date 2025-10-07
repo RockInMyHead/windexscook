@@ -136,8 +136,9 @@ app.use('/api/elevenlabs', async (req, res) => {
       url: url,
       headers,
       data: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-      httpsAgent: proxyAgent,
-      httpAgent: proxyAgent
+      // Отключаем прокси для прямого подключения
+      // httpsAgent: proxyAgent,
+      // httpAgent: proxyAgent
     });
 
     const data = JSON.stringify(response.data);
@@ -216,14 +217,15 @@ app.use('/api/openai', async (req, res) => {
   });
 
     try {
-      console.log('🚀 Sending axios request with proxy agent...');
+      console.log('🚀 Sending axios request WITHOUT proxy agent (direct connection)...');
       const response = await axios({
         method: req.method,
         url: url,
         headers,
         data: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-        httpsAgent: proxyAgent,
-        httpAgent: proxyAgent
+        // Отключаем прокси для прямого подключения
+        // httpsAgent: proxyAgent,
+        // httpAgent: proxyAgent
       });
 
       const data = JSON.stringify(response.data);

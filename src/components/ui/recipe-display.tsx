@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './dialog';
 import { Button } from './button';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './card';
@@ -132,6 +132,9 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
               <X className="h-4 w-4" />
             </Button>
           </div>
+          <DialogDescription className="sr-only">
+            Рецепт блюда: {recipe.title}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 sm:space-y-6">
@@ -233,7 +236,7 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
                         </span>
                       )}
                       <p className={isMeta ? "font-semibold text-foreground leading-relaxed" : "text-foreground leading-relaxed pt-1"}>
-                        {instruction.replace(/^[0-9\.\s]+/, '')}
+                        {instruction.replace(/^[0-9.\s]+/, '')}
                       </p>
                     </div>
                   );

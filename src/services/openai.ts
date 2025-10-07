@@ -213,9 +213,15 @@ ${constraints.join('\n')}
         let cleanResponse = response.trim();
         
         // Ищем JSON в ответе (может быть обернут в markdown или иметь лишний текст)
-        const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
+        // Используем более безопасное регулярное выражение
+        const jsonMatch = cleanResponse.match(/\{[\s\S]*?\}(?=\s*$|\s*[^}])/);
         if (jsonMatch) {
           cleanResponse = jsonMatch[0];
+        }
+        
+        // Дополнительная проверка на валидность JSON
+        if (!cleanResponse.startsWith('{') || !cleanResponse.endsWith('}')) {
+          throw new Error('Invalid JSON format received from AI');
         }
         
         recipeData = JSON.parse(cleanResponse);

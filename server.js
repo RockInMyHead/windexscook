@@ -9,11 +9,11 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 // Загружаем переменные окружения
 dotenv.config();
 
-// Настройка прокси - используем только env переменные
-const PROXY_HOST = process.env.PROXY_HOST || '185.68.187.126';
-const PROXY_PORT = process.env.PROXY_PORT || '8000';
-const PROXY_USERNAME = process.env.PROXY_USERNAME || '4Vh0VJ';
-const PROXY_PASSWORD = process.env.PROXY_PASSWORD || 'zmJ1gk';
+// Настройка прокси - используем только env переменные, без fallback
+const PROXY_HOST = process.env.PROXY_HOST;
+const PROXY_PORT = process.env.PROXY_PORT;
+const PROXY_USERNAME = process.env.PROXY_USERNAME;
+const PROXY_PASSWORD = process.env.PROXY_PASSWORD;
 
 // Создаем прокси агент для HTTPS только если все данные прокси указаны
 const proxyUrl = PROXY_HOST && PROXY_PORT && PROXY_USERNAME && PROXY_PASSWORD 

@@ -9,21 +9,25 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 // Загружаем переменные окружения
 dotenv.config();
 
-// Настройка прокси
-const PROXY_HOST = process.env.PROXY_HOST || '185.68.187.46';
+// Настройка прокси - используем только env переменные
+const PROXY_HOST = process.env.PROXY_HOST || '185.68.187.126';
 const PROXY_PORT = process.env.PROXY_PORT || '8000';
-const PROXY_USERNAME = process.env.PROXY_USERNAME || 'FeCuvT';
-const PROXY_PASSWORD = process.env.PROXY_PASSWORD || 'aeUYh';
+const PROXY_USERNAME = process.env.PROXY_USERNAME || '4Vh0VJ';
+const PROXY_PASSWORD = process.env.PROXY_PASSWORD || 'zmJ1gk';
 
-// Создаем прокси агент для HTTPS
-const proxyUrl = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`;
-const proxyAgent = new HttpsProxyAgent(proxyUrl);
+// Создаем прокси агент для HTTPS только если все данные прокси указаны
+const proxyUrl = PROXY_HOST && PROXY_PORT && PROXY_USERNAME && PROXY_PASSWORD 
+  ? `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`
+  : null;
+
+const proxyAgent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : null;
 
 console.log('🔧 Proxy configuration:', {
-  proxyUrl: proxyUrl.replace(/:[^@]*@/, ':***@'), // Скрываем пароль в логах
+  proxyUrl: proxyUrl ? proxyUrl.replace(/:[^@]*@/, ':***@') : 'disabled', // Скрываем пароль в логах
   proxyHost: PROXY_HOST,
   proxyPort: PROXY_PORT,
-  proxyUsername: PROXY_USERNAME
+  proxyUsername: PROXY_USERNAME,
+  proxyEnabled: !!proxyAgent
 });
 
 // Создаем директорию для логов
@@ -131,15 +135,21 @@ app.use('/api/elevenlabs', async (req, res) => {
     // Удаляем host заголовок, чтобы избежать конфликтов
     delete headers.host;
 
-    const response = await axios({
+    const axiosConfig = {
       method: req.method,
       url: url,
       headers,
       data: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-      // Отключаем прокси для прямого подключения
-      // httpsAgent: proxyAgent,
-      // httpAgent: proxyAgent
-    });
+      proxy: false // Отключаем автоопределение прокси из env переменных
+    };
+    
+    // Добавляем прокси агент только если он настроен
+    if (proxyAgent) {
+      axiosConfig.httpsAgent = proxyAgent;
+      axiosConfig.httpAgent = proxyAgent;
+    }
+    
+    const response = await axios(axiosConfig);
 
     const data = JSON.stringify(response.data);
     
@@ -217,16 +227,23 @@ app.use('/api/openai', async (req, res) => {
   });
 
     try {
-      console.log('🚀 Sending axios request WITHOUT proxy agent (direct connection)...');
-      const response = await axios({
+      console.log(`🚀 Sending axios request ${proxyAgent ? 'with proxy agent' : 'WITHOUT proxy'}...`);
+      
+      const axiosConfig = {
         method: req.method,
         url: url,
         headers,
         data: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-        // Отключаем прокси для прямого подключения
-        // httpsAgent: proxyAgent,
-        // httpAgent: proxyAgent
-      });
+        proxy: false // Отключаем автоопределение прокси из env переменных
+      };
+      
+      // Добавляем прокси агент только если он настроен
+      if (proxyAgent) {
+        axiosConfig.httpsAgent = proxyAgent;
+        axiosConfig.httpAgent = proxyAgent;
+      }
+      
+      const response = await axios(axiosConfig);
 
       const data = JSON.stringify(response.data);
       

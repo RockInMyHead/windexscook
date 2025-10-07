@@ -299,6 +299,93 @@ app.use('/api/openai', async (req, res) => {
   }
 });
 
+// Image generation endpoint
+app.post('/api/generate-nb-image', async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ 
+        error: 'Prompt is required' 
+      });
+    }
+
+    const apiKey = process.env.VITE_OPENAI_API_KEY;
+    
+    if (!apiKey) {
+      logToFile('ERROR', 'OpenAI API key not configured for image generation');
+      return res.status(500).json({ 
+        error: 'OpenAI API key not configured' 
+      });
+    }
+
+    logToFile('INFO', `Generating image for prompt: ${prompt}`);
+
+    // Создаем заголовки для запроса к OpenAI
+    const headers = {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    };
+
+    const imageRequest = {
+      model: "dall-e-3",
+      prompt: prompt,
+      n: 1,
+      size: "1024x1024",
+      quality: "standard",
+      response_format: "b64_json"
+    };
+
+    const axiosConfig = {
+      method: 'POST',
+      url: 'https://api.openai.com/v1/images/generations',
+      headers,
+      data: JSON.stringify(imageRequest),
+      proxy: false
+    };
+    
+    // Добавляем прокси агент только если он настроен
+    if (proxyAgent) {
+      axiosConfig.httpsAgent = proxyAgent;
+      axiosConfig.httpAgent = proxyAgent;
+    }
+    
+    const response = await axios(axiosConfig);
+
+    if (response.data && response.data.data && response.data.data[0] && response.data.data[0].b64_json) {
+      const imageBase64 = response.data.data[0].b64_json;
+      
+      logToFile('INFO', `Image generated successfully for prompt: ${prompt}`);
+      
+      res.json({ 
+        image_base64: imageBase64 
+      });
+    } else {
+      logToFile('ERROR', 'Invalid response format from OpenAI image generation');
+      res.status(500).json({ 
+        error: 'Invalid response from image generation service' 
+      });
+    }
+
+  } catch (error) {
+    logToFile('ERROR', 'Image generation error', {
+      error: error.message,
+      stack: error.stack,
+      prompt: req.body.prompt
+    });
+    
+    if (error.response) {
+      const data = JSON.stringify(error.response.data);
+      res.status(error.response.status).send(data);
+    } else {
+      res.status(500).json({ 
+        error: 'Internal server error',
+        details: error.message 
+      });
+    }
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ 

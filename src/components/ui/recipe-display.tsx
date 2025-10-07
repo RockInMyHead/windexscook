@@ -91,8 +91,22 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
         body: JSON.stringify({ prompt: recipe.title })
       });
       if (!res.ok) throw new Error('Ошибка генерации изображения');
-      const data = await res.json();
-      setDishImage(data.image_base64 ? `data:image/png;base64,${data.image_base64}` : null);
+      let b;
+      // Проверяем, что сервер вернул JSON
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        try {
+          b = await res.json();
+        } catch (err) {
+          console.error('Failed to parse JSON from image response:', err);
+          throw new Error('Сервер вернул некорректный формат данных для изображения');
+        }
+      } else {
+        const text = await res.text();
+        console.error('Image API returned non-JSON:', text);
+        throw new Error('Сервер вернул неверный ответ при генерации изображения');
+      }
+      setDishImage(b.image_base64 ? `data:image/png;base64,${b.image_base64}` : null);
     } catch (e: any) {
       console.error(e);
       toast({ title: 'Ошибка', description: e.message || 'Не удалось сгенерировать изображение', variant: 'destructive' });

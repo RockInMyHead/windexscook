@@ -46,6 +46,16 @@ export const MyRecipes = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterDifficulty, setFilterDifficulty] = useState<string>("all");
+  const [filterCuisine, setFilterCuisine] = useState<string>("all");
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [premiumFeature, setPremiumFeature] = useState<string>('');
+  // removed local product selector state
+  const { isAuthenticated, user, hasActiveSubscription } = useUser();
+  
   // Handler to save generated recipe to collection
   const handleSaveGeneratedRecipe = useCallback((recipeToSave: Recipe) => {
     const newSaved: SavedRecipe = {
@@ -58,15 +68,6 @@ export const MyRecipes = () => {
     setGeneratedRecipe(null);
     toast({ title: 'Сохранено', description: 'Рецепт добавлен в вашу коллекцию' });
   }, [user]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterDifficulty, setFilterDifficulty] = useState<string>("all");
-  const [filterCuisine, setFilterCuisine] = useState<string>("all");
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [showPremiumModal, setShowPremiumModal] = useState(false);
-  const [premiumFeature, setPremiumFeature] = useState<string>('');
-  // removed local product selector state
-  const { isAuthenticated, user, hasActiveSubscription } = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Загружаем сохраненные рецепты при монтировании компонента

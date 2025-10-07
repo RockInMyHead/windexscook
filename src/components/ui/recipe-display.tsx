@@ -39,6 +39,10 @@ export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({
   onSave,
   showSaveButton = false
 }) => {
+  // State hooks must be declared at the top
+  const [dishImage, setDishImage] = useState<string | null>(null);
+  const [isImgLoading, setIsImgLoading] = useState(false);
+
   const handleSave = () => {
     if (onSave) {
       onSave(recipe);
@@ -78,9 +82,7 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
       });
     }
   };
-  // Generate dish image via NanoBanana
-  const [dishImage, setDishImage] = useState<string | null>(null);
-  const [isImgLoading, setIsImgLoading] = useState(false);
+
   const handleGenerateImage = async () => {
     setIsImgLoading(true);
     try {

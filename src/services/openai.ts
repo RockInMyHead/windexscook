@@ -60,19 +60,24 @@ export class OpenAIService {
   }
 
   private static async makeRequest(messages: any[], model: string = 'gpt-4o-mini') {
-    // Используем прокси через сервер вместо прямого обращения к API
-    const response = await fetch('/api/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: 0.8,
-        max_tokens: 2000,
-      }),
-    });
+    let response;
+    try {
+      response = await fetch('/api/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: 0.8,
+          max_tokens: 2000,
+        }),
+      });
+    } catch (networkError) {
+      console.error('Network error calling OpenAI:', networkError);
+      throw new Error('Не удалось подключиться к серверу генерации рецептов. Проверьте соединение.');
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -100,7 +105,12 @@ export class OpenAIService {
     }
 
     const data = await response.json();
-    return data.choices[0].message.content;
+    try {
+      return data.choices[0].message.content;
+    } catch (parseError) {
+      console.error('Error parsing JSON from OpenAI response:', parseError);
+      throw new Error('Получен неверный ответ от OpenAI. Попробуйте позже.');
+    }
   }
 
   static async generateRecipe(ingredients: string[], healthProfile?: UserHealthProfile, cuisineId?: string): Promise<Recipe> {
@@ -211,19 +221,17 @@ ${constraints.join('\n')}
       try {
         // Очищаем ответ от возможного лишнего текста
         let cleanResponse = response.trim();
-        
-        // Ищем JSON в ответе (может быть обернут в markdown или иметь лишний текст)
-        // Используем более безопасное регулярное выражение
-        const jsonMatch = cleanResponse.match(/\{[\s\S]*?\}(?=\s*$|\s*[^}])/);
-        if (jsonMatch) {
-          cleanResponse = jsonMatch[0];
-        }
-        
-        // Дополнительная проверка на валидность JSON
-        if (!cleanResponse.startsWith('{') || !cleanResponse.endsWith('}')) {
+
+        // Найдем границы JSON по первым '{' и последним '}'
+        const startIdx = cleanResponse.indexOf('{');
+        const endIdx = cleanResponse.lastIndexOf('}');
+        if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+          cleanResponse = cleanResponse.substring(startIdx, endIdx + 1);
+        } else {
           throw new Error('Invalid JSON format received from AI');
         }
-        
+
+        // Парсим JSON
         recipeData = JSON.parse(cleanResponse);
       } catch (parseError) {
         console.error('Failed to parse recipe JSON:', response);

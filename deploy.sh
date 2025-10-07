@@ -91,6 +91,13 @@ pm2 save
 pm2 startup
 ENDSSH
 
+# 🔐 Step 6: Install Certbot and obtain SSL certificate
+sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
+sudo apt-get update
+sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d $DOMAIN --agree-tos --no-eff-email --noninteractive --email youremail@example.com
+ENDSSH
+
 echo "🌐 Step 6: Configure Nginx..."
 sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
   # Отключаем Apache, чтобы Nginx мог слушать порт 443

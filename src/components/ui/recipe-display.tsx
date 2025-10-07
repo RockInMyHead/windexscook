@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './dialog';
 import { Button } from './button';
 import { Loader2 } from 'lucide-react';
@@ -42,6 +42,13 @@ export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({
   // State hooks must be declared at the top
   const [dishImage, setDishImage] = useState<string | null>(null);
   const [isImgLoading, setIsImgLoading] = useState(false);
+
+  // Автоматическая генерация изображения при открытии рецепта
+  useEffect(() => {
+    if (recipe && !dishImage && !isImgLoading) {
+      handleGenerateImage();
+    }
+  }, [recipe]);
 
   const handleSave = () => {
     if (onSave) {
@@ -161,15 +168,18 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
             </CardContent>
           </Card>
           {/* Dish image preview */}
-          <div className="flex items-center gap-2">
-            <Button onClick={handleGenerateImage} disabled={isImgLoading} size="sm">
-              {isImgLoading ? <Loader2 className="animate-spin h-4 w-4" /> : 'Сгенерировать изображение'}
-            </Button>
-          </div>
+          {isImgLoading && (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <Loader2 className="animate-spin h-8 w-8 mx-auto mb-2 text-primary" />
+                <p className="text-muted-foreground">Генерируем изображение блюда...</p>
+              </CardContent>
+            </Card>
+          )}
           {dishImage && (
             <Card>
               <CardContent className="p-4">
-                <img src={dishImage} alt="Сгенерированное блюдо" className="w-full h-auto rounded-md" />
+                <img src={dishImage} alt="Сгенерированное блюдо" className="w-full h-auto rounded-md shadow-sm" />
               </CardContent>
             </Card>
           )}
@@ -241,16 +251,19 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
             <CardContent>
               <div className="space-y-4">
                 {recipe.instructions.map((instruction, index) => {
-                  const isMeta = /^(Оборудование|Время|Важно)/i.test(instruction);
+                  // Очищаем инструкцию от лишних цифр и мета-информации
+                  const cleanInstruction = instruction
+                    .replace(/^[0-9.\s\-]+/, '') // Убираем номера в начале
+                    .replace(/^(Оборудование|Время|Важно|Техника):\s*/i, '') // Убираем мета-префиксы
+                    .trim();
+                  
                   return (
-                    <div key={index} className={isMeta ? "" : "flex gap-4"}>
-                      {!isMeta && (
-                        <span className="flex-shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
-                          {index + 1}
-                        </span>
-                      )}
-                      <p className={isMeta ? "font-semibold text-foreground leading-relaxed" : "text-foreground leading-relaxed pt-1"}>
-                        {instruction.replace(/^[0-9.\s]+/, '')}
+                    <div key={index} className="flex gap-4">
+                      <span className="flex-shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
+                        {index + 1}
+                      </span>
+                      <p className="text-foreground leading-relaxed pt-1">
+                        {cleanInstruction}
                       </p>
                     </div>
                   );

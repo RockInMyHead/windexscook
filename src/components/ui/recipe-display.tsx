@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
 import { Button } from './button';
+import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './card';
 import { Badge } from './badge';
 import { Separator } from './separator';
@@ -77,6 +78,26 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
       });
     }
   };
+  // Generate dish image via NanoBanana
+  const [dishImage, setDishImage] = useState<string | null>(null);
+  const [isImgLoading, setIsImgLoading] = useState(false);
+  const handleGenerateImage = async () => {
+    setIsImgLoading(true);
+    try {
+      const res = await fetch('/api/generate-nb-image', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: recipe.title })
+      });
+      if (!res.ok) throw new Error('Ошибка генерации изображения');
+      const data = await res.json();
+      setDishImage(data.image_base64 ? `data:image/png;base64,${data.image_base64}` : null);
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: 'Ошибка', description: e.message || 'Не удалось сгенерировать изображение', variant: 'destructive' });
+    } finally {
+      setIsImgLoading(false);
+    }
+  };
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty.toLowerCase()) {
@@ -120,6 +141,19 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
               </p>
             </CardContent>
           </Card>
+          {/* Dish image preview */}
+          <div className="flex items-center gap-2">
+            <Button onClick={handleGenerateImage} disabled={isImgLoading} size="sm">
+              {isImgLoading ? <Loader2 className="animate-spin h-4 w-4" /> : 'Сгенерировать изображение'}
+            </Button>
+          </div>
+          {dishImage && (
+            <Card>
+              <CardContent className="p-4">
+                <img src={dishImage} alt="Сгенерированное блюдо" className="w-full h-auto rounded-md" />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Recipe Info */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">

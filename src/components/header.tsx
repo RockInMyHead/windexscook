@@ -273,7 +273,7 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
                         asChild
                         className="w-full justify-start text-foreground hover:text-primary hover:bg-primary/10"
                       >
-                        <Link to="/profile" onClick={() => setIsMenuOpen(false)}>
+                        <Link to="/settings" onClick={() => setIsMenuOpen(false)}>
                           <Settings className="w-4 h-4 mr-2" />
                           Настройки
                         </Link>

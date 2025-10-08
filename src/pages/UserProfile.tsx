@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -321,11 +321,13 @@ const UserProfile: React.FC = () => {
                 Premium
               </Button>
               <Button
-                variant={activeTab === 'settings' ? 'default' : 'ghost'}
-                onClick={() => setActiveTab('settings')}
+                variant="ghost"
+                asChild
                 className="flex-1 whitespace-nowrap"
               >
-                Настройки
+                <Link to="/settings">
+                  Настройки
+                </Link>
               </Button>
             </div>
 
@@ -480,61 +482,6 @@ const UserProfile: React.FC = () => {
               <SubscriptionCard />
             )}
 
-            {/* Settings Tab */}
-            {activeTab === 'settings' && (
-              <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Settings className="w-5 h-5 text-gray-600" />
-                    Настройки аккаунта
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">Уведомления</h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span>Новые комментарии к рецептам</span>
-                        <Button variant="outline" size="sm">Включено</Button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Лайки и оценки</span>
-                        <Button variant="outline" size="sm">Включено</Button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Новые рецепты от подписок</span>
-                        <Button variant="outline" size="sm">Включено</Button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">Конфиденциальность</h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span>Публичный профиль</span>
-                        <Button variant="outline" size="sm">Включено</Button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Показывать email</span>
-                        <Button variant="outline" size="sm">Скрыто</Button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">Опасная зона</h3>
-                    <Button variant="destructive" size="sm">
-                      Удалить аккаунт
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
       </div>

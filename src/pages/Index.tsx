@@ -26,6 +26,12 @@ const Index = () => {
     }, 100);
   };
 
+  const handleViewExamples = () => {
+    // Smooth scroll to recipes section
+    const element = document.getElementById("recipes-section");
+    element?.scrollIntoView({ behavior: "smooth" });
+  };
+
   const handleGenerateRecipe = (ingredients: string[]) => {
     toast({
       title: "🎉 Рецепт готов!",
@@ -58,7 +64,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header onRegister={handleRegister} onLogin={handleLogin} />
-      <HeroSection onGetStarted={handleGetStarted} />
+      <HeroSection onGetStarted={handleGetStarted} onViewExamples={handleViewExamples} />
       
       {showIngredientInput && (
         <section id="ingredient-input" className="py-12 sm:py-16 md:py-20 px-4 bg-background">

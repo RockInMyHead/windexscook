@@ -132,7 +132,7 @@ export const RecipesSection = () => {
 
   if (isLoading) {
     return (
-      <section className="py-20 px-4 bg-muted/30">
+      <section id="recipes-section" className="py-20 px-4 bg-muted/30">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-16 space-y-4">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground">
@@ -151,7 +151,7 @@ export const RecipesSection = () => {
   }
 
   return (
-    <section className="py-12 sm:py-16 md:py-20 px-4 bg-muted/30">
+    <section id="recipes-section" className="py-12 sm:py-16 md:py-20 px-4 bg-muted/30">
       <div className="container mx-auto max-w-6xl">
         <div className="text-center mb-12 sm:mb-16 space-y-3 sm:space-y-4">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">

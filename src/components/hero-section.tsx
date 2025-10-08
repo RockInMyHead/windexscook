@@ -4,9 +4,10 @@ import heroChef from "@/assets/hero-chef.jpg";
 
 interface HeroSectionProps {
   onGetStarted: () => void;
+  onViewExamples?: () => void;
 }
 
-export const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
+export const HeroSection = ({ onGetStarted, onViewExamples }: HeroSectionProps) => {
   return (
     <section className="relative h-auto py-12 sm:py-20 md:py-32 flex items-center justify-center overflow-hidden">
       {/* Background gradient */}
@@ -67,6 +68,7 @@ export const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
               <Button 
                 size="lg" 
                 variant="secondary"
+                onClick={onViewExamples}
                 className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 hover:bg-secondary/80 transition-colors drop-shadow-md"
               >
                 Посмотреть примеры

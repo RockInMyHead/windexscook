@@ -32,7 +32,7 @@ const App = () => (
             <Route path="/recipes/:id" element={<RecipeDetails />} />
             <Route path="/collaborations" element={<Collaborations />} />
             <Route path="/profile" element={<UserProfile />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/*" element={<Settings />} />
             <Route path="/admin" element={<AdminPanel />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

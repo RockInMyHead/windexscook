@@ -395,8 +395,15 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Fallback для SPA - все остальные запросы возвращают index.html
+// Fallback для SPA - только HTML запросы возвращают index.html
 app.use((req, res) => {
+  // Пропускаем статические файлы (assets, favicon, etc.)
+  if (req.path.startsWith('/assets/') || 
+      req.path.startsWith('/favicon') || 
+      req.path.includes('.')) {
+    return res.status(404).send('File not found');
+  }
+  
   // Отключаем кэширование для HTML файлов
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.setHeader('Pragma', 'no-cache');

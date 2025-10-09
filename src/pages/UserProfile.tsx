@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -319,15 +319,6 @@ const UserProfile: React.FC = () => {
                 className="flex-1 whitespace-nowrap"
               >
                 Premium
-              </Button>
-              <Button
-                variant="ghost"
-                asChild
-                className="flex-1 whitespace-nowrap"
-              >
-                <Link to="/settings">
-                  Настройки
-                </Link>
               </Button>
             </div>
 

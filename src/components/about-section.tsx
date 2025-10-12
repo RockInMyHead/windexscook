@@ -152,17 +152,17 @@ export const AboutSection = () => {
             </div>
             
             <div className="relative z-10 space-y-3 sm:space-y-4">
-              <h3 className="text-xl sm:text-2xl md:text-3xl font-bold">
+              <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-black">
                 Наша миссия
               </h3>
               
-              <p className="text-sm sm:text-base md:text-lg lg:text-xl leading-relaxed opacity-95 px-2">
+              <p className="text-sm sm:text-base md:text-lg lg:text-xl leading-relaxed opacity-95 px-2 text-black">
                 Мы верим, что каждый человек способен создавать кулинарные шедевры. 
                 <span className="text-primary">Windexs</span> кулинар — это мост между вашими ингредиентами и безграничными возможностями кулинарии. 
                 Мы делаем готовку не просто процессом, а увлекательным творческим путешествием.
               </p>
               
-              <div className="text-background/80 text-xs sm:text-sm italic">
+              <div className="text-black/80 text-xs sm:text-sm italic">
                 "Искусственный интеллект + человеческое творчество = кулинарная магия"
               </div>
             </div>

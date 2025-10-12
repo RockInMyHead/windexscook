@@ -127,26 +127,12 @@ export const RoadmapSection = () => {
         {/* Call to action */}
         <div className="text-center mt-12 sm:mt-16 animate-fade-up" style={{ animationDelay: "1.2s" }}>
           <div className="p-6 sm:p-8 bg-gradient-hero rounded-2xl shadow-glow border border-border/50 max-w-2xl mx-auto">
-            <h3 className="text-xl sm:text-2xl font-bold text-background mb-3 sm:mb-4">
+            <h3 className="text-xl sm:text-2xl font-bold text-black mb-3 sm:mb-4">
               Готовы начать кулинарное приключение?
             </h3>
-            <p className="text-sm sm:text-base text-background/90 mb-4 sm:mb-6">
+            <p className="text-sm sm:text-base text-black/90 mb-4 sm:mb-6">
               Присоединяйтесь к тысячам поваров, которые уже открыли магию <span className="text-primary">Windexs</span> кулинарии
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-background/80 text-xs sm:text-sm">
-              <div className="flex items-center gap-1">
-                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
-                <span>Бесплатно</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
-                <span>Без регистрации</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
-                <span>Мгновенный результат</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>

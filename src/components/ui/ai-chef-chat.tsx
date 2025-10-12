@@ -16,7 +16,8 @@ import {
   ThumbsDown,
   Mic,
   Square,
-  Volume2
+  Volume2,
+  Trash2
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { OpenAIService } from '@/services/openai';
@@ -133,7 +134,20 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
     setMessages(prev => [...prev, thinkingMessage]);
 
     try {
-      const response = await OpenAIService.chatWithChef(messageText, user?.healthProfile);
+      // Подготавливаем историю сообщений для контекста
+      const messageHistory = messages
+        .filter(msg => 
+          msg.id !== 'thinking' && 
+          !(msg.role === 'assistant' && msg.content === 'Готов помочь с кулинарными вопросами! Что хотите приготовить?')
+        )
+        .map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }));
+
+      console.log('🔍 DEBUG: Sending message history:', messageHistory.length, 'messages');
+
+      const response = await OpenAIService.chatWithChef(messageText, user?.healthProfile, messageHistory);
       
       // Удаляем сообщение о мышлении
       setMessages(prev => {
@@ -229,6 +243,10 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
         timestamp: new Date()
       }
     ]);
+    toast({
+      title: "Чат очищен",
+      description: "История разговора удалена. Начинаем новый диалог!",
+    });
   };
 
   const formatTime = (date: Date) => {
@@ -588,6 +606,16 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
               ) : (
                 <Send className="w-4 h-4" />
               )}
+            </Button>
+            <Button
+              onClick={handleClearChat}
+              disabled={isLoading || isRecording}
+              size="icon"
+              variant="outline"
+              className="shrink-0 h-10 w-10"
+              title="Очистить чат"
+            >
+              <Trash2 className="w-4 h-4" />
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-2 hidden sm:block">

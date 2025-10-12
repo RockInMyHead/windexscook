@@ -99,7 +99,7 @@ sudo systemctl status nginx   # Статус Nginx
 windexscook/
 ├── src/
 │   ├── components/        # React компоненты
-│   │   ├── ui/           # UI компоненты (shadcn/ui)
+│   │   ├── ui/           # UI компоненты
 │   │   └── ...           # Секции страниц
 │   ├── pages/            # Страницы приложения
 │   ├── services/         # API сервисы

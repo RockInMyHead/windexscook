@@ -137,7 +137,7 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-[90vw] md:w-full mx-2 sm:mx-4">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-lg sm:text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
@@ -170,16 +170,22 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
           {/* Dish image preview */}
           {isImgLoading && (
             <Card>
-              <CardContent className="p-6 text-center">
-                <Loader2 className="animate-spin h-8 w-8 mx-auto mb-2 text-primary" />
-                <p className="text-muted-foreground">Генерируем изображение блюда...</p>
+              <CardContent className="p-4 sm:p-6 text-center">
+                <Loader2 className="animate-spin h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 text-primary" />
+                <p className="text-muted-foreground text-sm sm:text-base">Генерируем изображение блюда...</p>
               </CardContent>
             </Card>
           )}
           {dishImage && (
             <Card>
-              <CardContent className="p-4">
-                <img src={dishImage} alt="Сгенерированное блюдо" className="w-full h-auto rounded-md shadow-sm" />
+              <CardContent className="p-2 sm:p-4">
+                <div className="relative overflow-hidden rounded-md">
+                  <img 
+                    src={dishImage} 
+                    alt="Сгенерированное блюдо" 
+                    className="w-full h-auto max-h-[300px] sm:max-h-[400px] object-cover rounded-md shadow-sm" 
+                  />
+                </div>
               </CardContent>
             </Card>
           )}
@@ -258,11 +264,11 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
                     .trim();
                   
                   return (
-                    <div key={index} className="flex gap-4">
-                      <span className="flex-shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
+                    <div key={index} className="flex gap-3 sm:gap-4">
+                      <span className="flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold text-xs sm:text-sm">
                         {index + 1}
                       </span>
-                      <p className="text-foreground leading-relaxed pt-1">
+                      <p className="text-foreground leading-relaxed pt-0.5 sm:pt-1 text-sm sm:text-base">
                         {cleanInstruction}
                       </p>
                     </div>
@@ -292,20 +298,23 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
           <Separator />
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap gap-3 justify-center">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 justify-center">
             <Button
               onClick={handleCopy}
               variant="outline"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 text-sm sm:text-base"
+              size="sm"
             >
               <Copy className="h-4 w-4" />
-              Копировать рецепт
+              <span className="hidden sm:inline">Копировать рецепт</span>
+              <span className="sm:hidden">Копировать</span>
             </Button>
             
             {showSaveButton && onSave && (
               <Button
                 onClick={handleSave}
-                className="bg-gradient-primary hover:opacity-90 transition-opacity flex items-center gap-2"
+                className="bg-gradient-primary hover:opacity-90 transition-opacity flex items-center gap-2 text-sm sm:text-base"
+                size="sm"
               >
                 <Save className="h-4 w-4" />
                 Сохранить
@@ -315,10 +324,12 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
             <Button
               onClick={onGenerateNew}
               variant="secondary"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 text-sm sm:text-base"
+              size="sm"
             >
               <Sparkles className="h-4 w-4" />
-              Создать новый
+              <span className="hidden sm:inline">Создать новый</span>
+              <span className="sm:hidden">Новый</span>
             </Button>
           </div>
         </div>

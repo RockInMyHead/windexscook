@@ -49,3 +49,5 @@ ENDSSH
 
 echo "✅ Deployment completed!"
 echo "🌐 Application available at http://cook.windexs.ru:1031"
+
+

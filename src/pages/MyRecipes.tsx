@@ -427,30 +427,30 @@ export const MyRecipes = () => {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {filteredRecipes.map((recipe) => (
                     <Card key={recipe.id} className="group hover:shadow-card transition-all duration-300 hover:-translate-y-1 bg-gradient-card border-border/50 h-full flex flex-col">
                       <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <CardTitle className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <CardTitle className="text-base sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2 flex-1 min-w-0">
                             {recipe.title}
                           </CardTitle>
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 flex-shrink-0">
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => setGeneratedRecipe(recipe)}
-                              className="h-8 w-8 hover:bg-primary/10"
+                              className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-primary/10"
                             >
-                              <Eye className="w-4 h-4" />
+                              <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => handleDeleteRecipe(recipe.id)}
-                              className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+                              className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-destructive/10 hover:text-destructive"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
                             </Button>
                           </div>
                         </div>

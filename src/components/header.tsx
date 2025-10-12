@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -40,6 +40,7 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const { user, login, logout, isAuthenticated, isAdmin } = useUser();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const handleAuthSuccess = (userData: { name: string; email: string }) => {
     login(userData);
@@ -52,6 +53,8 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
 
   const handleLogout = () => {
     logout();
+    setIsMenuOpen(false); // Закрываем мобильное меню
+    navigate('/'); // Перенаправляем на главную страницу
     toast({
       title: "До свидания!",
       description: "Вы вышли из аккаунта",
@@ -148,7 +151,7 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
                         </DropdownMenuItem>
                       </HealthProfileModal>
                       <DropdownMenuItem asChild>
-                        <Link to="/profile">
+                        <Link to="/settings">
                           <Settings className="mr-2 h-4 w-4" />
                           <span>Настройки</span>
                         </Link>

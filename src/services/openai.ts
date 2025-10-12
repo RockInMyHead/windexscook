@@ -380,38 +380,45 @@ ${constraints.join('\n')}
     }
   }
 
-  static async chatWithChef(message: string, healthProfile?: UserHealthProfile): Promise<string> {
+  static async chatWithChef(
+    message: string, 
+    healthProfile?: UserHealthProfile, 
+    messageHistory?: Array<{role: 'user' | 'assistant', content: string}>
+  ): Promise<string> {
     console.log('🔍 DEBUG: chatWithChef called with message:', JSON.stringify(message));
+    console.log('🔍 DEBUG: messageHistory length:', messageHistory?.length || 0);
     
-    // Проверяем, является ли сообщение простым приветствием
-    const greetingPatterns = [
-      /^привет$/i,
-      /^здравствуй$/i,
-      /^здравствуйте$/i,
-      /^hi$/i,
-      /^hello$/i,
-      /^добро пожаловать$/i,
-      /^добро пожаловать!$/i,
-      /^привет!$/i,
-      /^здравствуй!$/i,
-      /^здравствуйте!$/i
-    ];
+    // Проверяем, является ли сообщение простым приветствием (только если нет истории)
+    if (!messageHistory || messageHistory.length === 0) {
+      const greetingPatterns = [
+        /^привет$/i,
+        /^здравствуй$/i,
+        /^здравствуйте$/i,
+        /^hi$/i,
+        /^hello$/i,
+        /^добро пожаловать$/i,
+        /^добро пожаловать!$/i,
+        /^привет!$/i,
+        /^здравствуй!$/i,
+        /^здравствуйте!$/i
+      ];
 
-    const trimmedMessage = message.trim();
-    console.log('🔍 DEBUG: trimmed message:', JSON.stringify(trimmedMessage));
-    
-    const isGreeting = greetingPatterns.some(pattern => {
-      const matches = pattern.test(trimmedMessage);
-      console.log('🔍 DEBUG: pattern', pattern, 'matches:', matches);
-      return matches;
-    });
-    
-    console.log('🔍 DEBUG: isGreeting:', isGreeting);
-    
-    if (isGreeting) {
-      // Отвечаем на приветствия коротким сообщением
-      console.log('🔍 DEBUG: Returning greeting response');
-      return 'Здравствуйте! Готов помочь с кулинарными вопросами. Что хотите приготовить?';
+      const trimmedMessage = message.trim();
+      console.log('🔍 DEBUG: trimmed message:', JSON.stringify(trimmedMessage));
+      
+      const isGreeting = greetingPatterns.some(pattern => {
+        const matches = pattern.test(trimmedMessage);
+        console.log('🔍 DEBUG: pattern', pattern, 'matches:', matches);
+        return matches;
+      });
+      
+      console.log('🔍 DEBUG: isGreeting:', isGreeting);
+      
+      if (isGreeting) {
+        // Отвечаем на приветствия коротким сообщением
+        console.log('🔍 DEBUG: Returning greeting response');
+        return 'Здравствуйте! Готов помочь с кулинарными вопросами. Что хотите приготовить?';
+      }
     }
 
     const prompt = `Ты - профессиональный Windexs кулинар с 20-летним опытом работы на кухне, рейтинг Top-1, знаешь все тонкости продуктов и техник.
@@ -428,19 +435,34 @@ ${constraints.join('\n')}
 4. Разбивай каждый основной шаг на несколько подшагов: описывай каждое мельчайшее действие (какое положение держать нож, как правильно помешивать, когда проверять готовность), и поясняй, зачем это важно.
 5. Формулируй подшаги ясно и подробно так, будто объясняешь человеку, который никогда не держал нож или не включал плиту.
 
+ВАЖНО: Помни контекст предыдущих сообщений в разговоре. Если пользователь задает уточняющие вопросы о рецепте, который обсуждался ранее, отвечай в контексте этого рецепта.
+
 Если вопрос не связан с кулинарией, вежливо направь разговор в нужное русло. Отвечай на русском языке.`;
 
     try {
-      const response = await this.makeRequest([
+      // Строим массив сообщений с контекстом
+      const messages = [
         {
-          role: "system",
+          role: "system" as const,
           content: prompt
-        },
-        {
-          role: "user",
-          content: message
         }
-      ]);
+      ];
+
+      // Добавляем историю сообщений (последние 10 сообщений для экономии токенов)
+      if (messageHistory && messageHistory.length > 0) {
+        const recentHistory = messageHistory.slice(-10); // Берем последние 10 сообщений
+        messages.push(...recentHistory);
+      }
+
+      // Добавляем текущее сообщение
+      messages.push({
+        role: "user" as const,
+        content: message
+      });
+
+      console.log('🔍 DEBUG: Sending messages to OpenAI:', messages.length, 'messages');
+
+      const response = await this.makeRequest(messages);
 
       return response;
     } catch (error) {

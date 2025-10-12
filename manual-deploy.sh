@@ -27,3 +27,5 @@ echo "   pm2 status"
 echo "   pm2 logs windex-cook"
 echo ""
 echo "🌐 Application will be available at: http://cook.windexs.ru:1031"
+
+

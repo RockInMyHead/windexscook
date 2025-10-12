@@ -36,6 +36,71 @@ if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
+// Система отслеживания лимитов изображений
+const imageLimitsFile = path.join(logsDir, 'image_limits.json');
+const DAILY_IMAGE_LIMIT = 20;
+
+// Функция для загрузки лимитов изображений
+const loadImageLimits = () => {
+  try {
+    if (fs.existsSync(imageLimitsFile)) {
+      const data = fs.readFileSync(imageLimitsFile, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Error loading image limits:', error);
+  }
+  return {};
+};
+
+// Функция для сохранения лимитов изображений
+const saveImageLimits = (limits) => {
+  try {
+    fs.writeFileSync(imageLimitsFile, JSON.stringify(limits, null, 2));
+  } catch (error) {
+    console.error('Error saving image limits:', error);
+  }
+};
+
+// Функция для проверки лимита изображений
+const checkImageLimit = (userIdentifier) => {
+  const limits = loadImageLimits();
+  const today = new Date().toDateString();
+  
+  if (!limits[userIdentifier]) {
+    limits[userIdentifier] = {};
+  }
+  
+  if (!limits[userIdentifier][today]) {
+    limits[userIdentifier][today] = 0;
+  }
+  
+  return {
+    canGenerate: limits[userIdentifier][today] < DAILY_IMAGE_LIMIT,
+    currentCount: limits[userIdentifier][today],
+    limit: DAILY_IMAGE_LIMIT
+  };
+};
+
+// Функция для увеличения счетчика изображений
+const incrementImageCount = (userIdentifier) => {
+  const limits = loadImageLimits();
+  const today = new Date().toDateString();
+  
+  if (!limits[userIdentifier]) {
+    limits[userIdentifier] = {};
+  }
+  
+  if (!limits[userIdentifier][today]) {
+    limits[userIdentifier][today] = 0;
+  }
+  
+  limits[userIdentifier][today]++;
+  saveImageLimits(limits);
+  
+  return limits[userIdentifier][today];
+};
+
 // Функция для логирования
 const logToFile = (level, message, data = null) => {
   const timestamp = new Date().toISOString();
@@ -302,11 +367,29 @@ app.use('/api/openai', async (req, res) => {
 // Image generation endpoint
 app.post('/api/generate-nb-image', async (req, res) => {
   try {
-    const { prompt } = req.body;
+    const { prompt, userIdentifier } = req.body;
     
     if (!prompt) {
       return res.status(400).json({ 
         error: 'Prompt is required' 
+      });
+    }
+
+    // Проверяем лимит изображений для пользователя
+    const userKey = userIdentifier || req.ip || 'anonymous';
+    const limitCheck = checkImageLimit(userKey);
+    
+    if (!limitCheck.canGenerate) {
+      logToFile('INFO', `Image generation limit exceeded for user: ${userKey}`, {
+        currentCount: limitCheck.currentCount,
+        limit: limitCheck.limit
+      });
+      
+      return res.status(429).json({ 
+        error: 'Daily image generation limit exceeded',
+        currentCount: limitCheck.currentCount,
+        limit: limitCheck.limit,
+        message: `Вы достигли дневного лимита генерации изображений (${limitCheck.limit}). Попробуйте завтра.`
       });
     }
 
@@ -319,7 +402,11 @@ app.post('/api/generate-nb-image', async (req, res) => {
       });
     }
 
-    logToFile('INFO', `Generating image for prompt: ${prompt}`);
+    logToFile('INFO', `Generating image for prompt: ${prompt}`, {
+      userKey,
+      currentCount: limitCheck.currentCount,
+      limit: limitCheck.limit
+    });
 
     // Создаем заголовки для запроса к OpenAI
     const headers = {
@@ -355,10 +442,19 @@ app.post('/api/generate-nb-image', async (req, res) => {
     if (response.data && response.data.data && response.data.data[0] && response.data.data[0].b64_json) {
       const imageBase64 = response.data.data[0].b64_json;
       
-      logToFile('INFO', `Image generated successfully for prompt: ${prompt}`);
+      // Увеличиваем счетчик изображений для пользователя
+      const newCount = incrementImageCount(userKey);
+      
+      logToFile('INFO', `Image generated successfully for prompt: ${prompt}`, {
+        userKey,
+        newCount,
+        limit: limitCheck.limit
+      });
       
       res.json({ 
-        image_base64: imageBase64 
+        image_base64: imageBase64,
+        currentCount: newCount,
+        limit: limitCheck.limit
       });
     } else {
       logToFile('ERROR', 'Invalid response format from OpenAI image generation');
@@ -383,6 +479,31 @@ app.post('/api/generate-nb-image', async (req, res) => {
         details: error.message 
       });
     }
+  }
+});
+
+// Check image generation limits endpoint
+app.get('/api/image-limits/:userIdentifier', (req, res) => {
+  try {
+    const { userIdentifier } = req.params;
+    const userKey = userIdentifier || req.ip || 'anonymous';
+    const limitCheck = checkImageLimit(userKey);
+    
+    res.json({
+      canGenerate: limitCheck.canGenerate,
+      currentCount: limitCheck.currentCount,
+      limit: limitCheck.limit,
+      remaining: limitCheck.limit - limitCheck.currentCount
+    });
+  } catch (error) {
+    logToFile('ERROR', 'Error checking image limits', {
+      error: error.message,
+      userIdentifier: req.params.userIdentifier
+    });
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
+    });
   }
 });
 

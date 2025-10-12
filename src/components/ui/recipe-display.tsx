@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Recipe } from '@/services/openai';
 import { toast } from '@/hooks/use-toast';
+import { useUser } from '@/contexts/UserContext';
 
 interface RecipeDisplayProps {
   recipe: Recipe;
@@ -42,6 +43,7 @@ export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({
   // State hooks must be declared at the top
   const [dishImage, setDishImage] = useState<string | null>(null);
   const [isImgLoading, setIsImgLoading] = useState(false);
+  const { user } = useUser();
 
   // Автоматическая генерация изображения при открытии рецепта
   useEffect(() => {
@@ -93,11 +95,27 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
   const handleGenerateImage = async () => {
     setIsImgLoading(true);
     try {
+      // Генерируем уникальный идентификатор пользователя
+      const userIdentifier = user?.email || `anonymous_${Date.now()}`;
+      
       const res = await fetch('/api/generate-nb-image', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: recipe.title })
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          prompt: recipe.title,
+          userIdentifier: userIdentifier
+        })
       });
-      if (!res.ok) throw new Error('Ошибка генерации изображения');
+      
+      if (!res.ok) {
+        // Проверяем, если это ошибка лимита
+        if (res.status === 429) {
+          const errorData = await res.json();
+          throw new Error(errorData.message || 'Достигнут дневной лимит генерации изображений');
+        }
+        throw new Error('Ошибка генерации изображения');
+      }
+      
       let b;
       // Проверяем, что сервер вернул JSON
       const contentType = res.headers.get('content-type') || '';
@@ -113,10 +131,23 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
         console.error('Image API returned non-JSON:', text);
         throw new Error('Сервер вернул неверный ответ при генерации изображения');
       }
+      
       setDishImage(b.image_base64 ? `data:image/png;base64,${b.image_base64}` : null);
+      
+      // Показываем информацию о лимитах, если они есть в ответе
+      if (b.currentCount && b.limit) {
+        toast({
+          title: "Изображение сгенерировано!",
+          description: `Использовано изображений: ${b.currentCount}/${b.limit}`,
+        });
+      }
     } catch (e: any) {
       console.error(e);
-      toast({ title: 'Ошибка', description: e.message || 'Не удалось сгенерировать изображение', variant: 'destructive' });
+      toast({ 
+        title: 'Ошибка', 
+        description: e.message || 'Не удалось сгенерировать изображение', 
+        variant: 'destructive' 
+      });
     } finally {
       setIsImgLoading(false);
     }

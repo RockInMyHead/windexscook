@@ -172,11 +172,11 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
                     </DropdownMenuContent>
                   </DropdownMenu>
 
-                  {/* Mobile Menu Button */}
+                  {/* Mobile Menu Button - показывается только на мобильных устройствах */}
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="lg:hidden"
+                    className="md:hidden lg:hidden xl:hidden 2xl:hidden"
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
                   >
                     {isMenuOpen ? (
@@ -210,11 +210,11 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
                     <span className="sm:hidden">Войти</span>
                   </Button>
                   
-                  {/* Mobile Menu Button */}
+                  {/* Mobile Menu Button - показывается только на мобильных устройствах */}
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="lg:hidden"
+                    className="md:hidden lg:hidden xl:hidden 2xl:hidden"
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
                   >
                     {isMenuOpen ? (

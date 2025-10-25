@@ -15,6 +15,9 @@ import UserProfile from './pages/UserProfile';
 import Settings from './pages/Settings';
 import AdminPanel from './pages/AdminPanel';
 import PaymentSuccess from './pages/PaymentSuccess';
+import TermsOfService from './pages/TermsOfService';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import ResetPassword from './pages/ResetPassword';
 
 const queryClient = new QueryClient();
 
@@ -36,6 +39,9 @@ const App = () => (
             <Route path="/settings/*" element={<Settings />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

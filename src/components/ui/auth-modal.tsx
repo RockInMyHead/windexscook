@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { X, Mail, Lock, User, ChefHat, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
@@ -22,6 +23,9 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
     password: "", 
     confirmPassword: "" 
   });
+  const [resetEmail, setResetEmail] = useState("");
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
 
   if (!isOpen) return null;
 
@@ -82,6 +86,16 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
       return;
     }
 
+    if (!acceptTerms) {
+      toast({
+        title: "Ошибка регистрации",
+        description: "Необходимо принять пользовательское соглашение",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
     // Симуляция API вызова
     setTimeout(() => {
       onSuccess({ 
@@ -95,6 +109,59 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
       onClose();
       setIsLoading(false);
     }, 1000);
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    if (!resetEmail) {
+      toast({
+        title: "Ошибка",
+        description: "Пожалуйста, введите email",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      console.log('🔐 [Auth] Отправляем запрос восстановления пароля для:', resetEmail);
+      
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: resetEmail }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: "Письмо отправлено!",
+          description: data.message || `На адрес ${resetEmail} отправлена ссылка для восстановления пароля`,
+        });
+        setShowResetPassword(false);
+        setResetEmail("");
+      } else {
+        toast({
+          title: "Ошибка",
+          description: data.error || "Не удалось отправить письмо",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('❌ [Auth] Ошибка восстановления пароля:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось отправить письмо. Попробуйте позже.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -162,6 +229,17 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
                       required
                     />
                   </div>
+                </div>
+
+                <div className="text-right">
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={() => setShowResetPassword(true)}
+                    className="text-sm text-primary hover:text-primary/80 p-0 h-auto"
+                  >
+                    Забыли пароль?
+                  </Button>
                 </div>
 
                 <Button 
@@ -247,10 +325,48 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
                   </div>
                 </div>
 
+                <div className="flex items-start space-x-2">
+                  <Checkbox
+                    id="accept-terms"
+                    checked={acceptTerms}
+                    onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
+                    className="mt-1"
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <Label
+                      htmlFor="accept-terms"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Я принимаю{" "}
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="p-0 h-auto text-primary hover:text-primary/80 underline"
+                        onClick={() => {
+                          window.open('/terms', '_blank');
+                        }}
+                      >
+                        пользовательское соглашение
+                      </Button>{" "}
+                      и{" "}
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="p-0 h-auto text-primary hover:text-primary/80 underline"
+                        onClick={() => {
+                          window.open('/privacy', '_blank');
+                        }}
+                      >
+                        политику конфиденциальности
+                      </Button>
+                    </Label>
+                  </div>
+                </div>
+
                 <Button 
                   type="submit" 
                   className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
-                  disabled={isLoading}
+                  disabled={isLoading || !acceptTerms}
                 >
                   {isLoading ? (
                     <>
@@ -272,6 +388,93 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Модальное окно восстановления пароля */}
+      {showResetPassword && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-60">
+          <Card className="w-full max-w-md bg-gradient-card border-border/50 shadow-glow">
+            <CardHeader className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setShowResetPassword(false);
+                  setResetEmail("");
+                }}
+                className="absolute top-4 right-4 hover:bg-destructive/10 hover:text-destructive"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+              
+              <div className="text-center space-y-2">
+                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Lock className="w-8 h-8 text-primary-foreground" />
+                </div>
+                <CardTitle className="text-2xl font-bold text-foreground">
+                  Восстановление пароля
+                </CardTitle>
+                <p className="text-muted-foreground">
+                  Введите ваш email для получения ссылки восстановления
+                </p>
+              </div>
+            </CardHeader>
+
+            <CardContent>
+              <form onSubmit={handleResetPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="reset-email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex space-x-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowResetPassword(false);
+                      setResetEmail("");
+                    }}
+                    className="flex-1"
+                  >
+                    Отмена
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                        Отправляем...
+                      </>
+                    ) : (
+                      "Отправить"
+                    )}
+                  </Button>
+                </div>
+              </form>
+
+              <div className="mt-6 text-center">
+                <p className="text-xs text-muted-foreground">
+                  Ссылка для восстановления будет действительна в течение 24 часов
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

@@ -49,42 +49,83 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       recognitionRef.current.lang = 'ru-RU';
 
       recognitionRef.current.onresult = (event: any) => {
+        console.log('🎯 [Voice Call] ===== РЕЗУЛЬТАТ РАСПОЗНАВАНИЯ РЕЧИ =====');
+        console.log('📝 [Voice Call] Сырые данные события:', event);
+        
         const transcript = event.results[0][0].transcript;
+        console.log('🗣️ [Voice Call] Распознанный текст:', {
+          transcript: transcript,
+          confidence: event.results[0][0].confidence || 'неизвестно',
+          length: transcript.length,
+          timestamp: new Date().toISOString()
+        });
+        
+        console.log('🔄 [Voice Call] Передаем текст в обработчик сообщений');
         handleUserMessage(transcript);
       };
 
       recognitionRef.current.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
+        console.error('❌ [Voice Call] ===== ОШИБКА РАСПОЗНАВАНИЯ РЕЧИ =====');
+        console.error('🔍 [Voice Call] Детали ошибки:', {
+          error: event.error,
+          type: event.type,
+          timestamp: new Date().toISOString()
+        });
+        
         setCallState(prev => ({ ...prev, isRecording: false, error: event.error }));
       };
 
       recognitionRef.current.onend = () => {
+        console.log('🏁 [Voice Call] ===== РАСПОЗНАВАНИЕ РЕЧИ ЗАВЕРШЕНО =====');
+        console.log('⏱️ [Voice Call] Время завершения:', new Date().toISOString());
         setCallState(prev => ({ ...prev, isRecording: false }));
       };
     }
   }, []);
 
   const handleUserMessage = async (text: string) => {
-    if (!text.trim()) return;
+    if (!text.trim()) {
+      console.log('⚠️ [Voice Call] Получен пустой текст, пропускаем обработку');
+      return;
+    }
 
-    console.log('🎤 [TTS] Пользователь сказал:', text);
+    console.log('🗣️ [Voice Call] ===== ОБРАБОТКА СООБЩЕНИЯ ПОЛЬЗОВАТЕЛЯ =====');
+    console.log('📝 [Voice Call] Текст сообщения:', {
+      text: text,
+      length: text.length,
+      timestamp: new Date().toISOString()
+    });
 
     // Отправляем в OpenAI без сохранения в чат
     try {
       setCallState(prev => ({ ...prev, isLoading: true }));
       
-      console.log('🤖 [TTS] Отправляем запрос в OpenAI...');
+      console.log('🤖 [Voice Call] Отправляем запрос в OpenAI...');
+      const startTime = Date.now();
+      
       const response = await OpenAIService.generateRecipe([text], undefined, undefined, true);
+      const responseTime = Date.now() - startTime;
+      
+      console.log('✅ [Voice Call] Ответ от OpenAI получен:', {
+        responseTime: responseTime + 'ms',
+        hasContent: !!response.content,
+        hasTitle: !!response.title,
+        timestamp: new Date().toISOString()
+      });
       
       const responseText = response.content || response.title || 'Я готов помочь с кулинарными вопросами!';
-      console.log('🤖 [TTS] AI ответил:', responseText);
+      console.log('📄 [Voice Call] Текст ответа:', {
+        text: responseText,
+        length: responseText.length
+      });
       
       // Воспроизводим ответ через TTS
-      console.log('🔊 [TTS] Начинаем воспроизведение через OpenAI TTS...');
+      console.log('🔊 [Voice Call] Начинаем воспроизведение через OpenAI TTS...');
       await speakText(responseText);
       
     } catch (error) {
-      console.error('❌ [TTS] Ошибка обработки сообщения:', error);
+      console.error('❌ [Voice Call] ===== ОШИБКА ОБРАБОТКИ СООБЩЕНИЯ =====');
+      console.error('🔍 [Voice Call] Детали ошибки:', error);
       toast({
         title: "Ошибка обработки",
         description: "Не удалось обработать ваше сообщение",
@@ -92,21 +133,38 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       });
     } finally {
       setCallState(prev => ({ ...prev, isLoading: false }));
+      console.log('🏁 [Voice Call] Состояние загрузки сброшено');
     }
   };
 
   const speakText = async (text: string) => {
     try {
-      console.log('🔊 [TTS] Начинаем синтез речи для текста:', text.substring(0, 50) + '...');
+      console.log('🔊 [Voice Call] ===== НАЧАЛО СИНТЕЗА РЕЧИ =====');
+      console.log('📝 [Voice Call] Текст для синтеза:', {
+        textLength: text.length,
+        textPreview: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+        fullText: text
+      });
+      
       setCallState(prev => ({ ...prev, isPlaying: true }));
       
       const startTime = Date.now();
-      await OpenAITTS.speak(text, 'alloy');
-      const duration = Date.now() - startTime;
+      console.log('⏱️ [Voice Call] Время начала синтеза:', new Date().toISOString());
       
-      console.log(`✅ [TTS] Воспроизведение завершено за ${duration}ms`);
+      await OpenAITTS.speak(text, 'alloy');
+      
+      const duration = Date.now() - startTime;
+      console.log('✅ [Voice Call] ===== СИНТЕЗ РЕЧИ ЗАВЕРШЕН =====');
+      console.log(`⏱️ [Voice Call] Общее время синтеза: ${duration}ms`);
+      console.log('📊 [Voice Call] Статистика:', {
+        textLength: text.length,
+        synthesisTime: duration + 'ms',
+        timestamp: new Date().toISOString()
+      });
+      
     } catch (error) {
-      console.error('❌ [TTS] Ошибка воспроизведения:', error);
+      console.error('❌ [Voice Call] ===== ОШИБКА СИНТЕЗА РЕЧИ =====');
+      console.error('🔍 [Voice Call] Детали ошибки:', error);
       toast({
         title: "Ошибка воспроизведения",
         description: "Не удалось воспроизвести ответ через OpenAI TTS",
@@ -114,6 +172,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       });
     } finally {
       setCallState(prev => ({ ...prev, isPlaying: false }));
+      console.log('🏁 [Voice Call] Состояние воспроизведения сброшено');
     }
   };
 
@@ -190,19 +249,32 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
   };
 
   const startRecording = () => {
-    if (!callState.isConnected) return;
+    if (!callState.isConnected) {
+      console.log('⚠️ [Voice Call] Попытка записи без подключения');
+      return;
+    }
     
     try {
-      console.log('🎤 [TTS] Начинаем запись речи...');
+      console.log('🎤 [Voice Call] ===== НАЧАЛО ЗАПИСИ РЕЧИ =====');
+      console.log('🔍 [Voice Call] Проверяем состояние распознавания:', {
+        isConnected: callState.isConnected,
+        isRecording: callState.isRecording,
+        isLoading: callState.isLoading
+      });
+      
       recognitionRef.current.start();
       setCallState(prev => ({ ...prev, isRecording: true }));
+      
+      console.log('✅ [Voice Call] Запись речи начата');
+      console.log('⏱️ [Voice Call] Время начала записи:', new Date().toISOString());
       
       toast({
         title: "🎤 Запись начата",
         description: "Говорите в микрофон...",
       });
     } catch (error) {
-      console.error('❌ [TTS] Ошибка начала записи:', error);
+      console.error('❌ [Voice Call] ===== ОШИБКА НАЧАЛА ЗАПИСИ =====');
+      console.error('🔍 [Voice Call] Детали ошибки:', error);
       toast({
         title: "Ошибка записи",
         description: "Не удалось начать запись",
@@ -212,11 +284,18 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
   };
 
   const stopRecording = () => {
-    console.log('🛑 [TTS] Останавливаем запись речи...');
+    console.log('🛑 [Voice Call] ===== ОСТАНОВКА ЗАПИСИ РЕЧИ =====');
+    console.log('⏱️ [Voice Call] Время остановки записи:', new Date().toISOString());
+    
     if (recognitionRef.current) {
       recognitionRef.current.stop();
+      console.log('✅ [Voice Call] Распознавание речи остановлено');
+    } else {
+      console.log('⚠️ [Voice Call] Распознавание речи не было инициализировано');
     }
+    
     setCallState(prev => ({ ...prev, isRecording: false }));
+    console.log('🏁 [Voice Call] Состояние записи сброшено');
   };
 
   return (

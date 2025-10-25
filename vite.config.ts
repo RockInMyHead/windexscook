@@ -17,37 +17,20 @@ export default defineConfig({
   server: {
     // Прокси для разработки и продакшена
     proxy: {
-      '/api/elevenlabs': {
+      '/api': {
         target: 'http://localhost:1041',
         changeOrigin: true,
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('Sending Request to the Target:', req.method, req.url);
+            console.log('Sending API Request to the Target:', req.method, req.url);
           });
           
           proxy.on('error', (err, _req, _res) => {
-            console.log('proxy error', err);
+            console.log('API proxy error', err);
           });
           
           proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
-          });
-        },
-      },
-      '/api/openai': {
-        target: 'http://localhost:1041',
-        changeOrigin: true,
-        configure: (proxy, _options) => {
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('Sending OpenAI Request to the Target:', req.method, req.url);
-          });
-          
-          proxy.on('error', (err, _req, _res) => {
-            console.log('OpenAI proxy error', err);
-          });
-          
-          proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('Received OpenAI Response from the Target:', proxyRes.statusCode, req.url);
+            console.log('Received API Response from the Target:', proxyRes.statusCode, req.url);
           });
         },
       }

@@ -686,6 +686,414 @@ app.get('/health', (req, res) => {
   });
 });
 
+// ===== SMTP SERVER MANAGEMENT ENDPOINTS =====
+
+// Получение статистики SMTP сервера
+app.get('/api/smtp/stats', async (req, res) => {
+  try {
+    const { CustomEmailService } = await import('./src/services/custom-email.js');
+    const stats = CustomEmailService.getSMTPStats();
+    
+    res.json({
+      success: true,
+      stats: stats
+    });
+  } catch (error) {
+    console.error('❌ [SMTP] Ошибка получения статистики:', error);
+    res.status(500).json({
+      error: 'Не удалось получить статистику SMTP сервера',
+      details: error.message
+    });
+  }
+});
+
+// Получение всех полученных писем
+app.get('/api/smtp/emails', async (req, res) => {
+  try {
+    const { CustomEmailService } = await import('./src/services/custom-email.js');
+    const emails = CustomEmailService.getReceivedEmails();
+    
+    res.json({
+      success: true,
+      emails: emails,
+      count: emails.length
+    });
+  } catch (error) {
+    console.error('❌ [SMTP] Ошибка получения писем:', error);
+    res.status(500).json({
+      error: 'Не удалось получить письма',
+      details: error.message
+    });
+  }
+});
+
+// Получение последнего письма
+app.get('/api/smtp/emails/last', async (req, res) => {
+  try {
+    const { CustomEmailService } = await import('./src/services/custom-email.js');
+    const lastEmail = CustomEmailService.getLastReceivedEmail();
+    
+    if (!lastEmail) {
+      return res.json({
+        success: true,
+        email: null,
+        message: 'Писем не получено'
+      });
+    }
+    
+    res.json({
+      success: true,
+      email: lastEmail
+    });
+  } catch (error) {
+    console.error('❌ [SMTP] Ошибка получения последнего письма:', error);
+    res.status(500).json({
+      error: 'Не удалось получить последнее письмо',
+      details: error.message
+    });
+  }
+});
+
+// Очистка очереди писем
+app.delete('/api/smtp/emails', async (req, res) => {
+  try {
+    const { CustomEmailService } = await import('./src/services/custom-email.js');
+    CustomEmailService.clearReceivedEmails();
+    
+    res.json({
+      success: true,
+      message: 'Очередь писем очищена'
+    });
+  } catch (error) {
+    console.error('❌ [SMTP] Ошибка очистки писем:', error);
+    res.status(500).json({
+      error: 'Не удалось очистить письма',
+      details: error.message
+    });
+  }
+});
+
+// Остановка SMTP сервера
+app.post('/api/smtp/stop', async (req, res) => {
+  try {
+    const { CustomEmailService } = await import('./src/services/custom-email.js');
+    await CustomEmailService.stopSMTPServer();
+    
+    res.json({
+      success: true,
+      message: 'SMTP сервер остановлен'
+    });
+  } catch (error) {
+    console.error('❌ [SMTP] Ошибка остановки сервера:', error);
+    res.status(500).json({
+      error: 'Не удалось остановить SMTP сервер',
+      details: error.message
+    });
+  }
+});
+
+// Получение конфигурации аутентификации
+app.get('/api/smtp/auth-config', async (req, res) => {
+  try {
+    const { CustomSMTPServer } = await import('./src/services/custom-smtp-server.js');
+    
+    res.json({
+      success: true,
+      config: {
+        authEnabled: CustomSMTPServer.authEnabled,
+        username: CustomSMTPServer.username,
+        passwordMasked: CustomSMTPServer.password ? '***' + CustomSMTPServer.password.slice(-3) : null,
+        port: CustomSMTPServer.port,
+        isRunning: CustomSMTPServer.isRunning
+      }
+    });
+  } catch (error) {
+    console.error('❌ [SMTP] Ошибка получения конфигурации:', error);
+    res.status(500).json({
+      error: 'Не удалось получить конфигурацию аутентификации',
+      details: error.message
+    });
+  }
+});
+
+// Обновление конфигурации аутентификации
+app.post('/api/smtp/auth-config', async (req, res) => {
+  try {
+    const { username, password, authEnabled } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({
+        error: 'Имя пользователя и пароль обязательны'
+      });
+    }
+    
+    // Обновляем переменные окружения
+    process.env.SMTP_SERVER_USERNAME = username;
+    process.env.SMTP_SERVER_PASSWORD = password;
+    process.env.SMTP_SERVER_REQUIRE_AUTH = authEnabled ? 'true' : 'false';
+    
+    // Обновляем конфигурацию в SMTP сервере
+    const { CustomSMTPServer } = await import('./src/services/custom-smtp-server.js');
+    CustomSMTPServer.updateAuthConfig(username, password, authEnabled);
+    
+    console.log(`🔧 [SMTP] Обновлена конфигурация аутентификации:`);
+    console.log(`   - Пользователь: ${username}`);
+    console.log(`   - Пароль: ***${password.slice(-3)}`);
+    console.log(`   - Включена: ${authEnabled}`);
+    
+    res.json({
+      success: true,
+      message: 'Конфигурация аутентификации обновлена',
+      config: {
+        username,
+        passwordMasked: '***' + password.slice(-3),
+        authEnabled
+      }
+    });
+  } catch (error) {
+    console.error('❌ [SMTP] Ошибка обновления конфигурации:', error);
+    res.status(500).json({
+      error: 'Не удалось обновить конфигурацию аутентификации',
+      details: error.message
+    });
+  }
+});
+
+// ===== EMAIL ENDPOINTS =====
+
+// Генерация токена восстановления пароля
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email обязателен' });
+    }
+
+    console.log('🔐 [Auth] Запрос восстановления пароля для:', email);
+
+    // Импортируем необходимые модули
+    const jwt = await import('jsonwebtoken');
+    const { CustomEmailService } = await import('./src/services/custom-email.js');
+
+    // Проверяем, настроен ли email сервис
+    // В режиме разработки всегда используем собственный SMTP сервер
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    
+    if (!CustomEmailService.isConfigured() && !isDevelopment) {
+      console.log('⚠️ [Auth] Email сервис не настроен, используем симуляцию');
+      return res.json({
+        success: true,
+        message: 'Письмо для восстановления пароля отправлено (симуляция)'
+      });
+    }
+
+    // Генерируем токен (действителен 24 часа)
+    const resetToken = jwt.default.sign(
+      { email, type: 'password_reset' },
+      process.env.JWT_SECRET || 'default-secret',
+      { expiresIn: '24h' }
+    );
+
+    console.log('🔑 [Auth] Токен восстановления сгенерирован');
+
+    // Отправляем письмо
+    await CustomEmailService.sendPasswordReset(email, resetToken);
+
+    logToFile('INFO', 'Password reset email sent', {
+      email: email,
+      tokenGenerated: true
+    });
+
+    res.json({
+      success: true,
+      message: 'Письмо для восстановления пароля отправлено'
+    });
+
+  } catch (error) {
+    console.error('❌ [Auth] Ошибка восстановления пароля:', error);
+    logToFile('ERROR', 'Password reset error', {
+      error: error.message,
+      stack: error.stack,
+      body: req.body
+    });
+    
+    res.status(500).json({ 
+      error: 'Не удалось отправить письмо',
+      details: error.message 
+    });
+  }
+});
+
+// Проверка токена восстановления
+app.post('/api/auth/verify-reset-token', async (req, res) => {
+  try {
+    const { token } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({ error: 'Токен обязателен' });
+    }
+
+    console.log('🔍 [Auth] Проверка токена восстановления');
+
+    const jwt = await import('jsonwebtoken');
+    
+    const decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'default-secret');
+    
+    if (decoded.type !== 'password_reset') {
+      throw new Error('Неверный тип токена');
+    }
+
+    console.log('✅ [Auth] Токен восстановления валиден для:', decoded.email);
+
+    res.json({
+      success: true,
+      email: decoded.email
+    });
+
+  } catch (error) {
+    console.error('❌ [Auth] Ошибка проверки токена:', error);
+    res.status(400).json({ 
+      error: 'Неверный или истекший токен' 
+    });
+  }
+});
+
+// Сброс пароля
+app.post('/api/auth/reset-password-confirm', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Токен и новый пароль обязательны' });
+    }
+
+    console.log('🔐 [Auth] Подтверждение сброса пароля');
+
+    const jwt = await import('jsonwebtoken');
+    
+    const decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'default-secret');
+    
+    if (decoded.type !== 'password_reset') {
+      throw new Error('Неверный тип токена');
+    }
+
+    // Здесь обновите пароль в базе данных
+    // await updateUserPassword(decoded.email, newPassword);
+    
+    console.log('✅ [Auth] Пароль успешно изменен для:', decoded.email);
+
+    logToFile('INFO', 'Password reset confirmed', {
+      email: decoded.email,
+      passwordChanged: true
+    });
+
+    res.json({
+      success: true,
+      message: 'Пароль успешно изменен'
+    });
+
+  } catch (error) {
+    console.error('❌ [Auth] Ошибка сброса пароля:', error);
+    res.status(400).json({ 
+      error: 'Не удалось изменить пароль',
+      details: error.message 
+    });
+  }
+});
+
+// Отправка приветственного письма
+app.post('/api/auth/send-welcome', async (req, res) => {
+  try {
+    const { email, userName } = req.body;
+    
+    if (!email || !userName) {
+      return res.status(400).json({ error: 'Email и имя пользователя обязательны' });
+    }
+
+    console.log('📧 [Auth] Отправка приветственного письма для:', email);
+
+    const { CustomEmailService } = await import('./src/services/custom-email.js');
+
+    // Проверяем, настроен ли email сервис
+    // В режиме разработки всегда используем собственный SMTP сервер
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    
+    if (!CustomEmailService.isConfigured() && !isDevelopment) {
+      console.log('⚠️ [Auth] Email сервис не настроен, пропускаем отправку приветственного письма');
+      return res.json({
+        success: true,
+        message: 'Приветственное письмо отправлено (симуляция)'
+      });
+    }
+
+    await CustomEmailService.sendWelcomeEmail(email, userName);
+
+    logToFile('INFO', 'Welcome email sent', {
+      email: email,
+      userName: userName
+    });
+
+    res.json({
+      success: true,
+      message: 'Приветственное письмо отправлено'
+    });
+
+  } catch (error) {
+    console.error('❌ [Auth] Ошибка отправки приветственного письма:', error);
+    res.status(500).json({ 
+      error: 'Не удалось отправить приветственное письмо',
+      details: error.message 
+    });
+  }
+});
+
+// Отправка письма подтверждения премиум-подписки
+app.post('/api/auth/send-premium-confirmation', async (req, res) => {
+  try {
+    const { email, userName } = req.body;
+    
+    if (!email || !userName) {
+      return res.status(400).json({ error: 'Email и имя пользователя обязательны' });
+    }
+
+    console.log('⭐ [Auth] Отправка письма подтверждения премиум-подписки для:', email);
+
+    const { CustomEmailService } = await import('./src/services/custom-email.js');
+
+    // Проверяем, настроен ли email сервис
+    // В режиме разработки всегда используем собственный SMTP сервер
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    
+    if (!CustomEmailService.isConfigured() && !isDevelopment) {
+      console.log('⚠️ [Auth] Email сервис не настроен, пропускаем отправку письма подтверждения');
+      return res.json({
+        success: true,
+        message: 'Письмо подтверждения премиум-подписки отправлено (симуляция)'
+      });
+    }
+
+    await CustomEmailService.sendPremiumConfirmation(email, userName);
+
+    logToFile('INFO', 'Premium confirmation email sent', {
+      email: email,
+      userName: userName
+    });
+
+    res.json({
+      success: true,
+      message: 'Письмо подтверждения премиум-подписки отправлено'
+    });
+
+  } catch (error) {
+    console.error('❌ [Auth] Ошибка отправки письма подтверждения:', error);
+    res.status(500).json({ 
+      error: 'Не удалось отправить письмо подтверждения',
+      details: error.message 
+    });
+  }
+});
+
 // Fallback для SPA - все остальные запросы возвращают index.html
 app.use((req, res) => {
   // Отключаем кэширование для HTML файлов

@@ -15,7 +15,11 @@ import {
   Users
 } from "lucide-react";
 
-export const RecipesSection = () => {
+interface RecipesSectionProps {
+  onGetStarted?: () => void;
+}
+
+export const RecipesSection = ({ onGetStarted }: RecipesSectionProps) => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user, isAuthenticated } = useUser();
@@ -123,10 +127,14 @@ export const RecipesSection = () => {
   };
 
   const handleGetStarted = () => {
-    // Прокрутка к секции с ингредиентами
-    const element = document.getElementById("ingredient-input");
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth" });
+    if (onGetStarted) {
+      onGetStarted();
+    } else {
+      // Fallback: прокрутка к секции с ингредиентами
+      const element = document.getElementById("ingredient-input");
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth" });
+      }
     }
   };
 

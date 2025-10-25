@@ -27,6 +27,45 @@
     <meta name="twitter:description" content="Превратите любые ингредиенты в кулинарные шедевры с помощью ИИ" />
     <meta name="twitter:image" content="https://cook.windexs.ru:1031/assets/hero-chef-C1wtnG-Y.jpg" />
 
+    <!-- Подавление системных ошибок macOS -->
+    <script>
+      // Подавляем системные ошибки браузера Safari на macOS
+      window.addEventListener('error', function(event) {
+        if (event.message && (
+          event.message.includes('Button failed to load') ||
+          event.message.includes('pip-placard') ||
+          event.message.includes('airplay-placard') ||
+          event.message.includes('invalid-placard')
+        )) {
+          event.preventDefault();
+          event.stopPropagation();
+          return false;
+        }
+      });
+      
+      // Подавляем системные ошибки в консоли
+      const originalConsoleError = console.error;
+      console.error = function(...args) {
+        const message = args.join(' ');
+        if (message.includes('Button failed to load') && 
+            (message.includes('pip-placard') || 
+             message.includes('airplay-placard') || 
+             message.includes('invalid-placard'))) {
+          return; // Не выводим системные ошибки
+        }
+        originalConsoleError.apply(console, args);
+      };
+
+      // Дополнительно подавляем unhandledrejection для системных ошибок
+      window.addEventListener('unhandledrejection', function(event) {
+        if (event.reason && event.reason.message && 
+            event.reason.message.includes('Button failed to load')) {
+          event.preventDefault();
+          return false;
+        }
+      });
+    </script>
+
   </head>
 
   <body>

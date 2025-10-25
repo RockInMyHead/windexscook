@@ -45,12 +45,12 @@ export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({
   const [isImgLoading, setIsImgLoading] = useState(false);
   const { user } = useUser();
 
-  // Автоматическая генерация изображения при открытии рецепта
-  useEffect(() => {
-    if (recipe && !dishImage && !isImgLoading) {
-      handleGenerateImage();
-    }
-  }, [recipe]);
+  // Автоматическая генерация изображения отключена
+  // useEffect(() => {
+  //   if (recipe && !dishImage && !isImgLoading) {
+  //     handleGenerateImage();
+  //   }
+  // }, [recipe]);
 
   const handleSave = () => {
     if (onSave) {

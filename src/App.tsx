@@ -14,6 +14,7 @@ import RecipeDetails from './pages/RecipeDetails';
 import UserProfile from './pages/UserProfile';
 import Settings from './pages/Settings';
 import AdminPanel from './pages/AdminPanel';
+import PaymentSuccess from './pages/PaymentSuccess';
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/profile" element={<UserProfile />} />
             <Route path="/settings/*" element={<Settings />} />
             <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/payment-success" element={<PaymentSuccess />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

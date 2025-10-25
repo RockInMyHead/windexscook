@@ -24,3 +24,10 @@ dist-ssr
 *.sw?
 .vercel
 .env
+coverage/
+data.sqlite
+dist.tar.gz
+test.mp3
+test2.mp3
+windexscook-deploy.tar.gz
+windexscook-updated.tar.gz

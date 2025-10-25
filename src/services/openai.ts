@@ -17,6 +17,7 @@ export interface Recipe {
   ingredients: string[];
   instructions: string[];
   tips?: string;
+  content?: string; // Для чата
 }
 
 export class OpenAIService {
@@ -113,7 +114,7 @@ export class OpenAIService {
     }
   }
 
-  static async generateRecipe(ingredients: string[], healthProfile?: UserHealthProfile, cuisineId?: string): Promise<Recipe> {
+  static async generateRecipe(ingredients: string[], healthProfile?: UserHealthProfile, cuisineId?: string, isChatMode: boolean = false): Promise<Recipe> {
     let healthConstraints = '';
     let cuisineConstraints = '';
     
@@ -178,7 +179,13 @@ ${constraints.join('\n')}
       }
     }
 
-    const prompt = `Создай рецепт из следующих ингредиентов: ${ingredients.join(', ')}${healthConstraints}${cuisineConstraints}
+    const prompt = isChatMode 
+      ? `Ты AI повар-консультант. Пользователь сказал: "${ingredients.join(', ')}". 
+
+Отвечай как опытный шеф-повар, давая полезные советы по кулинарии. Если это ингредиенты - предложи рецепт. Если это вопрос - дай развернутый ответ. Будь дружелюбным и профессиональным.
+
+Отвечай на русском языке, кратко и по делу.`
+      : `Создай рецепт из следующих ингредиентов: ${ingredients.join(', ')}${healthConstraints}${cuisineConstraints}
 
 ВАЖНО: Отвечай ТОЛЬКО в формате JSON. Структура ответа:
 {
@@ -215,7 +222,23 @@ ${constraints.join('\n')}
         }
       ]);
 
-      // Парсим JSON ответ
+      // Обработка ответа в зависимости от режима
+      if (isChatMode) {
+        // В режиме чата возвращаем простой ответ
+        return {
+          title: "AI Повар",
+          description: response,
+          content: response,
+          cookTime: "",
+          servings: 0,
+          difficulty: "Easy" as const,
+          ingredients: [],
+          instructions: [],
+          tips: ""
+        };
+      }
+
+      // Парсим JSON ответ для режима рецепта
       let recipeData;
       try {
         // Очищаем ответ от возможного лишнего текста

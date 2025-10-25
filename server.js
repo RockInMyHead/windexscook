@@ -245,6 +245,84 @@ app.use('/api/elevenlabs', async (req, res) => {
   }
 });
 
+// OpenAI TTS endpoint - должен быть ПЕРЕД общим прокси
+app.post('/api/openai/tts', async (req, res) => {
+  try {
+    const { text, voice = 'alloy', model = 'tts-1' } = req.body;
+
+    if (!text) {
+      return res.status(400).json({ error: 'Text is required' });
+    }
+
+    const apiKey = process.env.VITE_OPENAI_API_KEY;
+    
+    if (!apiKey) {
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
+    }
+
+    const headers = {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    };
+
+    const requestData = {
+      model,
+      input: text,
+      voice,
+      response_format: 'mp3'
+    };
+
+    const axiosConfig = {
+      method: 'POST',
+      url: 'https://api.openai.com/v1/audio/speech',
+      headers,
+      data: JSON.stringify(requestData),
+      responseType: 'arraybuffer',
+      proxy: false
+    };
+    
+    // Добавляем прокси агент только если он настроен
+    if (proxyAgent) {
+      axiosConfig.httpsAgent = proxyAgent;
+      axiosConfig.httpAgent = proxyAgent;
+    }
+
+    const response = await axios(axiosConfig);
+
+    // Устанавливаем правильные заголовки для аудио
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Length', response.data.length);
+    res.setHeader('Cache-Control', 'no-cache');
+    
+    res.send(response.data);
+
+    logToFile('INFO', 'TTS audio generated successfully', {
+      textLength: text.length,
+      voice,
+      model
+    });
+
+  } catch (error) {
+    logToFile('ERROR', 'TTS generation error', {
+      error: error.message,
+      stack: error.stack,
+      text: req.body.text
+    });
+    
+    if (error.response) {
+      res.status(error.response.status).json({ 
+        error: 'TTS generation failed',
+        details: error.response.data 
+      });
+    } else {
+      res.status(500).json({ 
+        error: 'Internal server error',
+        details: error.message 
+      });
+    }
+  }
+});
+
 // OpenAI API роут - проксирование для OpenAI
 app.use('/api/openai', async (req, res) => {
   try {
@@ -502,6 +580,98 @@ app.get('/api/image-limits/:userIdentifier', (req, res) => {
     });
     res.status(500).json({ 
       error: 'Internal server error',
+      details: error.message 
+    });
+  }
+});
+
+// YooKassa платежи
+app.post('/api/payments/create', async (req, res) => {
+  try {
+    const { userId, userEmail, returnUrl } = req.body;
+
+    if (!userId || !userEmail || !returnUrl) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Импортируем YooKassaService
+    const { YooKassaService } = await import('./src/services/yookassa.js');
+
+    const payment = await YooKassaService.createPremiumPayment(
+      userId,
+      userEmail,
+      returnUrl
+    );
+
+    logToFile('INFO', 'Premium payment created', {
+      paymentId: payment.id,
+      userId,
+      userEmail,
+      amount: payment.amount.value,
+      currency: payment.amount.currency
+    });
+
+    res.json({
+      success: true,
+      paymentId: payment.id,
+      paymentUrl: payment.confirmation.confirmation_url,
+      amount: payment.amount.value,
+      currency: payment.amount.currency
+    });
+
+  } catch (error) {
+    logToFile('ERROR', 'Payment creation error', {
+      error: error.message,
+      stack: error.stack,
+      body: req.body
+    });
+    
+    res.status(500).json({ 
+      error: 'Payment creation failed',
+      details: error.message 
+    });
+  }
+});
+
+// Проверка статуса платежа
+app.get('/api/payments/status/:paymentId', async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+
+    if (!paymentId) {
+      return res.status(400).json({ error: 'Payment ID is required' });
+    }
+
+    // Импортируем YooKassaService
+    const { YooKassaService } = await import('./src/services/yookassa.js');
+
+    const payment = await YooKassaService.getPaymentStatus(paymentId);
+
+    logToFile('INFO', 'Payment status checked', {
+      paymentId: payment.id,
+      status: payment.status,
+      paid: payment.paid
+    });
+
+    res.json({
+      success: true,
+      paymentId: payment.id,
+      status: payment.status,
+      paid: payment.paid,
+      amount: payment.amount.value,
+      currency: payment.amount.currency,
+      metadata: payment.metadata
+    });
+
+  } catch (error) {
+    logToFile('ERROR', 'Payment status check error', {
+      error: error.message,
+      stack: error.stack,
+      paymentId: req.params.paymentId
+    });
+    
+    res.status(500).json({ 
+      error: 'Payment status check failed',
       details: error.message 
     });
   }

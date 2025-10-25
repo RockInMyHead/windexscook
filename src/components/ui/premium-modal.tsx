@@ -61,26 +61,51 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
     
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 500)); // Имитация задержки
-      activateSubscription();
+      // Получаем данные пользователя
+      const user = JSON.parse(localStorage.getItem('ai-chef-user') || '{}');
       
-      toast({
-        title: "🎉 Подписка активирована!",
-        description: "Теперь вам доступны все премиум-функции",
+      if (!user.id || !user.email) {
+        toast({
+          title: "Ошибка",
+          description: "Необходимо войти в систему для оформления подписки",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Создаем платеж через API
+      const response = await fetch('/api/payments/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          userEmail: user.email,
+          returnUrl: `${window.location.origin}/payment-success`
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error('Не удалось создать платеж');
+      }
+
+      const paymentData = await response.json();
       
-      onSuccess?.();
-      onClose();
+      // Перенаправляем на страницу оплаты
+      window.location.href = paymentData.paymentUrl;
+      
     } catch (error) {
+      console.error('Payment error:', error);
       toast({
-        title: "Ошибка активации",
-        description: "Попробуйте еще раз",
+        title: "Ошибка оплаты",
+        description: "Не удалось создать платеж. Попробуйте еще раз.",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, activateSubscription, onSuccess, onClose]);
+  }, [isLoading, onSuccess, onClose]);
 
   // Обработка закрытия модального окна
   const handleClose = useCallback(() => {

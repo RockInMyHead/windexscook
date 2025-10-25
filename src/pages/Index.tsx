@@ -4,7 +4,6 @@ import { HeroSection } from "@/components/hero-section";
 import { FeaturesSection } from "@/components/features-section";
 import { RecipesSection } from "@/components/recipes-section";
 import { AboutSection } from "@/components/about-section";
-import { ReviewsSection } from "@/components/reviews-section";
 import { RoadmapSection } from "@/components/roadmap-section";
 import { IngredientInput } from "@/components/ui/ingredient-input";
 import { AuthModal } from "@/components/ui/auth-modal";
@@ -53,7 +52,13 @@ const Index = () => {
   };
 
   const handleAuthSuccess = (userData: { name: string; email: string }) => {
-    login(userData);
+    const user = {
+      id: Date.now().toString(),
+      name: userData.name,
+      email: userData.email,
+      role: 'user' as const
+    };
+    login(user);
     setShowAuthModal(false);
     toast({
       title: "Добро пожаловать!",
@@ -81,8 +86,7 @@ const Index = () => {
       <RoadmapSection />
       <AboutSection />
       <FeaturesSection />
-      <RecipesSection />
-      <ReviewsSection />
+      <RecipesSection onGetStarted={handleGetStarted} />
       
       {/* Footer */}
       <footer className="bg-muted/20 py-8 sm:py-12 px-4 border-t border-border/50">

@@ -2,11 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Sparkles, Loader2, Camera } from "lucide-react";
+import { X, Plus, Sparkles, Loader2 } from "lucide-react";
 import { OpenAIService, Recipe } from "@/services/openai";
 import { RecipeDisplay } from "./recipe-display";
-import { CameraCapture } from "./camera-capture";
-import { ImageAnalysisService } from "@/services/imageAnalysis";
 import { toast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 
@@ -22,8 +20,6 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin, selecte
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
-  const [showCamera, setShowCamera] = useState(false);
-  const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
   const { user } = useUser();
 
   const addIngredient = () => {
@@ -86,47 +82,12 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin, selecte
     setIngredients([]);
   };
 
-  const handleImageCapture = async (imageData: string) => {
-    setIsAnalyzingImage(true);
-    try {
-      const detectedProducts = await ImageAnalysisService.extractTextFromImage(imageData);
-      
-      // Добавляем обнаруженные продукты к существующим ингредиентам
-      const newIngredients = detectedProducts.filter(product => 
-        !ingredients.includes(product)
-      );
-      
-      if (newIngredients.length > 0) {
-        setIngredients([...ingredients, ...newIngredients]);
-        toast({
-          title: "📸 Продукты обнаружены!",
-          description: `Найдено ${newIngredients.length} продуктов: ${newIngredients.join(', ')}`,
-        });
-      } else {
-        toast({
-          title: "Продукты не обнаружены",
-          description: "Попробуйте сфотографировать продукты более четко",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Ошибка анализа изображения:', error);
-      toast({
-        title: "Ошибка анализа",
-        description: "Не удалось проанализировать изображение. Попробуйте еще раз.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsAnalyzingImage(false);
-    }
-  };
-
   return (
     <div className="w-full max-w-2xl mx-auto space-y-4 sm:space-y-6 p-4 sm:p-6 bg-gradient-card rounded-xl shadow-card border border-border/50">
       <div className="text-center space-y-2">
         <h3 className="text-lg sm:text-xl font-semibold text-foreground">Какие у вас есть ингредиенты?</h3>
         <p className="text-muted-foreground text-xs sm:text-sm">
-          Добавьте продукты вручную или сфотографируйте их - AI создаст уникальный рецепт
+          Добавьте продукты вручную - AI создаст уникальный рецепт
         </p>
       </div>
 
@@ -145,15 +106,6 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin, selecte
           className="shrink-0 hover:bg-accent/80 transition-colors h-10 w-10"
         >
           <Plus className="w-4 h-4" />
-        </Button>
-        <Button 
-          onClick={() => setShowCamera(true)}
-          variant="outline"
-          size="icon"
-          className="shrink-0 hover:bg-accent/80 transition-colors h-10 w-10"
-          title="📸 Сфотографировать продукты"
-        >
-          <Camera className="w-4 h-4" />
         </Button>
       </div>
 
@@ -209,24 +161,6 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin, selecte
           onRegister={onRegister}
           onLogin={onLogin}
         />
-      )}
-
-      {/* Camera Capture Modal */}
-      {showCamera && (
-        <CameraCapture
-          onImageCapture={handleImageCapture}
-          onClose={() => setShowCamera(false)}
-        />
-      )}
-
-      {/* Loading overlay for image analysis */}
-      {isAnalyzingImage && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 flex items-center gap-3">
-            <Loader2 className="w-5 h-5 animate-spin text-primary" />
-            <span className="text-sm">Анализируем изображение...</span>
-          </div>
-        </div>
       )}
     </div>
   );

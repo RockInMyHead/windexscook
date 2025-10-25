@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Header } from '@/components/header';
 import { AiChefChat } from '@/components/ui/ai-chef-chat';
+import { VoiceCall } from '@/components/ui/voice-call';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Phone, MessageCircle } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
 
 export const MyChef = () => {
   const { user, isAuthenticated } = useUser();
+  const [isVoiceCall, setIsVoiceCall] = useState(false);
 
   if (!isAuthenticated) {
     return (
@@ -30,9 +33,33 @@ export const MyChef = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <Header onRegister={() => {}} onLogin={() => {}} />
       
-      {/* Full screen chat */}
+      {/* Mode toggle buttons */}
+      <div className="flex justify-center gap-4 p-4 bg-muted/30 border-b border-border/50">
+        <Button
+          variant={!isVoiceCall ? "default" : "outline"}
+          onClick={() => setIsVoiceCall(false)}
+          className="flex items-center gap-2"
+        >
+          <MessageCircle className="w-4 h-4" />
+          Чат с AI поваром
+        </Button>
+        <Button
+          variant={isVoiceCall ? "default" : "outline"}
+          onClick={() => setIsVoiceCall(true)}
+          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+        >
+          <Phone className="w-4 h-4" />
+          Голосовой звонок
+        </Button>
+      </div>
+      
+      {/* Content area */}
       <div className="flex-1 flex flex-col">
-        <AiChefChat className="h-full" />
+        {isVoiceCall ? (
+          <VoiceCall className="h-full" />
+        ) : (
+          <AiChefChat className="h-full" />
+        )}
       </div>
     </div>
   );

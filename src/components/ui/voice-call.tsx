@@ -38,6 +38,8 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
   const recognitionRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const callStartRef = useRef<number | null>(null);
+  const callTimerRef = useRef<number | null>(null);
 
   // Инициализация распознавания речи
   useEffect(() => {
@@ -81,6 +83,15 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
         setCallState(prev => ({ ...prev, isRecording: false }));
       };
     }
+  }, []);
+
+  // Stop TTS and clear timer on unmount
+  useEffect(() => {
+    return () => {
+      console.log('🛑 [Voice Call] Component unmounted, stopping TTS and timer');
+      OpenAITTS.stop();
+      if (callTimerRef.current) clearTimeout(callTimerRef.current);
+    };
   }, []);
 
   const handleUserMessage = async (text: string) => {
@@ -201,6 +212,15 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       // Воспроизводим приветствие
       await speakText(welcomeText);
       
+      callStartRef.current = Date.now();
+      // schedule 10-minute limit
+      callTimerRef.current = window.setTimeout(async () => {
+        const limitMessage = 'Время общения превысило десять минут. Если у вас будут вопросы, обращайтесь!';
+        console.log('⏰ [Voice Call] 10-minute limit reached, speaking final message');
+        await speakText(limitMessage);
+        endCall();
+      }, 10 * 60 * 1000);
+      
       console.log('🎉 [TTS] Голосовой звонок успешно начат');
       toast({
         title: "📞 Звонок начат",
@@ -223,6 +243,12 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
   };
 
   const endCall = () => {
+    console.log('🛑 [Voice Call] endCall invoked, stopping TTS and clearing timer');
+    OpenAITTS.stop();
+    if (callTimerRef.current) {
+      clearTimeout(callTimerRef.current);
+      callTimerRef.current = null;
+    }
     console.log('📞 [TTS] Завершаем голосовой звонок...');
     
     // Останавливаем распознавание речи
@@ -231,7 +257,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
     }
     
     // Останавливаем TTS
-    OpenAITTS.stop();
+    // OpenAITTS.stop(); // This line is now handled by the useEffect cleanup
     
     setCallState({
       isConnected: false,

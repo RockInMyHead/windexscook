@@ -207,11 +207,19 @@ export const WORLD_CUISINES: Cuisine[] = [
     description: 'Африканская кухня с соблюдением исламских диетических законов',
     characteristics: ['Халяльное мясо', 'Кускус', 'Свежие овощи', 'Специи', 'Травы'],
     popularDishes: ['Халяль тажин', 'Куриный кускус', 'Овощной суп', 'Халяль инжера', 'Фруктовый салат']
+  },
+  {
+    id: 'kosher',
+    name: 'Кашерная',
+    flag: '✡️',
+    description: 'Кашерная кухня с соблюдением еврейских диетических законов',
+    characteristics: ['Кашерное мясо', 'Отделение молочного от мясного', 'Кошерная рыба', 'Овощи', 'Хала'],
+    popularDishes: ['Гефилте фиш', 'Чолнт', 'Латкес', 'Баглс', 'Маца']
   }
 ];
 
 export const CUISINE_CATEGORIES = {
-  european: ['russian', 'italian', 'french', 'greek', 'spanish', 'german', 'halal-european'],
+  european: ['russian', 'italian', 'french', 'greek', 'spanish', 'german', 'halal-european', 'kosher'],
   asian: ['japanese', 'chinese', 'indian', 'thai', 'korean', 'vietnamese', 'halal-asian'],
   american: ['mexican', 'american', 'brazilian', 'peruvian', 'halal-american'],
   middle_eastern: ['turkish', 'lebanese', 'moroccan', 'halal-middle-eastern'],

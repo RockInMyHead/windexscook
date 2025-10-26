@@ -79,12 +79,12 @@ export const CuisineSelector: React.FC<CuisineSelectorProps> = ({
       {/* Cuisine Selection */}
       {!selectedCuisineData && (
         <Tabs value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as keyof typeof CUISINE_CATEGORIES)}>
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1 bg-muted">
-            <TabsTrigger value="european" className="text-xs sm:text-sm">Европа</TabsTrigger>
-            <TabsTrigger value="asian" className="text-xs sm:text-sm">Азия</TabsTrigger>
-            <TabsTrigger value="american" className="text-xs sm:text-sm">Америка</TabsTrigger>
-            <TabsTrigger value="african" className="text-xs sm:text-sm">Африка</TabsTrigger>
-            <TabsTrigger value="middle_eastern" className="text-xs sm:text-sm">Ближний Восток</TabsTrigger>
+          <TabsList className="flex w-full space-x-2 bg-muted overflow-x-auto">
+            <TabsTrigger value="european" className="flex-none whitespace-nowrap text-[10px] sm:text-xs px-2 py-2">Европа</TabsTrigger>
+            <TabsTrigger value="asian" className="flex-none whitespace-nowrap text-[10px] sm:text-xs px-2 py-2">Азия</TabsTrigger>
+            <TabsTrigger value="american" className="flex-none whitespace-nowrap text-[10px] sm:text-xs px-2 py-2">Америка</TabsTrigger>
+            <TabsTrigger value="african" className="flex-none whitespace-nowrap text-[10px] sm:text-xs px-2 py-2">Африка</TabsTrigger>
+            <TabsTrigger value="middle_eastern" className="flex-none whitespace-nowrap text-[10px] sm:text-xs px-2 py-2">Ближний Восток</TabsTrigger>
           </TabsList>
 
           <TabsContent value={selectedCategory} className="space-y-4 mt-8 sm:mt-6 lg:mt-4">

@@ -373,11 +373,11 @@ export const MyRecipes = () => {
                         className="pl-10"
                       />
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 overflow-x-auto pb-2">
                       <select
                         value={filterDifficulty}
                         onChange={(e) => setFilterDifficulty(e.target.value)}
-                        className="px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                        className="px-3 py-2 border border-border rounded-md bg-background text-foreground min-w-[140px] flex-shrink-0"
                       >
                         <option value="all">Все сложности</option>
                         <option value="easy">Легко</option>
@@ -387,7 +387,7 @@ export const MyRecipes = () => {
                       <select
                         value={filterCuisine}
                         onChange={(e) => setFilterCuisine(e.target.value)}
-                        className="px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                        className="px-3 py-2 border border-border rounded-md bg-background text-foreground min-w-[180px] flex-shrink-0"
                       >
                         <option value="all">Все кухни</option>
                         {WORLD_CUISINES.map((cuisine) => (

@@ -124,7 +124,9 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
         timestamp: new Date().toISOString()
       });
       
-      const responseText = response.content || response.title || 'Я готов помочь с кулинарными вопросами!';
+      const responseText = typeof response === 'string'
+        ? response
+        : (response.content || response.title || response.description || 'Я готов помочь с кулинарными вопросами!');
       console.log('📄 [Voice Call] Текст ответа:', {
         text: responseText,
         length: responseText.length
@@ -206,7 +208,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       }));
       
       // Приветственное сообщение только в виде речи
-      const welcomeText = "Привет! Я ваш AI повар. Говорите, и я помогу с рецептами!";
+      const welcomeText = "Привет! Я ваша AI кулинар. Говорите, и я помогу с рецептами!";
       console.log('👋 [TTS] Воспроизводим приветствие:', welcomeText);
       
       // Воспроизводим приветствие

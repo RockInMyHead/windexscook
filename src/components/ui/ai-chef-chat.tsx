@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { OpenAIService } from '@/services/openai';
-import { ElevenLabsTTS } from '@/services/elevenlabs-tts';
+import { OpenAITTS } from '@/services/openai-tts';
 import { useUser } from '@/contexts/UserContext';
 
 interface Message {
@@ -278,7 +278,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
 
   const handleSpeakMessage = async (content: string) => {
     try {
-      await ElevenLabsTTS.speak(content);
+      await OpenAITTS.speak(content);
       toast({
         title: "🔊 Воспроизведение",
         description: "Ответ AI озвучен",

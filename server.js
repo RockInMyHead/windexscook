@@ -712,10 +712,12 @@ app.get('/api/payments/user/:userId/recent', async (req, res) => {
     const { userId } = req.params;
 
     if (!userId) {
+      console.error('❌ [Payment] User ID is required but not provided');
       return res.status(400).json({ error: 'User ID is required' });
     }
 
     console.log('🔍 [Payment] Looking for recent payment for user:', userId);
+    logToFile('INFO', 'Payment search requested', { userId });
 
     // Читаем логи платежей для поиска последнего платежа
     const fs = await import('fs').then(m => m.promises);
@@ -730,12 +732,20 @@ app.get('/api/payments/user/:userId/recent', async (req, res) => {
         const logContent = await fs.readFile(todayLog, 'utf8');
         
         // Ищем последний созданный платеж для этого пользователя
-        const paymentMatches = logContent.matchAll(/"userId":"([^"]*)".*?"paymentId":"([^"]*)"/g);
-        
+        // Более простое регулярное выражение для поиска paymentId и userId
+        const lines = logContent.split('\n');
         let lastPayment = null;
-        for (const match of paymentMatches) {
-          if (match[1] === userId) {
-            lastPayment = { id: match[2], userId: match[1] };
+
+        for (const line of lines.reverse()) { // Ищем с конца файла (последние записи)
+          if (line.includes('Premium payment created') && line.includes(userId)) {
+            console.log('🔍 [Payment] Found payment line:', line);
+
+            // Ищем paymentId в строке
+            const paymentIdMatch = line.match(/"paymentId":"([^"]*)"/);
+            if (paymentIdMatch) {
+              lastPayment = { id: paymentIdMatch[1], userId: userId };
+              break; // Нашли последний платеж, выходим
+            }
           }
         }
 

@@ -80,23 +80,45 @@ const PaymentSuccess: React.FC = () => {
           console.error('❌ PaymentSuccess: No payment ID found in URL parameters or storage');
 
           // Попробуем найти последний платеж пользователя по userId
-          const userId = searchParams.get('userId');
+          let userId = searchParams.get('userId');
+
+          // Если userId нет в URL, попробуем получить из localStorage
+          if (!userId) {
+            try {
+              const userData = JSON.parse(localStorage.getItem('ai-chef-user') || '{}');
+              userId = userData.id;
+              console.log('🔍 PaymentSuccess: Got userId from localStorage:', userId);
+            } catch (error) {
+              console.error('❌ PaymentSuccess: Could not get userId from localStorage:', error);
+            }
+          }
+
           if (userId) {
             console.log('🔍 PaymentSuccess: Trying to find recent payment for userId:', userId);
             try {
-              // Это временное решение - ищем последний платеж пользователя
-              // В будущем нужно реализовать поиск платежей по userId на сервере
+              // Вызываем API для поиска последнего платежа пользователя
               const recentPaymentsResponse = await fetch(`/api/payments/user/${userId}/recent`);
+              console.log('🔍 PaymentSuccess: API response status:', recentPaymentsResponse.status);
+
               if (recentPaymentsResponse.ok) {
                 const recentPayment = await recentPaymentsResponse.json();
-                if (recentPayment && recentPayment.id) {
+                console.log('🔍 PaymentSuccess: API response data:', recentPayment);
+
+                if (recentPayment && recentPayment.success && recentPayment.id) {
                   paymentId = recentPayment.id;
                   console.log('✅ PaymentSuccess: Found recent payment:', paymentId);
+                } else {
+                  console.log('⚠️ PaymentSuccess: API returned success but no payment ID');
                 }
+              } else {
+                const errorText = await recentPaymentsResponse.text();
+                console.error('❌ PaymentSuccess: API error:', recentPaymentsResponse.status, errorText);
               }
             } catch (recentError) {
               console.error('❌ PaymentSuccess: Failed to find recent payment:', recentError);
             }
+          } else {
+            console.error('❌ PaymentSuccess: No userId available for payment search');
           }
 
           if (!paymentId) {

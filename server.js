@@ -594,6 +594,23 @@ app.post('/api/payments/create', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    // Проверяем конфигурацию YooKassa
+    const yookassaConfig = {
+      shopId: process.env.YOOKASSA_SHOP_ID,
+      secretKey: process.env.YOOKASSA_SECRET_KEY ? '***configured***' : 'NOT SET',
+      isConfigured: !!(process.env.YOOKASSA_SHOP_ID && process.env.YOOKASSA_SECRET_KEY)
+    };
+
+    console.log('🔧 [Payment] YooKassa configuration check:', yookassaConfig);
+
+    if (!yookassaConfig.isConfigured) {
+      logToFile('ERROR', 'YooKassa not configured', yookassaConfig);
+      return res.status(500).json({
+        error: 'Payment service not configured',
+        details: 'YooKassa credentials missing'
+      });
+    }
+
     // Импортируем YooKassaService
     const { YooKassaService } = await import('./src/services/yookassa.js');
 

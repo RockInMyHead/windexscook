@@ -2,9 +2,9 @@ import { YooCheckout } from '@a2seven/yoo-checkout';
 
 // Конфигурация ЮKassa
 const YOOKASSA_CONFIG = {
-  shopId: process.env.YOOKASSA_SHOP_ID || '1178504',
-  secretKey: process.env.YOOKASSA_SECRET_KEY || 'test_UbyQ0yDUnXyAXtkBcMBhkdIkY-FqdK75waGmHAvlF9M',
-  planId: process.env.YOOKASSA_PLAN_ID || '1178504'
+  shopId: process.env.YOOKASSA_SHOP_ID || '1183996',
+  secretKey: process.env.YOOKASSA_SECRET_KEY || 'live_OTmJmdMHX6ysyUcUpBz5kt-dmSq1pT-Y5gLgmpT1jXg',
+  planId: process.env.YOOKASSA_PLAN_ID || '1183996'
 };
 
 // Инициализация ЮKassa

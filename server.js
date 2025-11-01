@@ -628,10 +628,19 @@ app.post('/api/payments/create', async (req, res) => {
       currency: payment.amount.currency
     });
 
+    // Модифицируем return_url, добавляя paymentId как параметр
+    const paymentUrl = payment.confirmation.confirmation_url;
+    const modifiedReturnUrl = `${returnUrl}&paymentId=${payment.id}`;
+
+    // Для YooKassa можно попробовать передать модифицированный return_url
+    // Но обычно YooKassa не позволяет менять return_url после создания платежа
+    // Поэтому будем полагаться на наш modifiedReturnUrl в ответе
+
     res.json({
       success: true,
       paymentId: payment.id,
-      paymentUrl: payment.confirmation.confirmation_url,
+      paymentUrl: paymentUrl,
+      returnUrl: modifiedReturnUrl, // Отправляем модифицированный URL для использования в localStorage
       amount: payment.amount.value,
       currency: payment.amount.currency
     });

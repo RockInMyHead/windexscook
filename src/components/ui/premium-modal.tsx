@@ -57,14 +57,21 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 
   // Оптимизированная функция подписки
   const handleSubscribe = useCallback(async () => {
-    if (isLoading) return;
-    
+    console.log('💰 PremiumModal: handleSubscribe called');
+
+    if (isLoading) {
+      console.log('💰 PremiumModal: Already loading, skipping');
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Получаем данные пользователя
       const user = JSON.parse(localStorage.getItem('ai-chef-user') || '{}');
-      
+      console.log('💰 PremiumModal: Retrieved user from localStorage:', user);
+
       if (!user.id || !user.email) {
+        console.log('💰 PremiumModal: User validation failed - missing id or email');
         toast({
           title: "Ошибка",
           description: "Необходимо войти в систему для оформления подписки",
@@ -72,6 +79,8 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
         });
         return;
       }
+
+      console.log('💰 PremiumModal: Starting payment creation for user:', user.id, user.email);
 
       // Создаем платеж через API
       const response = await fetch('/api/payments/create', {

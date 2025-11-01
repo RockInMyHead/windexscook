@@ -63,9 +63,9 @@ export class OpenAIService {
   private static async makeRequest(messages: any[], model: string = 'gpt-4o-mini') {
     let response;
     try {
-      // Use absolute base URL in production (with port) or relative in development
-      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
-      const requestUrl = `${apiBase}/api/openai/v1/chat/completions`;
+      // Always use relative URLs to avoid mixed content issues
+      // The server/nginx will proxy these to the correct backend
+      const requestUrl = '/api/openai/v1/chat/completions';
       response = await fetch(requestUrl, {
         method: 'POST',
         headers: {

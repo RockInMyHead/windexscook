@@ -101,6 +101,8 @@ sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH
 sudo cp cook.windexs.ru.nginx.conf /etc/nginx/sites-available/cook.windexs.ru.conf
 # Включаем сайт
 sudo ln -sf /etc/nginx/sites-available/cook.windexs.ru.conf /etc/nginx/sites-enabled/
+# Удаляем default сайт если существует
+sudo rm -f /etc/nginx/sites-enabled/default
 # Проверяем и перезагружаем nginx
 sudo nginx -t && sudo systemctl reload nginx
 ENDSSH

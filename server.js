@@ -630,7 +630,10 @@ app.post('/api/payments/create', async (req, res) => {
 
     // Модифицируем return_url, добавляя paymentId как параметр
     const paymentUrl = payment.confirmation.confirmation_url;
-    const modifiedReturnUrl = `${returnUrl}&paymentId=${payment.id}`;
+    
+    // Определяем разделитель для URL параметров
+    const separator = returnUrl.includes('?') ? '&' : '?';
+    const modifiedReturnUrl = `${returnUrl}${separator}paymentId=${payment.id}`;
 
     // Для YooKassa можно попробовать передать модифицированный return_url
     // Но обычно YooKassa не позволяет менять return_url после создания платежа

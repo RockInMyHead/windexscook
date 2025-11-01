@@ -305,7 +305,6 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
         setIsLoading(false);
         setIsThinking(false);
       }
-  };
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;

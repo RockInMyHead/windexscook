@@ -62,6 +62,24 @@ export class YooKassaService {
           userId: paymentData.userId,
           userEmail: paymentData.userEmail,
         },
+        receipt: {
+          customer: {
+            email: paymentData.userEmail,
+          },
+          items: [
+            {
+              description: paymentData.description,
+              quantity: '1.00',
+              amount: {
+                value: paymentData.amount.toFixed(2),
+                currency: paymentData.currency,
+              },
+              vat_code: 1, // Без НДС
+              payment_subject: 'service', // Услуга
+              payment_mode: 'full_payment', // Полная оплата
+            },
+          ],
+        },
       });
 
       return payment as PaymentResponse;

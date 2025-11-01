@@ -305,6 +305,13 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
         setIsLoading(false);
         setIsThinking(false);
       }
+    } catch (error) {
+      console.error('Unexpected error in sendMessageToAI:', error);
+      // Удаляем сообщение о мышлении при неожиданной ошибке
+      setMessages(prev => prev.filter(msg => msg.id !== 'thinking'));
+      setIsLoading(false);
+      setIsThinking(false);
+    }
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;

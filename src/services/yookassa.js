@@ -98,11 +98,11 @@ export class YooKassaService {
   }
 
   /**
-   * Создает платеж для Premium подписки (250 рублей)
+   * Создает платеж для Premium подписки (1 рубль для тестирования)
    */
   static async createPremiumPayment(userId, userEmail, returnUrl) {
     return this.createPayment({
-      amount: 250,
+      amount: 1,
       currency: 'RUB',
       description: 'Premium подписка WindexsCook - доступ к AI функциям',
       returnUrl,

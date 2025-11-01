@@ -134,7 +134,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
           {/* Ценовая карточка */}
           <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950 rounded-lg border border-amber-200 dark:border-amber-800">
             <div className="text-3xl font-bold text-amber-600 dark:text-amber-400 mb-1">
-              250 ₽ <span className="text-base font-normal text-muted-foreground">/месяц</span>
+              1 ₽ <span className="text-base font-normal text-muted-foreground">/тест</span>
             </div>
             <p className="text-sm text-muted-foreground">
               Доступ ко всем AI-функциям

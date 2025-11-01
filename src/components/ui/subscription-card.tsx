@@ -92,7 +92,7 @@ export const SubscriptionCard: React.FC = () => {
           <>
             <div className="p-4 bg-amber-50 dark:bg-amber-950 rounded-lg">
               <div className="text-3xl font-bold text-amber-600 dark:text-amber-400 mb-1">
-                250 ₽ <span className="text-base font-normal text-muted-foreground">/месяц</span>
+                1 ₽ <span className="text-base font-normal text-muted-foreground">/тест</span>
               </div>
               <p className="text-sm text-muted-foreground">
                 Доступ ко всем AI-функциям

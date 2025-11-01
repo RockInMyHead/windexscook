@@ -22,16 +22,17 @@ const PaymentSuccess: React.FC = () => {
                        searchParams.get('orderId') ||
                        searchParams.get('payment_id');
 
+        console.log('🔍 PaymentSuccess: URL params:', Object.fromEntries(searchParams.entries()));
+        console.log('🔍 PaymentSuccess: Initial paymentId from URL:', paymentId);
+
         // Если не нашли в URL, проверяем localStorage
         if (!paymentId) {
           paymentId = localStorage.getItem('pendingPaymentId');
-          if (paymentId) {
-            console.log('🔍 PaymentSuccess: Found paymentId in localStorage:', paymentId);
-          }
+          console.log('🔍 PaymentSuccess: Checked localStorage, found:', paymentId);
         }
 
-        console.log('🔍 PaymentSuccess: URL params:', Object.fromEntries(searchParams.entries()));
-        console.log('🔍 PaymentSuccess: Extracted paymentId:', paymentId);
+        console.log('🔍 PaymentSuccess: Final paymentId to use:', paymentId);
+        console.log('🔍 PaymentSuccess: localStorage contents:', localStorage.getItem('pendingPaymentId'));
 
         if (!paymentId) {
           console.error('❌ PaymentSuccess: No payment ID found in URL parameters');

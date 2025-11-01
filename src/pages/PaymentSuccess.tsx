@@ -16,39 +16,67 @@ const PaymentSuccess: React.FC = () => {
   useEffect(() => {
     const checkPaymentStatus = async () => {
       try {
-        // Получаем paymentId из URL параметров
-        const paymentId = searchParams.get('paymentId');
-        
+        // Получаем paymentId из различных возможных параметров URL
+        // YooKassa может возвращать paymentId, orderId или другие параметры
+        let paymentId = searchParams.get('paymentId') ||
+                       searchParams.get('orderId') ||
+                       searchParams.get('payment_id');
+
+        // Если не нашли в URL, проверяем localStorage
         if (!paymentId) {
+          paymentId = localStorage.getItem('pendingPaymentId');
+          if (paymentId) {
+            console.log('🔍 PaymentSuccess: Found paymentId in localStorage:', paymentId);
+          }
+        }
+
+        console.log('🔍 PaymentSuccess: URL params:', Object.fromEntries(searchParams.entries()));
+        console.log('🔍 PaymentSuccess: Extracted paymentId:', paymentId);
+
+        if (!paymentId) {
+          console.error('❌ PaymentSuccess: No payment ID found in URL parameters');
           setPaymentStatus('error');
           return;
         }
 
         // Проверяем статус платежа
+        console.log('🔍 PaymentSuccess: Checking payment status for:', paymentId);
         const response = await fetch(`/api/payments/status/${paymentId}`);
-        
+
         if (!response.ok) {
-          throw new Error('Не удалось проверить статус платежа');
+          const errorText = await response.text();
+          console.error('❌ PaymentSuccess: API response not ok:', response.status, errorText);
+          throw new Error(`Не удалось проверить статус платежа: ${response.status}`);
         }
 
         const data = await response.json();
+        console.log('🔍 PaymentSuccess: Payment data received:', data);
         setPaymentData(data);
 
-        if (data.paid && data.status === 'succeeded') {
+        if (data.success && data.paid && data.status === 'succeeded') {
           // Активируем подписку
+          console.log('✅ PaymentSuccess: Payment successful, activating subscription');
           activateSubscription();
           setPaymentStatus('success');
-          
+
+          // Очищаем сохраненный paymentId из localStorage
+          localStorage.removeItem('pendingPaymentId');
+
           toast({
             title: "🎉 Подписка активирована!",
             description: "Теперь вам доступны все премиум-функции",
           });
         } else {
+          console.error('❌ PaymentSuccess: Payment not successful:', {
+            success: data.success,
+            paid: data.paid,
+            status: data.status
+          });
           setPaymentStatus('error');
         }
 
       } catch (error) {
-        console.error('Payment status check error:', error);
+        console.error('❌ PaymentSuccess: Error checking payment status:', error);
         setPaymentStatus('error');
       }
     };

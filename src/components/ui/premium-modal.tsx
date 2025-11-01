@@ -91,7 +91,10 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
       }
 
       const paymentData = await response.json();
-      
+
+      // Сохраняем paymentId в localStorage для восстановления на странице успеха
+      localStorage.setItem('pendingPaymentId', paymentData.paymentId);
+
       // Перенаправляем на страницу оплаты
       window.location.href = paymentData.paymentUrl;
       

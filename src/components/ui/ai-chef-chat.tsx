@@ -39,20 +39,67 @@ interface AiChefChatProps {
 
 export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   const { user } = useUser();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content: 'Готов помочь с кулинарными вопросами! Что хотите приготовить?',
-      role: 'assistant',
-      timestamp: new Date()
+
+  // Загружаем историю сообщений из localStorage
+  const loadMessagesFromStorage = (): Message[] => {
+    try {
+      const saved = localStorage.getItem('ai-chef-chat-history');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Преобразуем timestamp обратно в Date объекты
+        return parsed.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки истории чата:', error);
     }
-  ]);
+    // Возвращаем начальное сообщение, если истории нет
+    return [
+      {
+        id: '1',
+        content: 'Готов помочь с кулинарными вопросами! Что хотите приготовить?',
+        role: 'assistant',
+        timestamp: new Date()
+      }
+    ];
+  };
+
+  const [messages, setMessages] = useState<Message[]>(loadMessagesFromStorage);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [audioSupported, setAudioSupported] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(0);
+
+  // Сохраняем историю сообщений в localStorage при каждом изменении
+  const saveMessagesToStorage = (messagesToSave: Message[]) => {
+    try {
+      // Ограничиваем историю до последних 50 сообщений для экономии места
+      const limitedMessages = messagesToSave.slice(-50);
+      localStorage.setItem('ai-chef-chat-history', JSON.stringify(limitedMessages));
+    } catch (error) {
+      console.error('Ошибка сохранения истории чата:', error);
+    }
+  };
+
+  // Функция для очистки истории чата
+  const clearChatHistory = () => {
+    const initialMessage = {
+      id: Date.now().toString(),
+      content: 'История чата очищена. Готов помочь с новыми кулинарными вопросами!',
+      role: 'assistant' as const,
+      timestamp: new Date()
+    };
+    setMessages([initialMessage]);
+    localStorage.removeItem('ai-chef-chat-history');
+    toast({
+      title: "История очищена",
+      description: "Начнем разговор заново!",
+    });
+  };
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -152,17 +199,22 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
       // Удаляем сообщение о мышлении
       setMessages(prev => {
         const withoutThinking = prev.filter(msg => msg.id !== 'thinking');
-        
+
         // Добавляем ответ только если он не пустой
         if (response && response.trim()) {
-          return [...withoutThinking, {
+          const newMessages = [...withoutThinking, {
             id: Date.now().toString(),
             content: response,
             role: 'assistant',
             timestamp: new Date()
           }];
+
+          // Сохраняем обновленную историю в localStorage
+          saveMessagesToStorage(newMessages);
+
+          return newMessages;
         }
-        
+
         return withoutThinking;
       });
     } catch (error) {
@@ -171,13 +223,18 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
       // Удаляем сообщение о мышлении и добавляем сообщение об ошибке
       setMessages(prev => {
         const withoutThinking = prev.filter(msg => msg.id !== 'thinking');
-        return [...withoutThinking, {
+        const errorMessage = {
           id: Date.now().toString(),
           content: 'Извините, я временно недоступен. Попробуйте позже или обратитесь к другим функциям приложения.',
-          role: 'assistant',
+          role: 'assistant' as const,
           timestamp: new Date()
-        }];
-      });
+        };
+        const newMessages = [...withoutThinking, errorMessage];
+
+        // Сохраняем обновленную историю в localStorage
+        saveMessagesToStorage(newMessages);
+
+        return newMessages;
     } finally {
       setIsLoading(false);
       setIsThinking(false);
@@ -235,18 +292,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   };
 
   const handleClearChat = () => {
-    setMessages([
-      {
-        id: '1',
-        content: 'Готов помочь с кулинарными вопросами! Что хотите приготовить?',
-        role: 'assistant',
-        timestamp: new Date()
-      }
-    ]);
-    toast({
-      title: "Чат очищен",
-      description: "История разговора удалена. Начинаем новый диалог!",
-    });
+    clearChatHistory();
   };
 
   const formatTime = (date: Date) => {
@@ -332,7 +378,12 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
           isAudio: true
         };
         
-        setMessages(prev => [...prev, audioMessage]);
+        setMessages(prev => {
+          const newMessages = [...prev, audioMessage];
+          // Сохраняем обновленную историю в localStorage
+          saveMessagesToStorage(newMessages);
+          return newMessages;
+        });
         
         // Небольшая задержка, чтобы пользователь увидел распознанный текст
         setTimeout(async () => {

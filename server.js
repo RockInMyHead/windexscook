@@ -40,6 +40,9 @@ if (!fs.existsSync(logsDir)) {
 const imageLimitsFile = path.join(logsDir, 'image_limits.json');
 const DAILY_IMAGE_LIMIT = 20;
 
+// Временное хранение последних платежей (последние 10 платежей)
+const recentPayments = new Map();
+
 // Функция для загрузки лимитов изображений
 const loadImageLimits = () => {
   try {
@@ -628,6 +631,22 @@ app.post('/api/payments/create', async (req, res) => {
       currency: payment.amount.currency
     });
 
+    // Сохраняем платеж в памяти для быстрого доступа
+    recentPayments.set(userId, {
+      id: payment.id,
+      userId,
+      userEmail,
+      amount: payment.amount.value,
+      currency: payment.amount.currency,
+      createdAt: new Date().toISOString()
+    });
+
+    // Ограничиваем размер Map (оставляем только последние 10 платежей)
+    if (recentPayments.size > 10) {
+      const firstKey = recentPayments.keys().next().value;
+      recentPayments.delete(firstKey);
+    }
+
     // Модифицируем return_url, добавляя paymentId как параметр
     const paymentUrl = payment.confirmation.confirmation_url;
     
@@ -719,38 +738,64 @@ app.get('/api/payments/user/:userId/recent', async (req, res) => {
     console.log('🔍 [Payment] Looking for recent payment for user:', userId);
     logToFile('INFO', 'Payment search requested', { userId });
 
-    // Читаем логи платежей для поиска последнего платежа
+    // Сначала проверяем платежи в памяти (быстрее и надежнее)
+    const memoryPayment = recentPayments.get(userId);
+    if (memoryPayment) {
+      console.log('✅ [Payment] Found payment in memory:', memoryPayment);
+      return res.json({
+        success: true,
+        id: memoryPayment.id,
+        userId: memoryPayment.userId,
+        amount: memoryPayment.amount,
+        currency: memoryPayment.currency
+      });
+    }
+
+    // Если не нашли в памяти, ищем в логах (запасной вариант)
+    console.log('🔍 [Payment] Payment not in memory, searching logs...');
+
     const fs = await import('fs').then(m => m.promises);
     const path = await import('path').then(m => m.default);
     const logsDir = path.join(process.cwd(), 'logs');
 
-    // Ищем информацию о платежах в логах
     try {
       const todayLog = path.join(logsDir, new Date().toISOString().split('T')[0] + '.log');
-      
+
       if (fs.stat(todayLog).catch(() => null)) {
         const logContent = await fs.readFile(todayLog, 'utf8');
-        
-        // Ищем последний созданный платеж для этого пользователя
-        // Более простое регулярное выражение для поиска paymentId и userId
+
+        // Ищем по JSON структуре в логах
         const lines = logContent.split('\n');
         let lastPayment = null;
+        let foundPaymentLine = false;
 
         for (const line of lines.reverse()) { // Ищем с конца файла (последние записи)
-          if (line.includes('Premium payment created') && line.includes(userId)) {
-            console.log('🔍 [Payment] Found payment line:', line);
+          if (line.includes('Premium payment created')) {
+            foundPaymentLine = true;
+            console.log('🔍 [Payment] Found payment line in logs:', line);
+          }
+
+          // После строки с "Premium payment created" ищем JSON с данными
+          if (foundPaymentLine && line.includes(`"userId":"${userId}"`)) {
+            console.log('🔍 [Payment] Found payment data for user in logs:', line);
 
             // Ищем paymentId в строке
             const paymentIdMatch = line.match(/"paymentId":"([^"]*)"/);
             if (paymentIdMatch) {
               lastPayment = { id: paymentIdMatch[1], userId: userId };
+              console.log('✅ [Payment] Extracted paymentId from logs:', lastPayment.id);
               break; // Нашли последний платеж, выходим
             }
+          }
+
+          // Сбрасываем флаг если нашли другую запись
+          if (foundPaymentLine && line.includes('[INFO]') && !line.includes('Premium payment created')) {
+            foundPaymentLine = false;
           }
         }
 
         if (lastPayment) {
-          console.log('✅ [Payment] Found recent payment:', lastPayment);
+          console.log('✅ [Payment] Found recent payment in logs:', lastPayment);
           return res.json({
             success: true,
             id: lastPayment.id,
@@ -762,17 +807,18 @@ app.get('/api/payments/user/:userId/recent', async (req, res) => {
       console.warn('⚠️ [Payment] Could not search logs:', logError);
     }
 
-    // Если не нашли в логах, возвращаем ошибку
-    res.status(404).json({ 
+    // Если не нашли ни в памяти, ни в логах
+    console.log('❌ [Payment] No recent payment found for user:', userId);
+    res.status(404).json({
       error: 'No recent payment found for user',
-      userId 
+      userId
     });
 
   } catch (error) {
     console.error('❌ [Payment] Error getting recent payment:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to get recent payment',
-      details: error.message 
+      details: error.message
     });
   }
 });

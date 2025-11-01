@@ -82,7 +82,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
         body: JSON.stringify({
           userId: user.id,
           userEmail: user.email,
-          returnUrl: `${window.location.origin}/payment-success`
+          returnUrl: `${window.location.origin}/payment-success?userId=${user.id}`
         }),
       });
 
@@ -92,10 +92,20 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 
       const paymentData = await response.json();
 
+      console.log('💰 PremiumModal: Payment created successfully:', paymentData);
+      console.log('💰 PremiumModal: Saving paymentId to localStorage:', paymentData.paymentId);
+
       // Сохраняем paymentId в localStorage для восстановления на странице успеха
-      localStorage.setItem('pendingPaymentId', paymentData.paymentId);
+      try {
+        localStorage.setItem('pendingPaymentId', paymentData.paymentId);
+        console.log('💰 PremiumModal: Successfully saved to localStorage');
+        console.log('💰 PremiumModal: localStorage contents after save:', localStorage.getItem('pendingPaymentId'));
+      } catch (storageError) {
+        console.error('💰 PremiumModal: Failed to save to localStorage:', storageError);
+      }
 
       // Перенаправляем на страницу оплаты
+      console.log('💰 PremiumModal: Redirecting to payment URL:', paymentData.paymentUrl);
       window.location.href = paymentData.paymentUrl;
       
     } catch (error) {

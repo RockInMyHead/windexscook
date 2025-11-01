@@ -16,28 +16,71 @@ const PaymentSuccess: React.FC = () => {
   useEffect(() => {
     const checkPaymentStatus = async () => {
       try {
+        console.log('🔍 PaymentSuccess: Component loaded, checking payment status...');
+        console.log('🔍 PaymentSuccess: Current URL:', window.location.href);
+        console.log('🔍 PaymentSuccess: localStorage available:', typeof localStorage !== 'undefined');
+
         // Получаем paymentId из различных возможных параметров URL
-        // YooKassa может возвращать paymentId, orderId или другие параметры
+        // YooKassa может возвращать разные параметры
         let paymentId = searchParams.get('paymentId') ||
                        searchParams.get('orderId') ||
-                       searchParams.get('payment_id');
+                       searchParams.get('payment_id') ||
+                       searchParams.get('id'); // иногда YooKassa возвращает просто id
 
         console.log('🔍 PaymentSuccess: URL params:', Object.fromEntries(searchParams.entries()));
         console.log('🔍 PaymentSuccess: Initial paymentId from URL:', paymentId);
 
         // Если не нашли в URL, проверяем localStorage
         if (!paymentId) {
-          paymentId = localStorage.getItem('pendingPaymentId');
-          console.log('🔍 PaymentSuccess: Checked localStorage, found:', paymentId);
+          try {
+            paymentId = localStorage.getItem('pendingPaymentId');
+            console.log('🔍 PaymentSuccess: Checked localStorage, found:', paymentId);
+          } catch (storageError) {
+            console.error('🔍 PaymentSuccess: localStorage error:', storageError);
+            paymentId = null;
+          }
+        }
+
+        // Также проверим sessionStorage как запасной вариант
+        if (!paymentId) {
+          try {
+            paymentId = sessionStorage.getItem('pendingPaymentId');
+            console.log('🔍 PaymentSuccess: Checked sessionStorage, found:', paymentId);
+          } catch (storageError) {
+            console.error('🔍 PaymentSuccess: sessionStorage error:', storageError);
+            paymentId = null;
+          }
         }
 
         console.log('🔍 PaymentSuccess: Final paymentId to use:', paymentId);
-        console.log('🔍 PaymentSuccess: localStorage contents:', localStorage.getItem('pendingPaymentId'));
 
         if (!paymentId) {
-          console.error('❌ PaymentSuccess: No payment ID found in URL parameters');
-          setPaymentStatus('error');
-          return;
+          console.error('❌ PaymentSuccess: No payment ID found in URL parameters or storage');
+
+          // Попробуем найти последний платеж пользователя по userId
+          const userId = searchParams.get('userId');
+          if (userId) {
+            console.log('🔍 PaymentSuccess: Trying to find recent payment for userId:', userId);
+            try {
+              // Это временное решение - ищем последний платеж пользователя
+              // В будущем нужно реализовать поиск платежей по userId на сервере
+              const recentPaymentsResponse = await fetch(`/api/payments/user/${userId}/recent`);
+              if (recentPaymentsResponse.ok) {
+                const recentPayment = await recentPaymentsResponse.json();
+                if (recentPayment && recentPayment.id) {
+                  paymentId = recentPayment.id;
+                  console.log('✅ PaymentSuccess: Found recent payment:', paymentId);
+                }
+              }
+            } catch (recentError) {
+              console.error('❌ PaymentSuccess: Failed to find recent payment:', recentError);
+            }
+          }
+
+          if (!paymentId) {
+            setPaymentStatus('error');
+            return;
+          }
         }
 
         // Проверяем статус платежа

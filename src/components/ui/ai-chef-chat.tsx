@@ -196,51 +196,53 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
 
       console.log('🔍 DEBUG: Sending message history:', messageHistory.length, 'messages');
 
-      const response = await OpenAIService.chatWithChef(messageText, user?.healthProfile, messageHistory, isFastMode);
-      
-      // Удаляем сообщение о мышлении
-      setMessages(prev => {
-        const withoutThinking = prev.filter(msg => msg.id !== 'thinking');
+      try {
+        const response = await OpenAIService.chatWithChef(messageText, user?.healthProfile, messageHistory, isFastMode);
 
-        // Добавляем ответ только если он не пустой
-        if (response && response.trim()) {
-          const newMessages = [...withoutThinking, {
+        // Удаляем сообщение о мышлении
+        setMessages(prev => {
+          const withoutThinking = prev.filter(msg => msg.id !== 'thinking');
+
+          // Добавляем ответ только если он не пустой
+          if (response && response.trim()) {
+            const newMessages = [...withoutThinking, {
+              id: Date.now().toString(),
+              content: response,
+              role: 'assistant',
+              timestamp: new Date()
+            }];
+
+            // Сохраняем обновленную историю в localStorage
+            saveMessagesToStorage(newMessages);
+
+            return newMessages;
+          }
+
+          return withoutThinking;
+        });
+      } catch (error) {
+        console.error('Error sending message:', error);
+
+        // Удаляем сообщение о мышлении и добавляем сообщение об ошибке
+        setMessages(prev => {
+          const withoutThinking = prev.filter(msg => msg.id !== 'thinking');
+          const errorMessage = {
             id: Date.now().toString(),
-            content: response,
-            role: 'assistant',
+            content: 'Извините, я временно недоступен. Попробуйте позже или обратитесь к другим функциям приложения.',
+            role: 'assistant' as const,
             timestamp: new Date()
-          }];
+          };
+          const newMessages = [...withoutThinking, errorMessage];
 
           // Сохраняем обновленную историю в localStorage
           saveMessagesToStorage(newMessages);
 
           return newMessages;
-        }
-
-        return withoutThinking;
-      });
-    } catch (error) {
-      console.error('Error sending message:', error);
-      
-      // Удаляем сообщение о мышлении и добавляем сообщение об ошибке
-      setMessages(prev => {
-        const withoutThinking = prev.filter(msg => msg.id !== 'thinking');
-        const errorMessage = {
-          id: Date.now().toString(),
-          content: 'Извините, я временно недоступен. Попробуйте позже или обратитесь к другим функциям приложения.',
-          role: 'assistant' as const,
-          timestamp: new Date()
-        };
-        const newMessages = [...withoutThinking, errorMessage];
-
-        // Сохраняем обновленную историю в localStorage
-        saveMessagesToStorage(newMessages);
-
-        return newMessages;
-    } finally {
-      setIsLoading(false);
-      setIsThinking(false);
-    }
+        });
+      } finally {
+        setIsLoading(false);
+        setIsThinking(false);
+      }
   };
 
   const handleSendMessage = async () => {

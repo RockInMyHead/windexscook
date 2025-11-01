@@ -18,19 +18,41 @@ const PaymentSuccess: React.FC = () => {
       try {
         console.log('🔍 PaymentSuccess: Component loaded, checking payment status...');
         console.log('🔍 PaymentSuccess: Current URL:', window.location.href);
+        console.log('🔍 PaymentSuccess: URL hash:', window.location.hash);
+        console.log('🔍 PaymentSuccess: Cookies:', document.cookie);
         console.log('🔍 PaymentSuccess: localStorage available:', typeof localStorage !== 'undefined');
 
-        // Получаем paymentId из различных возможных параметров URL
-        // YooKassa может возвращать разные параметры
+        // Получаем paymentId из различных возможных источников
         let paymentId = searchParams.get('paymentId') ||
                        searchParams.get('orderId') ||
                        searchParams.get('payment_id') ||
                        searchParams.get('id'); // иногда YooKassa возвращает просто id
 
         console.log('🔍 PaymentSuccess: URL params:', Object.fromEntries(searchParams.entries()));
-        console.log('🔍 PaymentSuccess: Initial paymentId from URL:', paymentId);
+        console.log('🔍 PaymentSuccess: Initial paymentId from URL params:', paymentId);
 
-        // Если не нашли в URL, проверяем localStorage
+        // Проверяем URL hash
+        if (!paymentId && window.location.hash) {
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          paymentId = hashParams.get('paymentId');
+          console.log('🔍 PaymentSuccess: Checked URL hash, found:', paymentId);
+        }
+
+        // Проверяем cookies
+        if (!paymentId) {
+          try {
+            const cookies = document.cookie.split(';');
+            const paymentIdCookie = cookies.find(cookie => cookie.trim().startsWith('pendingPaymentId='));
+            if (paymentIdCookie) {
+              paymentId = paymentIdCookie.split('=')[1];
+              console.log('🔍 PaymentSuccess: Found in cookies:', paymentId);
+            }
+          } catch (cookieError) {
+            console.error('🔍 PaymentSuccess: Cookie error:', cookieError);
+          }
+        }
+
+        // Проверяем localStorage
         if (!paymentId) {
           try {
             paymentId = localStorage.getItem('pendingPaymentId');
@@ -41,7 +63,7 @@ const PaymentSuccess: React.FC = () => {
           }
         }
 
-        // Также проверим sessionStorage как запасной вариант
+        // Проверяем sessionStorage
         if (!paymentId) {
           try {
             paymentId = sessionStorage.getItem('pendingPaymentId');

@@ -102,20 +102,41 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
       const paymentData = await response.json();
 
       console.log('💰 PremiumModal: Payment created successfully:', paymentData);
-      console.log('💰 PremiumModal: Saving paymentId to localStorage:', paymentData.paymentId);
+      console.log('💰 PremiumModal: Payment URL:', paymentData.paymentUrl);
 
-      // Сохраняем paymentId в localStorage для восстановления на странице успеха
+      // Сохраняем paymentId в нескольких местах для надежности
+      const paymentId = paymentData.paymentId;
+
+      // 1. localStorage (может не работать между доменами)
       try {
-        localStorage.setItem('pendingPaymentId', paymentData.paymentId);
-        console.log('💰 PremiumModal: Successfully saved to localStorage');
-        console.log('💰 PremiumModal: localStorage contents after save:', localStorage.getItem('pendingPaymentId'));
+        localStorage.setItem('pendingPaymentId', paymentId);
+        console.log('💰 PremiumModal: Saved to localStorage');
       } catch (storageError) {
-        console.error('💰 PremiumModal: Failed to save to localStorage:', storageError);
+        console.error('💰 PremiumModal: localStorage failed:', storageError);
       }
 
+      // 2. sessionStorage (тоже может не работать)
+      try {
+        sessionStorage.setItem('pendingPaymentId', paymentId);
+        console.log('💰 PremiumModal: Saved to sessionStorage');
+      } catch (storageError) {
+        console.error('💰 PremiumModal: sessionStorage failed:', storageError);
+      }
+
+      // 3. Cookies (должны работать между доменами)
+      try {
+        document.cookie = `pendingPaymentId=${paymentId}; path=/; max-age=3600; SameSite=None; Secure`;
+        console.log('💰 PremiumModal: Saved to cookies');
+      } catch (cookieError) {
+        console.error('💰 PremiumModal: Cookies failed:', cookieError);
+      }
+
+      // 4. URL hash для передачи paymentId (надежный способ)
+      const paymentUrlWithHash = `${paymentData.paymentUrl}#paymentId=${paymentId}`;
+      console.log('💰 PremiumModal: Modified payment URL with hash:', paymentUrlWithHash);
+
       // Перенаправляем на страницу оплаты
-      console.log('💰 PremiumModal: Redirecting to payment URL:', paymentData.paymentUrl);
-      window.location.href = paymentData.paymentUrl;
+      window.location.href = paymentUrlWithHash;
       
     } catch (error) {
       console.error('Payment error:', error);

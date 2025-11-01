@@ -5,11 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from './card';
 import { Avatar, AvatarFallback, AvatarImage } from './avatar';
 import { Badge } from './badge';
 import { ScrollArea } from './scroll-area';
-import { 
-  Send, 
-  Bot, 
-  User, 
-  Sparkles, 
+import {
+  Send,
+  Bot,
+  User,
+  Sparkles,
   Loader2,
   Copy,
   ThumbsUp,
@@ -17,7 +17,8 @@ import {
   Mic,
   Square,
   Volume2,
-  Trash2
+  Trash2,
+  Zap
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { OpenAIService } from '@/services/openai';
@@ -73,6 +74,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   const [audioSupported, setAudioSupported] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(0);
+  const [isFastMode, setIsFastMode] = useState(false); // Быстрый режим для более быстрых ответов
 
   // Сохраняем историю сообщений в localStorage при каждом изменении
   const saveMessagesToStorage = (messagesToSave: Message[]) => {
@@ -194,7 +196,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
 
       console.log('🔍 DEBUG: Sending message history:', messageHistory.length, 'messages');
 
-      const response = await OpenAIService.chatWithChef(messageText, user?.healthProfile, messageHistory);
+      const response = await OpenAIService.chatWithChef(messageText, user?.healthProfile, messageHistory, isFastMode);
       
       // Удаляем сообщение о мышлении
       setMessages(prev => {
@@ -659,6 +661,16 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
               )}
             </Button>
             <Button
+              onClick={() => setIsFastMode(!isFastMode)}
+              disabled={isLoading || isRecording}
+              size="icon"
+              variant={isFastMode ? "default" : "outline"}
+              className="shrink-0 h-10 w-10"
+              title={isFastMode ? "Выключить быстрый режим" : "Включить быстрый режим"}
+            >
+              <Zap className={`w-4 h-4 ${isFastMode ? 'text-yellow-400' : ''}`} />
+            </Button>
+            <Button
               onClick={handleClearChat}
               disabled={isLoading || isRecording}
               size="icon"
@@ -670,11 +682,12 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-2 hidden sm:block">
-            💡 Спросите о рецептах, техниках готовки, ингредиентах или любых кулинарных вопросах. 
+            💡 Спросите о рецептах, техниках готовки, ингредиентах или любых кулинарных вопросах.
+            {isFastMode && <span className="text-yellow-600 font-medium"> ⚡ Быстрый режим активен</span>}
             {audioSupported ? (
-              <span className="text-blue-500">🎤 Используйте микрофон для голосового ввода (Chrome, Edge, Safari)</span>
+              <span className="text-blue-500"> 🎤 Используйте микрофон для голосового ввода (Chrome, Edge, Safari)</span>
             ) : (
-              <span className="text-gray-500">🎤 Голосовой ввод недоступен в вашем браузере. Используйте Chrome, Edge или Safari.</span>
+              <span className="text-gray-500"> 🎤 Голосовой ввод недоступен в вашем браузере. Используйте Chrome, Edge или Safari.</span>
             )}
           </p>
         </div>

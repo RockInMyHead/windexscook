@@ -706,6 +706,67 @@ app.get('/api/payments/status/:paymentId', async (req, res) => {
   }
 });
 
+// Получить последний платеж пользователя (для восстановления после возврата с YooKassa)
+app.get('/api/payments/user/:userId/recent', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    console.log('🔍 [Payment] Looking for recent payment for user:', userId);
+
+    // Читаем логи платежей для поиска последнего платежа
+    const fs = await import('fs').then(m => m.promises);
+    const path = await import('path').then(m => m.default);
+    const logsDir = path.join(process.cwd(), 'logs');
+
+    // Ищем информацию о платежах в логах
+    try {
+      const todayLog = path.join(logsDir, new Date().toISOString().split('T')[0] + '.log');
+      
+      if (fs.stat(todayLog).catch(() => null)) {
+        const logContent = await fs.readFile(todayLog, 'utf8');
+        
+        // Ищем последний созданный платеж для этого пользователя
+        const paymentMatches = logContent.matchAll(/"userId":"([^"]*)".*?"paymentId":"([^"]*)"/g);
+        
+        let lastPayment = null;
+        for (const match of paymentMatches) {
+          if (match[1] === userId) {
+            lastPayment = { id: match[2], userId: match[1] };
+          }
+        }
+
+        if (lastPayment) {
+          console.log('✅ [Payment] Found recent payment:', lastPayment);
+          return res.json({
+            success: true,
+            id: lastPayment.id,
+            userId: lastPayment.userId
+          });
+        }
+      }
+    } catch (logError) {
+      console.warn('⚠️ [Payment] Could not search logs:', logError);
+    }
+
+    // Если не нашли в логах, возвращаем ошибку
+    res.status(404).json({ 
+      error: 'No recent payment found for user',
+      userId 
+    });
+
+  } catch (error) {
+    console.error('❌ [Payment] Error getting recent payment:', error);
+    res.status(500).json({ 
+      error: 'Failed to get recent payment',
+      details: error.message 
+    });
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ 

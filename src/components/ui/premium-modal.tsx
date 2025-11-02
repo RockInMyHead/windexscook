@@ -75,18 +75,31 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 
     try {
       // Получаем данные пользователя
-      const user = JSON.parse(localStorage.getItem('ai-chef-user') || '{}');
-      console.log('💰 PremiumModal: Retrieved user from localStorage:', user);
+      const userStr = localStorage.getItem('ai-chef-user');
+      console.log('💰 PremiumModal: Raw localStorage value:', userStr);
+      
+      const user = userStr ? JSON.parse(userStr) : {};
+      console.log('💰 PremiumModal: Parsed user object:', user);
+      console.log('💰 PremiumModal: user.id value:', user.id);
+      console.log('💰 PremiumModal: user.email value:', user.email);
+      console.log('💰 PremiumModal: All user keys:', Object.keys(user));
 
       if (!user.id || !user.email) {
-        console.log('💰 PremiumModal: User validation failed - missing id or email');
+        console.error('💰 PremiumModal: ❌ User validation FAILED!');
+        console.error('💰 PremiumModal: user object:', user);
+        console.error('💰 PremiumModal: user.id exists:', !!user.id);
+        console.error('💰 PremiumModal: user.email exists:', !!user.email);
+        
         toast({
           title: "Ошибка",
           description: "Необходимо войти в систему для оформления подписки",
           variant: "destructive",
         });
+        setIsLoading(false);
         return;
       }
+
+      console.log('✅ PremiumModal: User validation PASSED for user:', user.id, user.email);
 
       console.log('💰 PremiumModal: Starting payment creation for user:', user.id, user.email);
 
@@ -170,13 +183,17 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
         // Имитируем успешную оплату - перенаправляем на success страницу
         const successUrl = `http://localhost:5173/payment-success?paymentId=${paymentId}&userId=${user.id}`;
         console.log('💰 PremiumModal: ===== REDIRECTING TO SUCCESS =====');
-        console.log('💰 PremiumModal: Redirecting to success URL:', successUrl);
+        console.log('💰 PremiumModal: paymentId:', paymentId);
+        console.log('💰 PremiumModal: user.id:', user.id);
+        console.log('💰 PremiumModal: Constructed URL:', successUrl);
+        console.log('💰 PremiumModal: URL is valid:', successUrl.includes('paymentId=') && successUrl.includes('userId='));
         console.log('💰 PremiumModal: ===== PAYMENT SIMULATION COMPLETE =====');
 
         alert(`ПЕРЕНАПРАВЛЕНИЕ НА СТРАНИЦУ УСПЕХА!\nPaymentId: ${paymentId}\nUserId: ${user.id}\nURL: ${successUrl}`);
 
         // Небольшая задержка для отображения логов
         setTimeout(() => {
+          console.log('💰 PremiumModal: EXECUTING REDIRECT to:', successUrl);
           window.location.href = successUrl;
         }, 1000);
       } else {

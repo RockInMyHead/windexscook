@@ -13,12 +13,14 @@ interface PremiumModalProps {
   onSuccess?: () => void; // Callback после успешной подписки
 }
 
-export const PremiumModal: React.FC<PremiumModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  feature, 
-  onSuccess 
+export const PremiumModal: React.FC<PremiumModalProps> = ({
+  isOpen,
+  onClose,
+  feature,
+  onSuccess
 }) => {
+  console.log('🔄 PremiumModal rendered - isOpen:', isOpen, 'feature:', feature);
+
   const { hasActiveSubscription, activateSubscription } = useUser();
   const [isLoading, setIsLoading] = React.useState(false);
 
@@ -57,6 +59,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 
   // Оптимизированная функция подписки
   const handleSubscribe = useCallback(async () => {
+    console.log('🚀🚀🚀 BUTTON CLICKED! handleSubscribe called 🚀🚀🚀');
     console.log('💰 PremiumModal: ===== PAYMENT CREATION STARTED =====');
     console.log('💰 PremiumModal: handleSubscribe called at:', new Date().toISOString());
     console.log('💰 PremiumModal: Current hostname:', window.location.hostname);

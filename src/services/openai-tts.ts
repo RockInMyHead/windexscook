@@ -11,7 +11,7 @@ export class OpenAITTS {
       console.log(`📝 [OpenAI TTS #${requestId}] Текст для синтеза:`, {
         textLength: text.length,
         voice,
-        model: 'tts-1',
+        model: 'tts-1-hd',
         textPreview: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
         fullText: text
       });
@@ -33,7 +33,7 @@ export class OpenAITTS {
         body: JSON.stringify({
           text,
           voice,
-          model: 'tts-1'
+          model: 'tts-1-hd'
         }),
       });
 

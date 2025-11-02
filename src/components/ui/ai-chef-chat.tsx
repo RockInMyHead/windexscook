@@ -53,9 +53,6 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   const [audioSupported, setAudioSupported] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(0);
-  const [isFastMode, setIsFastMode] = useState(false); // Быстрый режим для более быстрых ответов
-  const [isContinuousMode, setIsContinuousMode] = useState(false); // Режим постоянного прослушивания
-  const [isUserSpeaking, setIsUserSpeaking] = useState(false); // Флаг, что пользователь говорит
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -68,66 +65,6 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
     "Формирую детальный ответ...",
     "Проверяю рецепт на точность..."
   ];
-
-  // Функция переключения режима постоянного прослушивания
-  const toggleContinuousMode = async () => {
-    if (!audioSupported) {
-      toast({
-        title: "Недоступно",
-        description: "Голосовые функции не поддерживаются в вашем браузере",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const newContinuousMode = !isContinuousMode;
-    setIsContinuousMode(newContinuousMode);
-
-    if (newContinuousMode) {
-      // Включаем постоянное прослушивание
-      toast({
-        title: "🎤 Режим постоянного диалога",
-        description: "Теперь я буду слушать вас постоянно. Говорите в любое время!",
-      });
-
-      // Начинаем прослушивание
-      await startContinuousListening();
-    } else {
-      // Выключаем постоянное прослушивание
-      toast({
-        title: "Режим выключен",
-        description: "Постоянное прослушивание отключено",
-      });
-
-      // Останавливаем прослушивание
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      setIsRecording(false);
-      setIsUserSpeaking(false);
-    }
-  };
-
-  // Функция запуска постоянного прослушивания
-  const startContinuousListening = async () => {
-    if (isRecording || !audioSupported) return;
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Освобождаем поток сразу, так как он нам не нужен
-      stream.getTracks().forEach(track => track.stop());
-
-      await speechToText();
-    } catch (error) {
-      console.error('Error starting continuous listening:', error);
-      toast({
-        title: "Ошибка микрофона",
-        description: "Не удалось получить доступ к микрофону",
-        variant: "destructive",
-      });
-      setIsContinuousMode(false);
-    }
-  };
 
   // Автоскролл к последнему сообщению
   useEffect(() => {
@@ -287,14 +224,6 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
         title: "🔊 Воспроизведение",
         description: "Ответ AI озвучен",
       });
-
-      // В режиме постоянного диалога автоматически начинаем слушать после окончания речи
-      if (isContinuousMode) {
-        console.log('🎤 TTS finished, starting continuous listening...');
-        setTimeout(() => {
-          startContinuousListening();
-        }, 500); // Небольшая пауза перед началом прослушивания
-      }
     } catch (error) {
       console.error('Error speaking message:', error);
       toast({
@@ -302,13 +231,6 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
         description: "Не удалось воспроизвести ответ",
         variant: "destructive",
       });
-
-      // Даже при ошибке TTS, в режиме постоянного диалога продолжаем слушать
-      if (isContinuousMode) {
-        setTimeout(() => {
-          startContinuousListening();
-        }, 1000);
-      }
     }
   };
 
@@ -469,21 +391,13 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
         hasResult = true;
         const result = event.results[0][0].transcript;
         console.log('Speech recognition result:', result);
-
+        
         // Показываем уведомление об успешном распознавании
         toast({
           title: "✅ Речь распознана",
           description: `"${result}"`,
         });
-
-        // В режиме постоянного диалога автоматически отправляем сообщение AI
-        if (isContinuousMode && result.trim()) {
-          console.log('🎯 Continuous mode: auto-sending message to AI');
-          setTimeout(() => {
-            sendMessageToAI(result.trim());
-          }, 500); // Небольшая задержка
-        }
-
+        
         resolve(result);
       };
 
@@ -694,16 +608,6 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
               )}
             </Button>
             <Button
-              onClick={toggleContinuousMode}
-              disabled={isLoading || !audioSupported}
-              size="icon"
-              variant={isContinuousMode ? "default" : "outline"}
-              className="shrink-0 h-10 w-10"
-              title={isContinuousMode ? "Выключить постоянный диалог" : "Включить постоянный диалог"}
-            >
-              <Mic className={`w-4 h-4 ${isContinuousMode ? 'text-red-400 animate-pulse' : ''}`} />
-            </Button>
-            <Button
               onClick={handleClearChat}
               disabled={isLoading || isRecording}
               size="icon"
@@ -715,12 +619,11 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-2 hidden sm:block">
-            💡 Спросите о рецептах, техниках готовки, ингредиентах или любых кулинарных вопросах.
-            {isContinuousMode && <span className="text-red-600 font-medium"> 🎤 Постоянный диалог активен</span>}
+            💡 Спросите о рецептах, техниках готовки, ингредиентах или любых кулинарных вопросах. 
             {audioSupported ? (
-              <span className="text-blue-500"> 🎤 Используйте микрофон для голосового ввода (Chrome, Edge, Safari)</span>
+              <span className="text-blue-500">🎤 Используйте микрофон для голосового ввода (Chrome, Edge, Safari)</span>
             ) : (
-              <span className="text-gray-500"> 🎤 Голосовой ввод недоступен в вашем браузере. Используйте Chrome, Edge или Safari.</span>
+              <span className="text-gray-500">🎤 Голосовой ввод недоступен в вашем браузере. Используйте Chrome, Edge или Safari.</span>
             )}
           </p>
         </div>

@@ -57,7 +57,10 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 
   // Оптимизированная функция подписки
   const handleSubscribe = useCallback(async () => {
-    console.log('💰 PremiumModal: handleSubscribe called');
+    console.log('💰 PremiumModal: ===== PAYMENT CREATION STARTED =====');
+    console.log('💰 PremiumModal: handleSubscribe called at:', new Date().toISOString());
+    console.log('💰 PremiumModal: Current hostname:', window.location.hostname);
+    console.log('💰 PremiumModal: Current URL:', window.location.href);
 
     if (isLoading) {
       console.log('💰 PremiumModal: Already loading, skipping');
@@ -65,6 +68,8 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
     }
 
     setIsLoading(true);
+    console.log('💰 PremiumModal: Set loading state to true');
+
     try {
       // Получаем данные пользователя
       const user = JSON.parse(localStorage.getItem('ai-chef-user') || '{}');
@@ -139,16 +144,36 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
       // Для локального тестирования используем альтернативный подход
       // Вместо редиректа на YooKassa, сразу эмулируем успешную оплату
       if (window.location.hostname === 'localhost') {
+        console.log('💰 PremiumModal: ===== LOCALHOST DETECTED - SIMULATING PAYMENT =====');
         console.log('💰 PremiumModal: Localhost detected - simulating successful payment');
+        console.log('💰 PremiumModal: Payment ID for simulation:', paymentId);
+        console.log('💰 PremiumModal: User ID for simulation:', user.id);
 
         // Сохраняем paymentId для тестирования
-        localStorage.setItem('testPaymentId', paymentId);
-        sessionStorage.setItem('testPaymentId', paymentId);
+        try {
+          localStorage.setItem('testPaymentId', paymentId);
+          console.log('💰 PremiumModal: Saved to localStorage successfully');
+        } catch (e) {
+          console.error('💰 PremiumModal: Failed to save to localStorage:', e);
+        }
+
+        try {
+          sessionStorage.setItem('testPaymentId', paymentId);
+          console.log('💰 PremiumModal: Saved to sessionStorage successfully');
+        } catch (e) {
+          console.error('💰 PremiumModal: Failed to save to sessionStorage:', e);
+        }
 
         // Имитируем успешную оплату - перенаправляем на success страницу
         const successUrl = `http://localhost:5173/payment-success?paymentId=${paymentId}&userId=${user.id}`;
+        console.log('💰 PremiumModal: ===== REDIRECTING TO SUCCESS =====');
         console.log('💰 PremiumModal: Redirecting to success URL:', successUrl);
-        window.location.href = successUrl;
+        console.log('💰 PremiumModal: ===== PAYMENT SIMULATION COMPLETE =====');
+
+        // Небольшая задержка для отображения логов
+        setTimeout(() => {
+          window.location.href = successUrl;
+        }, 100);
       } else {
         // На продакшене перенаправляем на YooKassa
         console.log('💰 PremiumModal: Production detected - redirecting to YooKassa');

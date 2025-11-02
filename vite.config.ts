@@ -18,7 +18,7 @@ export default defineConfig({
     // Прокси для разработки и продакшена
     proxy: {
       '/api': {
-        target: 'http://localhost:1041',
+        target: 'http://localhost:1031',
         changeOrigin: true,
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, _res) => {

@@ -62,6 +62,9 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
     console.log('💰 PremiumModal: Current hostname:', window.location.hostname);
     console.log('💰 PremiumModal: Current URL:', window.location.href);
 
+    // Временный alert для диагностики
+    alert('НАЧАЛО СОЗДАНИЯ ПЛАТЕЖА! Проверьте консоль для подробных логов.');
+
     if (isLoading) {
       console.log('💰 PremiumModal: Already loading, skipping');
       return;
@@ -170,10 +173,12 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
         console.log('💰 PremiumModal: Redirecting to success URL:', successUrl);
         console.log('💰 PremiumModal: ===== PAYMENT SIMULATION COMPLETE =====');
 
+        alert(`ПЕРЕНАПРАВЛЕНИЕ НА СТРАНИЦУ УСПЕХА!\nPaymentId: ${paymentId}\nUserId: ${user.id}\nURL: ${successUrl}`);
+
         // Небольшая задержка для отображения логов
         setTimeout(() => {
           window.location.href = successUrl;
-        }, 100);
+        }, 1000);
       } else {
         // На продакшене перенаправляем на YooKassa
         console.log('💰 PremiumModal: Production detected - redirecting to YooKassa');

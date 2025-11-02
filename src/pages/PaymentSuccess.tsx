@@ -52,11 +52,11 @@ const PaymentSuccess: React.FC = () => {
           }
         }
 
-        // Проверяем localStorage
+        // Проверяем localStorage (обычный способ)
         if (!paymentId) {
           try {
             paymentId = localStorage.getItem('pendingPaymentId');
-            console.log('🔍 PaymentSuccess: Checked localStorage, found:', paymentId);
+            console.log('🔍 PaymentSuccess: Checked localStorage (pendingPaymentId), found:', paymentId);
           } catch (storageError) {
             console.error('🔍 PaymentSuccess: localStorage error:', storageError);
             paymentId = null;
@@ -67,10 +67,29 @@ const PaymentSuccess: React.FC = () => {
         if (!paymentId) {
           try {
             paymentId = sessionStorage.getItem('pendingPaymentId');
-            console.log('🔍 PaymentSuccess: Checked sessionStorage, found:', paymentId);
+            console.log('🔍 PaymentSuccess: Checked sessionStorage (pendingPaymentId), found:', paymentId);
           } catch (storageError) {
             console.error('🔍 PaymentSuccess: sessionStorage error:', storageError);
             paymentId = null;
+          }
+        }
+
+        // Для локального тестирования проверяем testPaymentId
+        if (!paymentId && window.location.hostname === 'localhost') {
+          try {
+            paymentId = localStorage.getItem('testPaymentId');
+            console.log('🔍 PaymentSuccess: Checked localStorage (testPaymentId for localhost), found:', paymentId);
+          } catch (storageError) {
+            console.error('🔍 PaymentSuccess: testPaymentId localStorage error:', storageError);
+          }
+
+          if (!paymentId) {
+            try {
+              paymentId = sessionStorage.getItem('testPaymentId');
+              console.log('🔍 PaymentSuccess: Checked sessionStorage (testPaymentId for localhost), found:', paymentId);
+            } catch (storageError) {
+              console.error('🔍 PaymentSuccess: testPaymentId sessionStorage error:', storageError);
+            }
           }
         }
 

@@ -133,10 +133,27 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 
       // 4. URL hash для передачи paymentId (надежный способ)
       const paymentUrlWithHash = `${paymentData.paymentUrl}#paymentId=${paymentId}`;
+      console.log('💰 PremiumModal: Original payment URL:', paymentData.paymentUrl);
       console.log('💰 PremiumModal: Modified payment URL with hash:', paymentUrlWithHash);
 
-      // Перенаправляем на страницу оплаты
-      window.location.href = paymentUrlWithHash;
+      // Для локального тестирования используем альтернативный подход
+      // Вместо редиректа на YooKassa, сразу эмулируем успешную оплату
+      if (window.location.hostname === 'localhost') {
+        console.log('💰 PremiumModal: Localhost detected - simulating successful payment');
+
+        // Сохраняем paymentId для тестирования
+        localStorage.setItem('testPaymentId', paymentId);
+        sessionStorage.setItem('testPaymentId', paymentId);
+
+        // Имитируем успешную оплату - перенаправляем на success страницу
+        const successUrl = `http://localhost:5173/payment-success?paymentId=${paymentId}&userId=${user.id}`;
+        console.log('💰 PremiumModal: Redirecting to success URL:', successUrl);
+        window.location.href = successUrl;
+      } else {
+        // На продакшене перенаправляем на YooKassa
+        console.log('💰 PremiumModal: Production detected - redirecting to YooKassa');
+        window.location.href = paymentUrlWithHash;
+      }
       
     } catch (error) {
       console.error('Payment error:', error);

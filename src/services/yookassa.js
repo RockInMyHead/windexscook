@@ -1,10 +1,12 @@
 import { YooCheckout } from '@a2seven/yoo-checkout';
+import { writeFileSync } from 'fs';
+import { join } from 'path';
 
 // Конфигурация ЮKassa
 const YOOKASSA_CONFIG = {
-  shopId: process.env.YOOKASSA_SHOP_ID || '1183996',
-  secretKey: process.env.YOOKASSA_SECRET_KEY || 'live_OTmJmdMHX6ysyUcUpBz5kt-dmSq1pT-Y5gLgmpT1jXg',
-  planId: process.env.YOOKASSA_PLAN_ID || '1183996'
+  shopId: process.env.YOOKASSA_SHOP_ID || '1178504',
+  secretKey: process.env.YOOKASSA_SECRET_KEY || 'test_UbyQ0yDUnXyAXtkBcMBhkdIkY-FqdK75waGmHAvlF9M',
+  planId: process.env.YOOKASSA_PLAN_ID || '1178504'
 };
 
 // Инициализация ЮKassa
@@ -13,13 +15,44 @@ const checkout = new YooCheckout({
   secretKey: YOOKASSA_CONFIG.secretKey,
 });
 
+// Функция для логирования YooKassa операций
+const logYooKassa = (message, data = null) => {
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    timestamp,
+    message,
+    data
+  };
+
+  try {
+    const logFile = join(process.cwd(), 'logs', 'yookassa-debug.log');
+    writeFileSync(logFile, JSON.stringify(logEntry) + '\n', { flag: 'a' });
+  } catch (err) {
+    console.error('Failed to write YooKassa log:', err);
+  }
+
+  console.log(`[YOOKASSA] ${message}`, data || '');
+};
+
 export class YooKassaService {
   /**
    * Создает платеж для Premium подписки
    */
   static async createPayment(paymentData) {
     try {
-      const payment = await checkout.createPayment({
+      const logData = {
+        amount: paymentData.amount,
+        currency: paymentData.currency,
+        description: paymentData.description,
+        returnUrl: paymentData.returnUrl,
+        shopId: YOOKASSA_CONFIG.shopId,
+        hasSecretKey: !!YOOKASSA_CONFIG.secretKey
+      };
+
+      logYooKassa('Creating payment with data', logData);
+
+      // Сначала попробуем без receipt для диагностики
+      const paymentDataSimple = {
         amount: {
           value: paymentData.amount.toFixed(2),
           currency: paymentData.currency,
@@ -33,29 +66,24 @@ export class YooKassaService {
           userId: paymentData.userId,
           userEmail: paymentData.userEmail,
         },
-        receipt: {
-          customer: {
-            email: paymentData.userEmail,
-          },
-          items: [
-            {
-              description: paymentData.description,
-              quantity: '1.00',
-              amount: {
-                value: paymentData.amount.toFixed(2),
-                currency: paymentData.currency,
-              },
-              vat_code: 1, // Без НДС
-              payment_subject: 'service', // Услуга
-              payment_mode: 'full_payment', // Полная оплата
-            },
-          ],
-        },
-      });
+      };
 
+      logYooKassa('Sending request to YooKassa', paymentDataSimple);
+
+      const payment = await checkout.createPayment(paymentDataSimple);
+
+      logYooKassa('Payment created successfully', { paymentId: payment.id });
       return payment;
     } catch (error) {
-      console.error('YooKassa payment creation error:', error);
+      const errorDetails = {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText
+      };
+
+      logYooKassa('Payment creation failed', errorDetails);
+
       throw new Error('Не удалось создать платеж');
     }
   }

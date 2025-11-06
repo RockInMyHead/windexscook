@@ -32,6 +32,7 @@ import { useUser } from "@/contexts/UserContext";
 import { toast } from "@/hooks/use-toast";
 import { useRef } from 'react';
 import { WORLD_CUISINES } from "@/types/cuisine";
+import { AudioUtils } from "@/lib/audio-utils";
 
 interface SavedRecipe extends Recipe {
   id: string;
@@ -54,7 +55,7 @@ export const MyRecipes = () => {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumFeature, setPremiumFeature] = useState<string>('');
   // removed local product selector state
-  const { isAuthenticated, user, hasActiveSubscription } = useUser();
+  const { isAuthenticated, user, hasPremiumAccess } = useUser();
   
   // Handler to save generated recipe to collection
   const handleSaveGeneratedRecipe = useCallback((recipeToSave: Recipe) => {
@@ -98,7 +99,7 @@ export const MyRecipes = () => {
   };
 
   const handleGenerateRecipe = async () => {
-    if (!hasActiveSubscription) {
+    if (!hasPremiumAccess) {
       setPremiumFeature('recipe');
       setShowPremiumModal(true);
       return;
@@ -190,7 +191,7 @@ export const MyRecipes = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!hasActiveSubscription) {
+    if (!hasPremiumAccess) {
       setPremiumFeature('image');
       setShowPremiumModal(true);
       return;

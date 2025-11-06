@@ -293,15 +293,41 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
                     .replace(/^[0-9.\s\-]+/, '') // Убираем номера в начале
                     .replace(/^(Оборудование|Время|Важно|Техника):\s*/i, '') // Убираем мета-префиксы
                     .trim();
-                  
+
+                  // Получаем изображение для этого шага
+                  const stepImage = recipe.instructionImages?.[index];
+
                   return (
-                    <div key={index} className="flex gap-3 sm:gap-4">
-                      <span className="flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold text-xs sm:text-sm">
-                        {index + 1}
-                      </span>
-                      <p className="text-foreground leading-relaxed pt-0.5 sm:pt-1 text-sm sm:text-base">
-                        {cleanInstruction}
-                      </p>
+                    <div key={index} className="space-y-3">
+                      <div className="flex gap-3 sm:gap-4">
+                        <span className="flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold text-xs sm:text-sm">
+                          {index + 1}
+                        </span>
+                        <p className="text-foreground leading-relaxed pt-0.5 sm:pt-1 text-sm sm:text-base">
+                          {cleanInstruction}
+                        </p>
+                      </div>
+
+                      {/* Изображение для шага */}
+                      {stepImage && (
+                        <div className="ml-9 sm:ml-12">
+                          <div className="relative">
+                            <img
+                              src={stepImage}
+                              alt={`Шаг ${index + 1}: ${cleanInstruction.substring(0, 50)}...`}
+                              className="w-full max-w-md h-48 object-cover rounded-lg shadow-md"
+                              loading="lazy"
+                              onError={(e) => {
+                                console.error('Failed to load step image:', stepImage);
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                            <div className="absolute top-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs font-medium">
+                              Шаг {index + 1}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

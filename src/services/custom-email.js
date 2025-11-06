@@ -514,4 +514,36 @@ ${resetUrl}
 Поддержка: support@windexscook.ru
     `;
   }
+
+  /**
+   * Отправка уведомления об успешной оплате (webhook)
+   */
+  static async sendPaymentSuccessNotification(userId, paymentId) {
+    try {
+      console.log('📧 [CustomEmailService] Sending payment success notification for user:', userId);
+
+      // В данном примере просто логируем, так как у нас нет базы данных пользователей
+      // В реальном приложении нужно получить email пользователя из базы данных
+
+      const subject = '🎉 Оплата премиум-подписки прошла успешно!';
+      const html = this.getPremiumActivationTemplate('Пользователь', paymentId);
+
+      console.log('📧 [CustomEmailService] Would send notification email:', {
+        subject,
+        userId,
+        paymentId,
+        htmlPreview: html.substring(0, 100) + '...'
+      });
+
+      // Пока просто логируем, так как нет способа получить email пользователя
+      // В продакшене нужно:
+      // 1. Получить email из базы данных по userId
+      // 2. Отправить email с помощью this.sendMail()
+
+      return true;
+    } catch (error) {
+      console.error('📧 [CustomEmailService] Failed to send payment notification:', error);
+      throw error;
+    }
+  }
 }

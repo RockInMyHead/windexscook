@@ -2,9 +2,9 @@ import { YooCheckout } from '@a2seven/yoo-checkout';
 
 // Конфигурация ЮKassa
 const YOOKASSA_CONFIG = {
-  shopId: process.env.YOOKASSA_SHOP_ID || '1178504',
-  secretKey: process.env.YOOKASSA_SECRET_KEY || 'test_UbyQ0yDUnXyAXtkBcMBhkdIkY-FqdK75waGmHAvlF9M',
-  planId: process.env.YOOKASSA_PLAN_ID || '1178504'
+  shopId: process.env.YOOKASSA_SHOP_ID || '1183996',
+  secretKey: process.env.YOOKASSA_SECRET_KEY || 'live_OTmJmdMHX6ysyUcUpBz5kt-dmSq1pT-Y5gLgmpT1jXg',
+  planId: process.env.YOOKASSA_PLAN_ID || '1183996'
 };
 
 // Инициализация ЮKassa
@@ -117,10 +117,10 @@ export class YooKassaService {
           id: paymentId,
           status: 'succeeded',
           paid: true,
-          amount: { value: '250.00', currency: 'RUB' },
+          amount: { value: '1.00', currency: 'RUB' },
           confirmation: { type: 'redirect', confirmation_url: '' },
           created_at: new Date().toISOString(),
-          description: 'Premium подписка WindexsCook',
+          description: 'Premium подписка WindexsCook - доступ к AI функциям',
           metadata: { userId: 'unknown', userEmail: 'unknown' }
         } as PaymentResponse;
       }
@@ -130,7 +130,7 @@ export class YooKassaService {
   }
 
   /**
-   * Создает платеж для Premium подписки (1 рубль для тестирования)
+   * Создает платеж для Premium подписки
    */
   static async createPremiumPayment(userId: string, userEmail: string, returnUrl: string): Promise<PaymentResponse> {
     return this.createPayment({

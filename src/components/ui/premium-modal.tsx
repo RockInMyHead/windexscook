@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check, Crown, Sparkles, Loader2 } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
+import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 
 interface PremiumModalProps {
@@ -21,8 +22,32 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 }) => {
   console.log('🔄 PremiumModal rendered - isOpen:', isOpen, 'feature:', feature);
 
-  const { hasActiveSubscription, activateSubscription } = useUser();
+  const { hasActiveSubscription, hasActiveTrial, hasPremiumAccess, activateSubscription, activateTrialPeriod, trialDaysLeft } = useUser();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isActivatingTrial, setIsActivatingTrial] = React.useState(false);
+
+  // Активация пробного периода
+  const handleActivateTrial = useCallback(async () => {
+    setIsActivatingTrial(true);
+    try {
+      activateTrialPeriod();
+      toast({
+        title: "🎉 Пробный период активирован!",
+        description: "У вас есть 3 дня бесплатного доступа к премиум-функциям",
+      });
+      onClose();
+      if (onSuccess) onSuccess();
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось активировать пробный период",
+        variant: "destructive",
+      });
+    } finally {
+      setIsActivatingTrial(false);
+    }
+  }, [activateTrialPeriod, onClose, onSuccess]);
 
   // Мемоизированное описание функции
   const featureDescription = useMemo(() => {
@@ -64,6 +89,13 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
     console.log('💰 PremiumModal: handleSubscribe called at:', new Date().toISOString());
     console.log('💰 PremiumModal: Current hostname:', window.location.hostname);
     console.log('💰 PremiumModal: Current URL:', window.location.href);
+    console.log('💰 PremiumModal: Is localhost?', window.location.hostname === 'localhost');
+    console.log('💰 PremiumModal: window.location object:', {
+      hostname: window.location.hostname,
+      host: window.location.host,
+      origin: window.location.origin,
+      pathname: window.location.pathname
+    });
 
     // Временный alert для диагностики
     alert('НАЧАЛО СОЗДАНИЯ ПЛАТЕЖА! Проверьте консоль для подробных логов.');
@@ -78,21 +110,40 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 
     try {
       // Получаем данные пользователя
+      console.log('💰 PremiumModal: ===== CHECKING USER DATA =====');
+      console.log('💰 PremiumModal: All localStorage keys:', Object.keys(localStorage));
+
       const userStr = localStorage.getItem('ai-chef-user');
-      console.log('💰 PremiumModal: Raw localStorage value:', userStr);
-      
+      console.log('💰 PremiumModal: Raw localStorage ai-chef-user value:', userStr);
+
+      if (!userStr) {
+        console.error('💰 PremiumModal: ❌ No ai-chef-user in localStorage!');
+        alert('ОШИБКА: Пользователь не авторизован! Сначала войдите в систему.');
+        throw new Error('Пользователь не авторизован');
+      }
+
       const user = userStr ? JSON.parse(userStr) : {};
       console.log('💰 PremiumModal: Parsed user object:', user);
       console.log('💰 PremiumModal: user.id value:', user.id);
       console.log('💰 PremiumModal: user.email value:', user.email);
       console.log('💰 PremiumModal: All user keys:', Object.keys(user));
 
+      if (!user || typeof user !== 'object') {
+        console.error('💰 PremiumModal: ❌ User is not an object!');
+        alert('ОШИБКА: Данные пользователя повреждены!');
+        throw new Error('Данные пользователя повреждены');
+      }
+
       if (!user.id || !user.email) {
         console.error('💰 PremiumModal: ❌ User validation FAILED!');
         console.error('💰 PremiumModal: user object:', user);
         console.error('💰 PremiumModal: user.id exists:', !!user.id);
         console.error('💰 PremiumModal: user.email exists:', !!user.email);
-        
+        console.error('💰 PremiumModal: user.id type:', typeof user.id);
+        console.error('💰 PremiumModal: user.email type:', typeof user.email);
+
+        alert(`ОШИБКА ВАЛИДАЦИИ!\nuser.id: ${user.id} (exists: ${!!user.id})\nuser.email: ${user.email} (exists: ${!!user.email})`);
+
         toast({
           title: "Ошибка",
           description: "Необходимо войти в систему для оформления подписки",
@@ -103,11 +154,13 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
       }
 
       console.log('✅ PremiumModal: User validation PASSED for user:', user.id, user.email);
-
       console.log('💰 PremiumModal: Starting payment creation for user:', user.id, user.email);
 
       // Создаем платеж через API
-      const response = await fetch('/api/payments/create', {
+      const backendUrl = window.location.hostname === 'localhost'
+        ? 'http://localhost:3002'
+        : window.location.origin;
+      const response = await fetch(`${backendUrl}/api/payments/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -115,7 +168,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
         body: JSON.stringify({
           userId: user.id,
           userEmail: user.email,
-          returnUrl: `${window.location.origin}/payment-success?userId=${user.id}`
+          returnUrl: `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}/payment-success`
         }),
       });
 
@@ -130,6 +183,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 
       // Сохраняем paymentId в нескольких местах для надежности
       const paymentId = paymentData.paymentId;
+      console.log('💰 PremiumModal: Extracted paymentId:', paymentId);
 
       // 1. localStorage (может не работать между доменами)
       try {
@@ -160,59 +214,35 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
       console.log('💰 PremiumModal: Original payment URL:', paymentData.paymentUrl);
       console.log('💰 PremiumModal: Modified payment URL with hash:', paymentUrlWithHash);
 
-      // Для локального тестирования используем альтернативный подход
-      // Вместо редиректа на YooKassa, сразу эмулируем успешную оплату
-      if (window.location.hostname === 'localhost') {
-        console.log('💰 PremiumModal: ===== LOCALHOST DETECTED - SIMULATING PAYMENT =====');
-        console.log('💰 PremiumModal: Localhost detected - simulating successful payment');
-        console.log('💰 PremiumModal: Payment ID for simulation:', paymentId);
-        console.log('💰 PremiumModal: User ID for simulation:', user.id);
+      // Всегда перенаправляем на YooKassa (теперь у нас настоящие ключи)
+      console.log('💰 PremiumModal: ===== REDIRECTING TO YOOKASSA =====');
+      console.log('💰 PremiumModal: Payment URL:', paymentUrlWithHash);
+      console.log('💰 PremiumModal: Current hostname:', window.location.hostname);
+      console.log('💰 PremiumModal: Current port:', window.location.port);
 
-        // Сохраняем paymentId для тестирования
-        try {
-          localStorage.setItem('testPaymentId', paymentId);
-          console.log('💰 PremiumModal: Saved to localStorage successfully');
-        } catch (e) {
-          console.error('💰 PremiumModal: Failed to save to localStorage:', e);
-        }
-
-        try {
-          sessionStorage.setItem('testPaymentId', paymentId);
-          console.log('💰 PremiumModal: Saved to sessionStorage successfully');
-        } catch (e) {
-          console.error('💰 PremiumModal: Failed to save to sessionStorage:', e);
-        }
-
-        // Имитируем успешную оплату - перенаправляем на success страницу
-        const successUrl = `http://localhost:5173/payment-success?paymentId=${paymentId}&userId=${user.id}`;
-        console.log('💰 PremiumModal: ===== REDIRECTING TO SUCCESS =====');
-        console.log('💰 PremiumModal: paymentId:', paymentId);
-        console.log('💰 PremiumModal: user.id:', user.id);
-        console.log('💰 PremiumModal: Constructed URL:', successUrl);
-        console.log('💰 PremiumModal: URL is valid:', successUrl.includes('paymentId=') && successUrl.includes('userId='));
-        console.log('💰 PremiumModal: ===== PAYMENT SIMULATION COMPLETE =====');
-
-        alert(`ПЕРЕНАПРАВЛЕНИЕ НА СТРАНИЦУ УСПЕХА!\nPaymentId: ${paymentId}\nUserId: ${user.id}\nURL: ${successUrl}`);
-
-        // Небольшая задержка для отображения логов
-        setTimeout(() => {
-          console.log('💰 PremiumModal: EXECUTING REDIRECT to:', successUrl);
-          window.location.href = successUrl;
-        }, 1000);
-      } else {
-        // На продакшене перенаправляем на YooKassa
-        console.log('💰 PremiumModal: Production detected - redirecting to YooKassa');
-        window.location.href = paymentUrlWithHash;
+      // Сохраняем данные перед редиректом на YooKassa
+      try {
+        localStorage.setItem('pendingPaymentId', paymentId);
+        localStorage.setItem('pendingUserId', user.id);
+        console.log('💰 PremiumModal: Saved payment data for YooKassa redirect');
+        console.log('💰 PremiumModal: Saved pendingPaymentId:', paymentId);
+        console.log('💰 PremiumModal: Saved pendingUserId:', user.id);
+      } catch (e) {
+        console.error('💰 PremiumModal: Failed to save data before YooKassa redirect:', e);
       }
+
+      window.location.href = paymentUrlWithHash;
       
     } catch (error) {
-      console.error('Payment error:', error);
+      console.error('💰 PremiumModal: Payment error:', error);
+      alert(`ОШИБКА СОЗДАНИЯ ПЛАТЕЖА: ${error.message}`);
       toast({
         title: "Ошибка оплаты",
         description: "Не удалось создать платеж. Попробуйте еще раз.",
         variant: "destructive",
       });
     } finally {
+      console.log('💰 PremiumModal: Finally block - setting loading to false');
       setIsLoading(false);
     }
   }, [isLoading, onSuccess, onClose]);
@@ -285,13 +315,57 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
             })}
           </div>
 
+          {/* Кнопка пробного периода */}
+          {!hasActiveTrial && !hasActiveSubscription && (
+            <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-green-800 dark:text-green-200">🎁 Бесплатный пробный период</p>
+                  <p className="text-sm text-green-600 dark:text-green-400">3 дня полного доступа к Premium</p>
+                </div>
+                <Button
+                  onClick={handleActivateTrial}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  size="sm"
+                  disabled={isActivatingTrial}
+                >
+                  {isActivatingTrial ? (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      Активация...
+                    </>
+                  ) : (
+                    'Попробовать'
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Статус пробного периода */}
+          {hasActiveTrial && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-blue-800 dark:text-blue-200">✅ Пробный период активен</p>
+                  <p className="text-sm text-blue-600 dark:text-blue-400">
+                    Осталось {trialDaysLeft} {trialDaysLeft === 1 ? 'день' : trialDaysLeft < 5 ? 'дня' : 'дней'}
+                  </p>
+                </div>
+                <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                  Premium
+                </Badge>
+              </div>
+            </div>
+          )}
+
           {/* Кнопки действий */}
           <div className="flex gap-2">
-            <Button 
+            <Button
               onClick={handleSubscribe}
               className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg"
               size="lg"
-              disabled={isLoading}
+              disabled={isLoading || isActivatingTrial}
             >
               {isLoading ? (
                 <>
@@ -305,11 +379,11 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
                 </>
               )}
             </Button>
-            <Button 
+            <Button
               variant="outline"
               onClick={handleClose}
               size="lg"
-              disabled={isLoading}
+              disabled={isLoading || isActivatingTrial}
             >
               Позже
             </Button>

@@ -11,10 +11,7 @@ export const SubscriptionCard: React.FC = () => {
 
   const handleSubscribe = async () => {
     try {
-      // Получаем данные пользователя
-      const user = JSON.parse(localStorage.getItem('ai-chef-user') || '{}');
-      
-      if (!user.id || !user.email) {
+      if (!user || !user.id || !user.email) {
         toast({
           title: "Ошибка",
           description: "Необходимо войти в систему для оформления подписки",
@@ -22,6 +19,8 @@ export const SubscriptionCard: React.FC = () => {
         });
         return;
       }
+
+      console.log('💳 SubscriptionCard: Creating payment for user:', user.id, user.email);
 
       // Создаем платеж через API
       const response = await fetch('/api/payments/create', {
@@ -32,16 +31,19 @@ export const SubscriptionCard: React.FC = () => {
         body: JSON.stringify({
           userId: user.id,
           userEmail: user.email,
-          returnUrl: `${window.location.origin}/payment-success`
+          returnUrl: `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}/payment-success`
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Не удалось создать платеж');
+        const errorText = await response.text();
+        console.error('💳 SubscriptionCard: Payment creation failed:', response.status, errorText);
+        throw new Error(`Не удалось создать платеж: ${response.status} ${response.statusText}`);
       }
 
       const paymentData = await response.json();
-      
+      console.log('💳 SubscriptionCard: Payment created successfully:', paymentData);
+
       // Перенаправляем на страницу оплаты
       window.location.href = paymentData.paymentUrl;
       

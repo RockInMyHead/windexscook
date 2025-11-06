@@ -21,6 +21,7 @@ import { ElevenLabsService } from '@/services/elevenlabs';
 import { ElevenLabsTTS } from '@/services/elevenlabs-tts';
 import { BrowserTTS } from '@/services/browser-tts';
 import { OpenAIService } from '@/services/openai';
+import { AudioUtils } from '@/lib/audio-utils';
 
 interface ElevenLabsMirrorProps {
   className?: string;

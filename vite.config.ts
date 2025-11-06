@@ -15,10 +15,13 @@ export default defineConfig({
     },
   },
   server: {
+    host: '0.0.0.0',
+    port: 8080,
+    strictPort: false,
     // Прокси для разработки и продакшена
     proxy: {
       '/api': {
-        target: 'http://localhost:1031',
+        target: 'http://localhost:4000',
         changeOrigin: true,
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, _res) => {

@@ -11,6 +11,11 @@ export interface User {
     expiresAt?: string;
     plan: 'free' | 'premium';
   };
+  trialPeriod?: {
+    active: boolean;
+    expiresAt: string;
+    startedAt: string;
+  };
 }
 
 export interface Recipe {

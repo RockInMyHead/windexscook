@@ -5,9 +5,31 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import crypto from 'crypto';
 
 // Загружаем переменные окружения
 dotenv.config();
+
+// ===== UTILITY FUNCTIONS =====
+
+// Функция для верификации подписи YooKassa webhook
+function verifySignature(body, signature, secretKey) {
+  try {
+    // Создаем HMAC-SHA256 подпись
+    const hmac = crypto.createHmac('sha256', secretKey);
+    hmac.update(JSON.stringify(body), 'utf8');
+    const calculatedSignature = hmac.digest('hex');
+
+    // Сравниваем подписи
+    return crypto.timingSafeEqual(
+      Buffer.from(signature, 'hex'),
+      Buffer.from(calculatedSignature, 'hex')
+    );
+  } catch (error) {
+    console.error('❌ [Signature] Verification failed:', error);
+    return false;
+  }
+}
 
 // Настройка прокси - используем только env переменные, без fallback
 const PROXY_HOST = process.env.PROXY_HOST;
@@ -143,7 +165,10 @@ const requestLogger = (req, res, next) => {
 const app = express();
 const PORT = process.env.PORT || 1041;
 
-// Middleware
+// Middleware для обработки raw body (нужно для webhook подписи)
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+
+// Остальные middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -250,8 +275,23 @@ app.post('/api/openai/tts', async (req, res) => {
   try {
     const { text, voice = 'alloy', model = 'tts-1' } = req.body;
 
-    if (!text) {
-      return res.status(400).json({ error: 'Text is required' });
+    console.log('🎯 [TTS API] Получен запрос:', {
+      textType: typeof text,
+      textLength: text ? text.length : 'undefined',
+      textPreview: (typeof text === 'string' && text) ? text.substring(0, 100) : 'undefined',
+      voice,
+      model,
+      body: req.body
+    });
+
+    if (!text || typeof text !== 'string') {
+      console.error('❌ [TTS API] Текст не является строкой:', text);
+      return res.status(400).json({ error: 'Text must be a non-empty string' });
+    }
+
+    if (!text.trim()) {
+      console.error('❌ [TTS API] Получена пустая строка');
+      return res.status(400).json({ error: 'Text cannot be empty' });
     }
 
     const apiKey = process.env.VITE_OPENAI_API_KEY;
@@ -303,21 +343,133 @@ app.post('/api/openai/tts', async (req, res) => {
     });
 
   } catch (error) {
+    console.error('❌ [TTS API] Ошибка генерации речи:', {
+      error: error.message,
+      stack: error.stack,
+      text: req.body.text,
+      textType: typeof req.body.text,
+      fullError: error,
+      requestData: {
+        text: req.body.text,
+        voice: req.body.voice,
+        model: req.body.model
+      }
+    });
+
     logToFile('ERROR', 'TTS generation error', {
       error: error.message,
       stack: error.stack,
-      text: req.body.text
+      text: req.body.text,
+      textType: typeof req.body.text,
+      requestData: req.body
     });
-    
+
     if (error.response) {
-      res.status(error.response.status).json({ 
+      console.error('❌ [TTS API] OpenAI API error response:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data,
+        headers: error.response.headers
+      });
+
+      // Возвращаем более детальную ошибку для отладки
+      res.status(error.response.status).json({
         error: 'TTS generation failed',
-        details: error.response.data 
+        details: error.response.data,
+        openai_status: error.response.status,
+        request_text: req.body.text ? req.body.text.substring(0, 100) : 'undefined'
       });
     } else {
-      res.status(500).json({ 
+      console.error('❌ [TTS API] Network or other error:', error);
+      res.status(500).json({
         error: 'Internal server error',
-        details: error.message 
+        details: error.message
+      });
+    }
+  }
+});
+
+// OpenAI DALL-E 3 endpoint для генерации изображений
+app.post('/api/openai/generate-image', async (req, res) => {
+  try {
+    const { prompt, model = 'dall-e-3', size = '1024x1024', quality = 'standard' } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    const apiKey = process.env.VITE_OPENAI_API_KEY;
+
+    if (!apiKey) {
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
+    }
+
+    const headers = {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    };
+
+    const requestData = {
+      prompt: prompt,
+      model: model,
+      size: size,
+      quality: quality,
+      n: 1
+    };
+
+    const axiosConfig = {
+      method: 'POST',
+      url: 'https://api.openai.com/v1/images/generations',
+      headers,
+      data: JSON.stringify(requestData),
+      proxy: false
+    };
+
+    // Добавляем прокси агент только если он настроен
+    if (proxyAgent) {
+      axiosConfig.httpsAgent = proxyAgent;
+      axiosConfig.httpAgent = proxyAgent;
+    }
+
+    console.log('🎨 [DALL-E] Generating image with prompt:', prompt.substring(0, 100) + '...');
+
+    const response = await axios(axiosConfig);
+
+    logToFile('INFO', 'DALL-E image generated successfully', {
+      prompt: prompt.substring(0, 100),
+      model,
+      size
+    });
+
+    // Возвращаем URL сгенерированного изображения
+    if (response.data && response.data.data && response.data.data[0] && response.data.data[0].url) {
+      res.json({
+        success: true,
+        imageUrl: response.data.data[0].url,
+        prompt: prompt,
+        model: model,
+        size: size
+      });
+    } else {
+      throw new Error('Invalid response from DALL-E API');
+    }
+
+  } catch (error) {
+    logToFile('ERROR', 'DALL-E image generation error', {
+      error: error.message,
+      stack: error.stack,
+      prompt: req.body.prompt
+    });
+
+    if (error.response) {
+      res.status(error.response.status).json({
+        error: 'Image generation failed',
+        details: error.response.data
+      });
+    } else {
+      res.status(500).json({
+        error: 'Internal server error',
+        details: error.message
       });
     }
   }
@@ -585,6 +737,216 @@ app.get('/api/image-limits/:userIdentifier', (req, res) => {
   }
 });
 
+// Получить статус платежа
+app.get('/api/payments/status/:paymentId', async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+
+    console.log('💰 Server: Checking payment status for:', paymentId);
+
+    // Импортируем YooKassaService
+    const { YooKassaService } = await import('./src/services/yookassa.js');
+
+    // Получаем информацию о платеже из YooKassa
+    const paymentInfo = await YooKassaService.getPaymentStatus(paymentId);
+
+    if (!paymentInfo) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    console.log('💰 Server: Payment status response:', {
+      id: paymentInfo.id,
+      status: paymentInfo.status,
+      paid: paymentInfo.paid,
+      amount: paymentInfo.amount
+    });
+
+    res.json({
+      success: true,
+      paymentId: paymentInfo.id,
+      status: paymentInfo.status,
+      paid: paymentInfo.paid,
+      amount: paymentInfo.amount,
+      metadata: paymentInfo.metadata,
+      created_at: paymentInfo.created_at
+    });
+
+  } catch (error) {
+    console.error('❌ Server: Error checking payment status:', error);
+    logToFile('ERROR', 'Payment status check failed', {
+      paymentId: req.params.paymentId,
+      error: error.message
+    });
+    res.status(500).json({
+      error: 'Failed to check payment status',
+      details: error.message
+    });
+  }
+});
+
+// Подтвердить платеж и активировать подписку
+app.post('/api/payments/confirm', async (req, res) => {
+  try {
+    const { paymentId, userId } = req.body;
+
+    console.log('💰 Server: Confirming payment:', { paymentId, userId });
+
+    if (!paymentId || !userId) {
+      return res.status(400).json({ error: 'PaymentId and userId are required' });
+    }
+
+    // Импортируем YooKassaService
+    const { YooKassaService } = await import('./src/services/yookassa.js');
+
+    // Проверяем статус платежа еще раз
+    const paymentInfo = await YooKassaService.getPaymentStatus(paymentId);
+
+    if (!paymentInfo) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    if (paymentInfo.status !== 'succeeded' || !paymentInfo.paid) {
+      return res.status(400).json({
+        error: 'Payment not completed successfully',
+        status: paymentInfo.status,
+        paid: paymentInfo.paid
+      });
+    }
+
+    // Активируем подписку для пользователя
+    // В реальном приложении здесь должна быть логика активации подписки
+    console.log('✅ Server: Activating premium subscription for user:', userId);
+
+    // Сохраняем информацию о подписке в базе данных или файле
+    const subscriptionData = {
+      userId: userId,
+      paymentId: paymentId,
+      activatedAt: new Date().toISOString(),
+      amount: paymentInfo.amount.value,
+      currency: paymentInfo.amount.currency,
+      status: 'active'
+    };
+
+    // Временное решение - сохраняем в файл (в продакшене должна быть БД)
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+
+      const subscriptionsDir = path.join(process.cwd(), 'data');
+      const subscriptionsFile = path.join(subscriptionsDir, 'subscriptions.json');
+
+      // Создаем директорию если не существует
+      if (!fs.existsSync(subscriptionsDir)) {
+        fs.mkdirSync(subscriptionsDir, { recursive: true });
+      }
+
+      // Читаем существующие подписки
+      let subscriptions = [];
+      if (fs.existsSync(subscriptionsFile)) {
+        const data = fs.readFileSync(subscriptionsFile, 'utf8');
+        subscriptions = JSON.parse(data || '[]');
+      }
+
+      // Добавляем новую подписку
+      subscriptions.push(subscriptionData);
+
+      // Сохраняем обратно
+      fs.writeFileSync(subscriptionsFile, JSON.stringify(subscriptions, null, 2));
+
+      console.log('✅ Server: Subscription activated and saved:', subscriptionData);
+
+    } catch (fileError) {
+      console.error('❌ Server: Failed to save subscription data:', fileError);
+      // Не возвращаем ошибку, так как платеж уже прошел
+    }
+
+    logToFile('INFO', 'Premium subscription activated', {
+      userId,
+      paymentId,
+      amount: paymentInfo.amount.value,
+      currency: paymentInfo.amount.currency
+    });
+
+    res.json({
+      success: true,
+      message: 'Subscription activated successfully',
+      subscription: subscriptionData
+    });
+
+  } catch (error) {
+    console.error('❌ Server: Error confirming payment:', error);
+    logToFile('ERROR', 'Payment confirmation failed', {
+      paymentId: req.body.paymentId,
+      userId: req.body.userId,
+      error: error.message
+    });
+    res.status(500).json({
+      error: 'Failed to confirm payment',
+      details: error.message
+    });
+  }
+});
+
+// Получить недавние платежи пользователя (для восстановления в случае потери paymentId)
+app.get('/api/payments/user/:userId/recent', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { limit = 5 } = req.query;
+
+    console.log('💰 Server: Getting recent payments for user:', userId);
+
+    // В реальном приложении здесь должен быть запрос к БД
+    // Временное решение - возвращаем пустой массив
+    // Для тестирования можно добавить логику поиска в файле subscriptions.json
+
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+
+      const subscriptionsFile = path.join(process.cwd(), 'data', 'subscriptions.json');
+
+      if (fs.existsSync(subscriptionsFile)) {
+        const data = fs.readFileSync(subscriptionsFile, 'utf8');
+        const subscriptions = JSON.parse(data || '[]');
+
+        // Находим подписки пользователя
+        const userSubscriptions = subscriptions
+          .filter(sub => sub.userId === userId)
+          .sort((a, b) => new Date(b.activatedAt) - new Date(a.activatedAt))
+          .slice(0, parseInt(limit));
+
+        console.log('💰 Server: Found user subscriptions:', userSubscriptions.length);
+
+        if (userSubscriptions.length > 0) {
+          // Возвращаем самый свежий платеж
+          const recentPayment = userSubscriptions[0];
+          res.json({
+            id: recentPayment.paymentId,
+            userId: recentPayment.userId,
+            amount: { value: recentPayment.amount, currency: recentPayment.currency },
+            status: 'succeeded',
+            paid: true,
+            activatedAt: recentPayment.activatedAt
+          });
+          return;
+        }
+      }
+    } catch (fileError) {
+      console.error('❌ Server: Error reading subscriptions file:', fileError);
+    }
+
+    // Если ничего не найдено, возвращаем null
+    res.json(null);
+
+  } catch (error) {
+    console.error('❌ Server: Error getting recent payments:', error);
+    res.status(500).json({
+      error: 'Failed to get recent payments',
+      details: error.message
+    });
+  }
+});
+
 // YooKassa платежи
 app.post('/api/payments/create', async (req, res) => {
   try {
@@ -628,16 +990,27 @@ app.post('/api/payments/create', async (req, res) => {
       currency: payment.amount.currency
     });
 
-    // Модифицируем return_url, добавляя paymentId как параметр
+    // Модифицируем return_url, добавляя paymentId в hash часть URL
+    // YooKassa не позволяет менять return_url после создания платежа,
+    // поэтому используем hash для передачи данных
     const paymentUrl = payment.confirmation.confirmation_url;
-    
-    // Определяем разделитель для URL параметров
-    const separator = returnUrl.includes('?') ? '&' : '?';
-    const modifiedReturnUrl = `${returnUrl}${separator}paymentId=${payment.id}`;
 
-    // Для YooKassa можно попробовать передать модифицированный return_url
-    // Но обычно YooKassa не позволяет менять return_url после создания платежа
-    // Поэтому будем полагаться на наш modifiedReturnUrl в ответе
+    // Добавляем paymentId в hash часть returnUrl
+    const hashSeparator = returnUrl.includes('#') ? '&' : '#';
+    const modifiedReturnUrl = `${returnUrl}${hashSeparator}paymentId=${payment.id}&userId=${userId}`;
+
+    console.log('💰 Server: Original returnUrl:', returnUrl);
+    console.log('💰 Server: Modified returnUrl with hash:', modifiedReturnUrl);
+    console.log('💰 Server: Payment object return_url:', payment.confirmation.return_url);
+
+    console.log('💰 Server: Payment created successfully, sending response:', {
+      success: true,
+      paymentId: payment.id,
+      paymentUrl: paymentUrl,
+      returnUrl: modifiedReturnUrl,
+      amount: payment.amount.value,
+      currency: payment.amount.currency
+    });
 
     res.json({
       success: true,
@@ -764,6 +1137,102 @@ app.get('/api/payments/user/:userId/recent', async (req, res) => {
       error: 'Failed to get recent payment',
       details: error.message 
     });
+  }
+});
+
+// ===== YOOKASSA WEBHOOK HANDLER =====
+
+// Webhook для обработки уведомлений от YooKassa
+app.post('/api/payments/webhook', async (req, res) => {
+  try {
+    // Парсим raw JSON body для webhook
+    const webhookData = JSON.parse(req.body.toString());
+    const paymentId = webhookData.object?.id;
+    const status = webhookData.object?.status;
+    const userId = webhookData.object?.metadata?.userId;
+
+    console.log('🔗 [Webhook] Received YooKassa webhook:', {
+      paymentId,
+      status,
+      userId,
+      event: webhookData.event,
+      timestamp: new Date().toISOString()
+    });
+
+    // Проверяем подпись для безопасности (обязательно для продакшена!)
+    const signature = req.headers['x-yookassa-signature'];
+    if (signature && YOOKASSA_CONFIG.secretKey) {
+      const isValidSignature = verifySignature(req.body, signature, YOOKASSA_CONFIG.secretKey);
+      if (!isValidSignature) {
+        console.log('❌ [Webhook] Invalid signature received');
+        logToFile('ERROR', 'Invalid webhook signature', { paymentId });
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+      console.log('✅ [Webhook] Signature verified successfully');
+    } else {
+      console.log('⚠️ [Webhook] Signature verification skipped (no signature or secret key)');
+    }
+
+    if (!paymentId || !status) {
+      logToFile('ERROR', 'Invalid webhook data', webhookData);
+      return res.status(400).json({ error: 'Invalid webhook data' });
+    }
+
+    // Логируем событие платежа
+    logToFile('INFO', 'Payment webhook received', {
+      paymentId,
+      status,
+      userId,
+      event: webhookData.event,
+      paid: webhookData.object?.paid,
+      amount: webhookData.object?.amount
+    });
+
+    // Обрабатываем успешный платеж
+    if (status === 'succeeded' && userId) {
+      console.log('✅ [Webhook] Payment succeeded for user:', userId);
+
+      // Здесь можно активировать подписку для пользователя
+      // Например, сохранить в базу данных информацию о подписке
+
+      logToFile('INFO', 'Premium subscription activated', {
+        userId,
+        paymentId,
+        activatedAt: new Date().toISOString()
+      });
+
+      // Можно отправить email уведомление пользователю
+      try {
+        // Импортируем email сервис для отправки уведомления
+        const { CustomEmailService } = await import('./src/services/custom-email.js');
+        await CustomEmailService.sendPaymentSuccessNotification(userId, paymentId);
+        console.log('📧 [Webhook] Success notification sent to user:', userId);
+      } catch (emailError) {
+        console.error('📧 [Webhook] Failed to send notification:', emailError);
+        // Не возвращаем ошибку, так как платеж уже обработан
+      }
+    } else if (status === 'canceled' || status === 'failed') {
+      console.log('❌ [Webhook] Payment failed/canceled:', { paymentId, status, userId });
+      logToFile('WARNING', 'Payment failed or canceled', {
+        paymentId,
+        status,
+        userId
+      });
+    }
+
+    // Возвращаем 200 OK для подтверждения получения webhook
+    res.status(200).json({ received: true });
+
+  } catch (error) {
+    console.error('💥 [Webhook] Error processing webhook:', error);
+    logToFile('ERROR', 'Webhook processing error', {
+      error: error.message,
+      stack: error.stack,
+      body: req.body
+    });
+
+    // Все равно возвращаем 200, чтобы YooKassa не повторяла отправку
+    res.status(200).json({ received: true, error: error.message });
   }
 });
 

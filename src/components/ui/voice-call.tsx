@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './card';
 import { Button } from './button';
 import { Badge } from './badge';
@@ -8,12 +8,15 @@ import {
   Mic,
   MicOff,
   Loader2,
-  ChefHat,
-  RotateCcw
+  ChefHat
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { OpenAIService } from '@/services/openai';
 import { OpenAITTS } from '@/services/openai-tts';
+import { Recipe } from '@/types/recipe';
+import { RecipeDisplay } from './recipe-display';
+import { AudioUtils } from '@/lib/audio-utils';
+import { BrowserCompatibility } from '@/lib/browser-compatibility';
 
 interface VoiceCallProps {
   className?: string;
@@ -26,6 +29,7 @@ interface CallState {
   isLoading: boolean;
   isContinuousMode: boolean;
   error: string | null;
+  generatedRecipe: Recipe | null;
 }
 
 export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
@@ -34,35 +38,87 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
     isRecording: false,
     isPlaying: false,
     isLoading: false,
-    isContinuousMode: false,
-    error: null
+    isContinuousMode: true, // Постоянный режим включен по умолчанию
+    error: null,
+    generatedRecipe: null
   });
+
+  const [browserSupported, setBrowserSupported] = useState<boolean>(true);
+  const [browserCapabilities, setBrowserCapabilities] = useState<any>(null);
 
   const recognitionRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const callStartRef = useRef<number | null>(null);
   const callTimerRef = useRef<number | null>(null);
+  const isPlayingRef = useRef<boolean>(false);
+  const isConnectedRef = useRef<boolean>(false);
+  const isStartingRecordingRef = useRef<boolean>(false);
+
+  // Проверка совместимости браузера
+  useEffect(() => {
+    const capabilities = BrowserCompatibility.getCapabilities();
+    const requirements = BrowserCompatibility.checkMinimumRequirements();
+
+    setBrowserCapabilities(capabilities);
+    setBrowserSupported(requirements.passed);
+
+    console.log('🌐 [Browser] Проверка совместимости браузера:', {
+      capabilities,
+      requirements,
+      browserInfo: BrowserCompatibility.getBrowserInfo()
+    });
+
+    if (!requirements.passed) {
+      console.warn('⚠️ [Browser] Обнаружены проблемы совместимости:', requirements.issues);
+      toast({
+        title: "Предупреждение о совместимости",
+        description: `Некоторые функции могут не работать: ${requirements.issues.join(', ')}`,
+        variant: "destructive",
+      });
+    }
+  }, []);
+
+  // Синхронизируем ref с состоянием воспроизведения и подключения
+  useEffect(() => {
+    isPlayingRef.current = callState.isPlaying;
+  }, [callState.isPlaying]);
+
+  useEffect(() => {
+    isConnectedRef.current = callState.isConnected;
+  }, [callState.isConnected]);
 
   // Инициализация распознавания речи
   useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const caps = BrowserCompatibility.getCapabilities();
+
+    if (!caps.speechRecognition && !caps.webkitSpeechRecognition) {
+      console.warn('🎤 [Voice Call] Speech Recognition API не поддерживается в этом браузере');
+      return;
+    }
+
+    try {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
+      recognitionRef.current.continuous = false; // Однократное распознавание для быстрого отклика
+      recognitionRef.current.interimResults = true; // Промежуточные результаты для возможности прерывания
       recognitionRef.current.lang = 'ru-RU';
+      recognitionRef.current.maxAlternatives = 1; // Только лучший результат
 
       recognitionRef.current.onspeechstart = () => {
         console.log('🎤 [Voice Call] ===== ОБНАРУЖЕНА РЕЧЬ ПОЛЬЗОВАТЕЛЯ =====');
         console.log('🚫 [Voice Call] Проверяем, нужно ли прервать TTS...');
 
         // Автоматически прерываем TTS если пользователь начинает говорить
-        if (callState.isPlaying) {
+        if (isPlayingRef.current) {
           console.log('🚫 [Voice Call] Автоматически прерываем TTS при обнаружении речи пользователя');
           OpenAITTS.stop();
           setCallState(prev => ({ ...prev, isPlaying: false }));
           console.log('✅ [Voice Call] TTS прерван автоматически');
+
+          // Автоматически начинаем слушать пользователя после прерывания TTS
+          console.log('🎧 [Voice Call] Автоматически начинаем слушать после прерывания TTS');
+          setTimeout(() => startRecording(), 300); // Увеличенная задержка для плавного перехода
         } else {
           console.log('ℹ️ [Voice Call] TTS не воспроизводится, прерывание не требуется');
         }
@@ -72,16 +128,30 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
         console.log('🎯 [Voice Call] ===== РЕЗУЛЬТАТ РАСПОЗНАВАНИЯ РЕЧИ =====');
         console.log('📝 [Voice Call] Сырые данные события:', event);
 
-        const transcript = event.results[0][0].transcript;
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
         console.log('🗣️ [Voice Call] Распознанный текст:', {
-          transcript: transcript,
-          confidence: event.results[0][0].confidence || 'неизвестно',
-          length: transcript.length,
+          final: finalTranscript,
+          interim: interimTranscript,
+          isFinal: !!finalTranscript,
           timestamp: new Date().toISOString()
         });
 
-        console.log('🔄 [Voice Call] Передаем текст в обработчик сообщений');
-        handleUserMessage(transcript);
+        // Обрабатываем только финальный результат
+        if (finalTranscript.trim()) {
+          console.log('🔄 [Voice Call] Передаем финальный текст в обработчик сообщений');
+          handleUserMessage(finalTranscript.trim());
+        }
       };
 
       recognitionRef.current.onerror = (event: any) => {
@@ -91,15 +161,25 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
           type: event.type,
           timestamp: new Date().toISOString()
         });
-        
+
         setCallState(prev => ({ ...prev, isRecording: false, error: event.error }));
+        isStartingRecordingRef.current = false; // Сбрасываем флаг при ошибке
       };
 
       recognitionRef.current.onend = () => {
         console.log('🏁 [Voice Call] ===== РАСПОЗНАВАНИЕ РЕЧИ ЗАВЕРШЕНО =====');
         console.log('⏱️ [Voice Call] Время завершения:', new Date().toISOString());
         setCallState(prev => ({ ...prev, isRecording: false }));
+        isStartingRecordingRef.current = false; // Сбрасываем флаг при завершении
       };
+
+      console.log('✅ [Voice Call] Распознавание речи инициализировано успешно');
+    } catch (error) {
+      console.error('❌ [Voice Call] Ошибка инициализации распознавания речи:', error);
+      setCallState(prev => ({
+        ...prev,
+        error: 'Ошибка инициализации распознавания речи. Возможно, браузер не поддерживает эту функцию.'
+      }));
     }
   }, []);
 
@@ -112,7 +192,31 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
     };
   }, []);
 
+  // Проверяем, является ли запрос запросом рецепта
+  const isRecipeRequest = (text: string): boolean => {
+    const recipeKeywords = [
+      'рецепт', 'приготовить', 'сварить', 'пожарить', 'запечь', 'сделать',
+      'как приготовить', 'как сделать', 'как сварить', 'рецепт на',
+      'рецепт приготовления', 'готовим', 'приготовление'
+    ];
+
+    const lowerText = text.toLowerCase();
+    return recipeKeywords.some(keyword => lowerText.includes(keyword));
+  };
+
   const handleUserMessage = async (text: string) => {
+    console.log('🔍 [Voice Call] handleUserMessage вызвана с аргументом:', {
+      type: typeof text,
+      isString: typeof text === 'string',
+      value: text,
+      length: text ? text.length : 'undefined'
+    });
+
+    if (!text || typeof text !== 'string') {
+      console.error('❌ [Voice Call] handleUserMessage получил некорректный аргумент:', text);
+      return;
+    }
+
     if (!text.trim()) {
       console.log('⚠️ [Voice Call] Получен пустой текст, пропускаем обработку');
       return;
@@ -125,48 +229,116 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       timestamp: new Date().toISOString()
     });
 
-    // Отправляем в OpenAI без сохранения в чат
+    // Проверяем, является ли запрос запросом рецепта
+    const shouldGenerateRecipe = isRecipeRequest(text);
+
+    console.log('🔍 [Voice Call] Анализ запроса:', {
+      isRecipeRequest: shouldGenerateRecipe,
+      text: text
+    });
+
     try {
       setCallState(prev => ({ ...prev, isLoading: true }));
-      
+
       console.log('🤖 [Voice Call] Отправляем запрос в OpenAI...');
       const startTime = Date.now();
-      
-      const response = await OpenAIService.generateRecipe([text], undefined, undefined, true);
+
+      let response;
+
+      if (shouldGenerateRecipe) {
+        // Генерируем рецепт с изображениями
+        console.log('🍳 [Voice Call] Обнаружен запрос рецепта - генерируем с изображениями');
+        response = await OpenAIService.generateRecipe([text], undefined, undefined, false, true);
+      } else {
+        // Используем chatWithChef для обычного общения с кулинаром
+        console.log('💬 [Voice Call] Обычный разговор с кулинаром');
+        response = await OpenAIService.chatWithChef(text, undefined, []);
+        console.log('✅ [Voice Call] Ответ от chatWithChef:', {
+          type: typeof response,
+          isString: typeof response === 'string',
+          length: response ? response.length : 'undefined',
+          value: response
+        });
+      }
+
       const responseTime = Date.now() - startTime;
-      
+
       console.log('✅ [Voice Call] Ответ от OpenAI получен:', {
         responseTime: responseTime + 'ms',
         hasContent: !!response.content,
         hasTitle: !!response.title,
+        hasInstructions: !!(response as any).instructions,
+        hasImages: !!(response as any).instructionImages,
         timestamp: new Date().toISOString()
       });
-      
-      const responseText = typeof response === 'string'
-        ? response
-        : (response.content || response.description || 'Я готов помочь с кулинарными вопросами!');
+
+      let responseText: string;
+
+      if (shouldGenerateRecipe && (response as any).instructions) {
+        // Это рецепт с инструкциями - формируем текстовое описание с изображениями для озвучивания
+        const recipe = response as any;
+        responseText = `Отлично! Я подготовил рецепт "${recipe.title}". ${recipe.description}\n\n`;
+
+        recipe.instructions.forEach((instruction: string, index: number) => {
+          responseText += `Шаг ${index + 1}: ${instruction}\n\n`;
+        });
+
+        if (recipe.tips) {
+          responseText += `Полезные советы: ${recipe.tips}`;
+        }
+
+        console.log('🍳 [Voice Call] Сформирован текстовый рецепт для озвучивания');
+
+        // Сохраняем рецепт с изображениями для отображения в UI
+        setCallState(prev => ({ ...prev, generatedRecipe: recipe }));
+      } else {
+        // Обычный текстовый ответ
+        responseText = typeof response === 'string'
+          ? response
+          : (response.content || response.description || 'Я готов помочь с кулинарными вопросами!');
+      }
 
       // Убеждаемся, что responseText всегда является строкой
       const finalText = typeof responseText === 'string' ? responseText : String(responseText);
 
       console.log('📄 [Voice Call] Текст ответа:', {
-        text: finalText,
+        text: finalText.substring(0, 100) + (finalText.length > 100 ? '...' : ''),
         length: finalText.length,
-        type: typeof finalText
+        type: typeof finalText,
+        isRecipe: shouldGenerateRecipe
       });
-      
+
       // Воспроизводим ответ через TTS
       console.log('🔊 [Voice Call] Начинаем воспроизведение через OpenAI TTS...');
-      await speakText(finalText);
-      
+      console.log('🔍 [Voice Call] Проверяем тип finalText:', {
+        type: typeof finalText,
+        isString: typeof finalText === 'string',
+        value: finalText
+      });
+
+      if (!finalText || typeof finalText !== 'string' || finalText.trim().length === 0) {
+        console.error('❌ [Voice Call] finalText не является корректной строкой:', finalText);
+        throw new Error('Некорректный текст для озвучки');
+      }
+
+      await speakText(finalText.trim());
+
     } catch (error) {
       console.error('❌ [Voice Call] ===== ОШИБКА ОБРАБОТКИ СООБЩЕНИЯ =====');
       console.error('🔍 [Voice Call] Детали ошибки:', error);
-      toast({
-        title: "Ошибка обработки",
-        description: "Не удалось обработать ваше сообщение",
-        variant: "destructive",
-      });
+
+      // В случае ошибки говорим короткое сообщение
+      const errorMessage = "Извините, я не расслышала. Повторите, пожалуйста.";
+      try {
+        await speakText(errorMessage);
+      } catch (ttsError) {
+        console.error('❌ [Voice Call] Ошибка TTS при сообщении об ошибке:', ttsError);
+        toast({
+          title: "Ошибка обработки",
+          description: "Не удалось обработать ваше сообщение",
+          variant: "destructive",
+        });
+      }
     } finally {
       setCallState(prev => ({ ...prev, isLoading: false }));
       console.log('🏁 [Voice Call] Состояние загрузки сброшено');
@@ -181,14 +353,14 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
         textPreview: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
         fullText: text
       });
-
+      
       setCallState(prev => ({ ...prev, isPlaying: true }));
-
+      
       const startTime = Date.now();
       console.log('⏱️ [Voice Call] Время начала синтеза:', new Date().toISOString());
-
+      
       await OpenAITTS.speak(text, 'alloy');
-
+      
       const duration = Date.now() - startTime;
       console.log('✅ [Voice Call] ===== СИНТЕЗ РЕЧИ ЗАВЕРШЕН =====');
       console.log(`⏱️ [Voice Call] Общее время синтеза: ${duration}ms`);
@@ -197,15 +369,12 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
         synthesisTime: duration + 'ms',
         timestamp: new Date().toISOString()
       });
-
+      
       // Если включен постоянный режим, автоматически начинаем слушать после ответа
-      setCallState(prev => {
-        if (prev.isContinuousMode) {
-          console.log('🔄 [Voice Call] Постоянный режим: автоматически начинаем слушать');
-          setTimeout(() => startRecording(), 1000); // Небольшая пауза перед началом прослушивания
-        }
-        return prev;
-      });
+      if (callState.isContinuousMode) {
+        console.log('🔄 [Voice Call] Постоянный режим: автоматически начинаем слушать');
+        setTimeout(() => startRecording(), 300); // Минимальная пауза для плавного перехода
+      }
 
     } catch (error) {
       console.error('❌ [Voice Call] ===== ОШИБКА СИНТЕЗА РЕЧИ =====');
@@ -225,7 +394,13 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
     try {
       console.log('📞 [TTS] Начинаем голосовой звонок...');
       setCallState(prev => ({ ...prev, isLoading: true }));
-      
+
+      // Проверяем совместимость браузера
+      const caps = BrowserCompatibility.getCapabilities();
+      if (!caps.getUserMedia) {
+        throw new Error('Ваш браузер не поддерживает доступ к микрофону. Попробуйте обновить браузер или использовать Chrome/Edge.');
+      }
+
       // Проверяем поддержку микрофона
       console.log('🎤 [TTS] Проверяем доступ к микрофону...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -239,22 +414,19 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
         error: null 
       }));
       
-      // Приветственное сообщение только в виде речи
-      const welcomeText = "Привет! Я ваша AI кулинар. Говорите, и я помогу с рецептами!";
-      console.log('👋 [TTS] Воспроизводим приветствие:', welcomeText);
-      
+      // Приветственное сообщение для естественного общения с кулинаром
+      const welcomeText = "Здравствуйте! Я готова обсудить с вами кулинарные вопросы. Чем могу помочь?";
+      console.log('👋 [Voice Call] Воспроизводим приветствие:', welcomeText);
+
       // Воспроизводим приветствие
       await speakText(welcomeText);
 
       // Если включен постоянный режим, автоматически начинаем слушать после приветствия
-      setCallState(prev => {
-        if (prev.isContinuousMode) {
-          console.log('🔄 [Voice Call] Постоянный режим: начинаем слушать после приветствия');
-          setTimeout(() => startRecording(), 1500); // Даем время на завершение приветствия
-        }
-        return prev;
-      });
-
+      if (callState.isContinuousMode) {
+        console.log('🔄 [Voice Call] Постоянный режим: начинаем слушать после приветствия');
+        setTimeout(() => startRecording(), 500); // Уменьшаем задержку для более быстрого старта
+      }
+      
       callStartRef.current = Date.now();
       // schedule 10-minute limit
       callTimerRef.current = window.setTimeout(async () => {
@@ -307,8 +479,9 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       isRecording: false,
       isPlaying: false,
       isLoading: false,
-      isContinuousMode: false,
-      error: null
+      isContinuousMode: true, // Постоянный режим всегда остается включенным
+      error: null,
+      generatedRecipe: null
     });
     
     console.log('✅ [TTS] Голосовой звонок завершен');
@@ -318,19 +491,50 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
     });
   };
 
-  const startRecording = () => {
-    if (!callState.isConnected) {
-      console.log('⚠️ [Voice Call] Попытка записи без подключения');
+  const startRecording = useCallback(async () => {
+    console.log('🎤 [Voice Call] startRecording вызвана, текущее состояние:', {
+      isConnected: isConnectedRef.current,
+      isRecording: callState.isRecording,
+      isPlaying: callState.isPlaying,
+      isLoading: callState.isLoading,
+      isStartingRecording: isStartingRecordingRef.current
+    });
+
+    if (!isConnectedRef.current) {
+      console.log('⚠️ [Voice Call] Попытка записи без подключения - отменяем');
       return;
     }
+
+    // Предотвращаем двойной запуск распознавания речи
+    if (isStartingRecordingRef.current) {
+      console.log('⚠️ [Voice Call] Распознавание уже запускается - пропускаем');
+      return;
+    }
+
+    isStartingRecordingRef.current = true;
 
     try {
       console.log('🎤 [Voice Call] ===== НАЧАЛО ЗАПИСИ РЕЧИ =====');
       console.log('🔍 [Voice Call] Проверяем состояние распознавания:', {
-        isConnected: callState.isConnected,
+        isConnected: isConnectedRef.current,
         isRecording: callState.isRecording,
         isLoading: callState.isLoading
       });
+
+      // Проверяем, инициализировано ли распознавание речи
+      if (!recognitionRef.current) {
+        console.error('❌ [Voice Call] Распознавание речи не инициализировано');
+        isStartingRecordingRef.current = false;
+        return;
+      }
+
+      // Останавливаем предыдущую запись если она активна
+      if (callState.isRecording) {
+        console.log('🔄 [Voice Call] Останавливаем предыдущую запись перед началом новой');
+        stopRecording();
+        // Увеличиваем паузу для корректной остановки
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
 
       // Останавливаем текущее воспроизведение TTS если пользователь начинает говорить
       if (callState.isPlaying) {
@@ -343,28 +547,125 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
         });
       }
 
-      recognitionRef.current.start();
-      setCallState(prev => ({ ...prev, isRecording: true }));
+      // Дополнительная проверка состояния recognition перед запуском
+      try {
+        recognitionRef.current.start();
+        setCallState(prev => ({ ...prev, isRecording: true }));
+        isStartingRecordingRef.current = false; // Сбрасываем флаг после успешного запуска
 
-      console.log('✅ [Voice Call] Запись речи начата');
-      console.log('⏱️ [Voice Call] Время начала записи:', new Date().toISOString());
+        console.log('✅ [Voice Call] Запись речи начата');
+        console.log('⏱️ [Voice Call] Время начала записи:', new Date().toISOString());
+      } catch (recognitionError: any) {
+        console.error('❌ [Voice Call] ===== ОШИБКА НАЧАЛА ЗАПИСИ =====');
+        console.error('🔍 [Voice Call] Детали ошибки:', recognitionError);
 
-      toast({
-        title: "🎤 Запись начата",
-        description: "Говорите в микрофон...",
-      });
+        // Сбрасываем состояние при ошибке
+        setCallState(prev => ({ ...prev, isRecording: false, error: recognitionError.message }));
+        isStartingRecordingRef.current = false;
+
+        // Если это ошибка состояния, пересоздаем объект recognition
+        if (recognitionError.name === 'InvalidStateError') {
+          console.log('🔄 [Voice Call] InvalidStateError - пересоздаем объект recognition');
+
+          try {
+            // Полностью пересоздаем объект распознавания речи
+            const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+            if (SpeechRecognition) {
+              recognitionRef.current = new SpeechRecognition();
+
+              // Переустанавливаем все обработчики событий
+              recognitionRef.current.continuous = true;
+              recognitionRef.current.interimResults = true;
+              recognitionRef.current.lang = 'ru-RU';
+
+              recognitionRef.current.onspeechstart = () => {
+                console.log('🎤 [Voice Call] ===== ОБНАРУЖЕНА РЕЧЬ ПОЛЬЗОВАТЕЛЯ =====');
+                console.log('🚫 [Voice Call] Проверяем, нужно ли прервать TTS...');
+
+                if (isPlayingRef.current) {
+                  console.log('🚫 [Voice Call] Автоматически прерываем TTS при обнаружении речи пользователя');
+                  OpenAITTS.stop();
+                  setCallState(prev => ({ ...prev, isPlaying: false }));
+                  console.log('✅ [Voice Call] TTS прерван автоматически');
+
+                  console.log('🎧 [Voice Call] Автоматически начинаем слушать после прерывания TTS');
+                  setTimeout(() => startRecording(), 300);
+                } else {
+                  console.log('ℹ️ [Voice Call] TTS не воспроизводится, прерывание не требуется');
+                }
+              };
+
+              recognitionRef.current.onresult = (event: any) => {
+                console.log('🎯 [Voice Call] ===== РЕЗУЛЬТАТ РАСПОЗНАВАНИЯ РЕЧИ =====');
+                console.log('📝 [Voice Call] Сырые данные события:', event);
+
+                let interimTranscript = '';
+                let finalTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                  const transcript = event.results[i][0].transcript;
+                  if (event.results[i].isFinal) {
+                    finalTranscript += transcript;
+                  } else {
+                    interimTranscript += transcript;
+                  }
+                }
+
+                console.log('🗣️ [Voice Call] Распознанный текст:', {
+                  final: finalTranscript,
+                  interim: interimTranscript,
+                  isFinal: !!finalTranscript,
+                  timestamp: new Date().toISOString()
+                });
+
+                if (finalTranscript.trim()) {
+                  console.log('🔄 [Voice Call] Передаем финальный текст в обработчик сообщений');
+                  handleUserMessage(finalTranscript.trim());
+                }
+              };
+
+              recognitionRef.current.onerror = (event: any) => {
+                console.error('❌ [Voice Call] ===== ОШИБКА РАСПОЗНАВАНИЯ РЕЧИ =====');
+                console.error('🔍 [Voice Call] Детали ошибки:', {
+                  error: event.error,
+                  type: event.type,
+                  timestamp: new Date().toISOString()
+                });
+
+                setCallState(prev => ({ ...prev, isRecording: false, error: event.error }));
+                isStartingRecordingRef.current = false;
+              };
+
+              recognitionRef.current.onend = () => {
+                console.log('🏁 [Voice Call] ===== РАСПОЗНАВАНИЕ РЕЧИ ЗАВЕРШЕНО =====');
+                console.log('⏱️ [Voice Call] Время завершения:', new Date().toISOString());
+                setCallState(prev => ({ ...prev, isRecording: false }));
+                isStartingRecordingRef.current = false;
+              };
+
+              console.log('✅ [Voice Call] Объект recognition пересоздан успешно');
+
+              // Пробуем запустить через небольшую задержку
+              setTimeout(() => {
+                if (isConnectedRef.current) {
+                  startRecording();
+                }
+              }, 200);
+            }
+          } catch (recreateError) {
+            console.error('❌ [Voice Call] Ошибка пересоздания recognition:', recreateError);
+            isStartingRecordingRef.current = false;
+          }
+        }
+      }
     } catch (error) {
       console.error('❌ [Voice Call] ===== ОШИБКА НАЧАЛА ЗАПИСИ =====');
       console.error('🔍 [Voice Call] Детали ошибки:', error);
-      toast({
-        title: "Ошибка записи",
-        description: "Не удалось начать запись",
-        variant: "destructive",
-      });
+      isStartingRecordingRef.current = false; // Сбрасываем флаг при ошибке
     }
-  };
+  }, [callState.isConnected]);
 
-  const stopRecording = () => {
+  const stopRecording = useCallback(() => {
     console.log('🛑 [Voice Call] ===== ОСТАНОВКА ЗАПИСИ РЕЧИ =====');
     console.log('⏱️ [Voice Call] Время остановки записи:', new Date().toISOString());
 
@@ -376,33 +677,50 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
     }
 
     setCallState(prev => ({ ...prev, isRecording: false }));
+    isStartingRecordingRef.current = false; // Сбрасываем флаг при остановке
     console.log('🏁 [Voice Call] Состояние записи сброшено');
-  };
+  }, []);
 
-  const toggleContinuousMode = () => {
-    if (!callState.isConnected) {
-      console.log('⚠️ [Voice Call] Попытка переключения режима без подключения');
-      return;
-    }
 
-    const newMode = !callState.isContinuousMode;
-    console.log(`${newMode ? '🔄 [Voice Call] ВКЛЮЧЕН' : '⏹️ [Voice Call] ОТКЛЮЧЕН'} постоянный режим диалога`);
+  // Показываем предупреждение если браузер не поддерживается
+  if (!browserSupported && browserCapabilities) {
+    const caps = browserCapabilities;
+    const missingFeatures = [];
 
-    setCallState(prev => ({ ...prev, isContinuousMode: newMode }));
+    if (!caps.getUserMedia) missingFeatures.push('микрофон');
+    if (!caps.speechRecognition && !caps.webkitSpeechRecognition) missingFeatures.push('распознавание речи');
+    if (!caps.webAudio) missingFeatures.push('аудио');
 
-    toast({
-      title: newMode ? "🔄 Постоянный диалог включен" : "⏹️ Постоянный диалог отключен",
-      description: newMode
-        ? "AI будет автоматически слушать после каждого ответа"
-        : "Используйте кнопку 'Говорить' для общения",
-    });
-
-    // Если включили постоянный режим и сейчас не записываем и не воспроизводим, начинаем слушать
-    if (newMode && !callState.isRecording && !callState.isPlaying && !callState.isLoading) {
-      console.log('🔄 [Voice Call] Автоматически начинаем слушать в постоянном режиме');
-      setTimeout(() => startRecording(), 500);
-    }
-  };
+    return (
+      <div className={`h-full flex flex-col ${className}`}>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <Card className="max-w-md w-full">
+            <CardHeader>
+              <CardTitle className="text-center text-orange-600">⚠️ Ограниченная совместимость</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Ваш браузер не полностью поддерживает голосовые функции.
+                {missingFeatures.length > 0 && ` Отсутствует поддержка: ${missingFeatures.join(', ')}.`}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Рекомендуется использовать современный браузер: Chrome, Edge, Firefox или Safari.
+              </p>
+              <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                <strong>Информация о браузере:</strong><br/>
+                {BrowserCompatibility.getBrowserInfo().isChrome && 'Chrome'}
+                {BrowserCompatibility.getBrowserInfo().isFirefox && 'Firefox'}
+                {BrowserCompatibility.getBrowserInfo().isSafari && 'Safari'}
+                {BrowserCompatibility.getBrowserInfo().isEdge && 'Edge'}
+                {BrowserCompatibility.getBrowserInfo().isOpera && 'Opera'}
+                {' '}v{BrowserCompatibility.getBrowserInfo().version}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`h-full flex flex-col ${className}`}>
@@ -423,17 +741,9 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
           
           <div className="flex items-center gap-2">
             {callState.isConnected && (
-              <>
-                <Badge variant={callState.isRecording ? "destructive" : "secondary"}>
-                  {callState.isRecording ? "Запись" : "Готов"}
-                </Badge>
-                {callState.isContinuousMode && (
-                  <Badge variant="outline">
-                    <RotateCcw className="w-3 h-3 mr-1" />
-                    Постоянный
-                  </Badge>
-                )}
-              </>
+              <Badge variant={callState.isRecording ? "destructive" : "default"}>
+                {callState.isRecording ? "🎤 Слушаю..." : "🎙️ Готов слушать"}
+              </Badge>
             )}
             {callState.isPlaying && (
               <Badge variant="default">
@@ -466,10 +776,8 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
           </h3>
           <p className="text-muted-foreground max-w-md">
             {callState.isConnected
-              ? callState.isContinuousMode
-                ? '🎙️ Постоянный диалог активен! Говорите в микрофон - AI будет автоматически отвечать'
-                : '🎤 Говорите в микрофон, и я помогу с рецептами. Вы можете перебить меня в любой момент!'
-              : 'Нажмите кнопку звонка, чтобы начать общение с AI поваром'
+              ? '🎙️ Я постоянно слушаю! Говорите о кулинарии - я отвечу и продолжу диалог автоматически. Можете перебить меня в любой момент!'
+              : 'Нажмите кнопку звонка, чтобы начать разговор с AI кулинаром'
             }
           </p>
         </div>
@@ -498,53 +806,24 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
               )}
             </Button>
           ) : (
-            <>
-              {!callState.isContinuousMode && (
-                <Button
-                  onClick={callState.isRecording ? stopRecording : startRecording}
-                  disabled={callState.isLoading}
-                  variant={callState.isRecording ? "destructive" : "outline"}
-                  size="lg"
-                  className="px-6 py-3"
-                >
-                  {callState.isRecording ? (
-                    <>
-                      <MicOff className="w-5 h-5 mr-2" />
-                      Стоп
-                    </>
-                  ) : (
-                    <>
-                      <Mic className="w-5 h-5 mr-2" />
-                      Говорить
-                    </>
-                  )}
-                </Button>
-              )}
-
-              <Button
-                onClick={toggleContinuousMode}
-                disabled={callState.isLoading}
-                variant={callState.isContinuousMode ? "default" : "outline"}
-                size="lg"
-                className="px-6 py-3"
-                title="Включить постоянный диалог"
-              >
-                <RotateCcw className="w-5 h-5 mr-2" />
-                {callState.isContinuousMode ? "Выключить постоянный" : "Постоянный диалог"}
-              </Button>
-
-              <Button
-                onClick={endCall}
-                variant="destructive"
-                size="lg"
-                className="px-6 py-3"
-              >
-                <PhoneOff className="w-5 h-5 mr-2" />
-                Сбросить
-              </Button>
-            </>
+            <Button
+              onClick={endCall}
+              variant="destructive"
+              size="lg"
+              className="px-6 py-3"
+            >
+              <PhoneOff className="w-5 h-5 mr-2" />
+              Завершить звонок
+            </Button>
           )}
         </div>
+
+        {/* Generated Recipe Display */}
+        {callState.generatedRecipe && (
+          <div className="w-full max-w-4xl">
+            <RecipeDisplay recipe={callState.generatedRecipe} />
+          </div>
+        )}
 
         {/* Error Display */}
         {callState.error && (

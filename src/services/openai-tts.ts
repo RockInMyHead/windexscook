@@ -1,3 +1,6 @@
+import { AudioUtils } from '@/lib/audio-utils';
+import { BrowserCompatibility } from '@/lib/browser-compatibility';
+
 export class OpenAITTS {
   private static currentAudio: HTMLAudioElement | null = null;
   private static requestId = 0;
@@ -5,7 +8,13 @@ export class OpenAITTS {
   static async speak(text: string, voice: string = 'alloy'): Promise<void> {
     const requestId = ++this.requestId;
     const startTime = Date.now();
-    
+
+    // Проверяем совместимость браузера
+    const caps = BrowserCompatibility.getCapabilities();
+    if (!caps.fetch) {
+      throw new Error('Браузер не поддерживает Fetch API. Обновите браузер для использования TTS.');
+    }
+
     try {
       console.log(`🔊 [OpenAI TTS #${requestId}] ===== НАЧАЛО СИНТЕЗА РЕЧИ =====`);
       console.log(`📝 [OpenAI TTS #${requestId}] Текст для синтеза:`, {
@@ -22,8 +31,11 @@ export class OpenAITTS {
         this.stop();
       }
 
+      // Запускаем звук обработки во время синтеза речи (запрос к API)
+      AudioUtils.startProcessingSound();
+
       console.log(`🌐 [OpenAI TTS #${requestId}] Отправляем запрос к API: /api/openai/tts`);
-      
+
       // Создаем запрос к OpenAI TTS API
       const response = await fetch('/api/openai/tts', {
         method: 'POST',
@@ -45,7 +57,20 @@ export class OpenAITTS {
       });
 
       if (!response.ok) {
-        throw new Error(`TTS API error: ${response.status}`);
+        // Пытаемся получить детали ошибки от сервера
+        let errorDetails = `TTS API error: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.details) {
+            errorDetails += ` - ${JSON.stringify(errorData.details)}`;
+          }
+          if (errorData.openai_status) {
+            errorDetails += ` (OpenAI status: ${errorData.openai_status})`;
+          }
+        } catch (parseError) {
+          // Игнорируем ошибки парсинга
+        }
+        throw new Error(errorDetails);
       }
 
       console.log('✅ [OpenAI TTS #' + requestId + '] Аудио данные получены успешно');
@@ -78,6 +103,8 @@ export class OpenAITTS {
 
         audio.onplay = () => {
           console.log('▶️ [OpenAI TTS #' + requestId + '] Воспроизведение началось');
+          // Останавливаем звук обработки, так как теперь идет только воспроизведение
+          AudioUtils.stopProcessingSound();
         };
 
         audio.onpause = () => {
@@ -125,6 +152,8 @@ export class OpenAITTS {
       console.error('❌ [OpenAI TTS #' + requestId + '] ===== ОШИБКА СИНТЕЗА РЕЧИ =====');
       console.error(`⏱️ [OpenAI TTS #${requestId}] Время до ошибки: ${totalTime}ms`);
       console.error('🔍 [OpenAI TTS #' + requestId + '] Детали ошибки:', error);
+      // Останавливаем звук обработки при ошибке
+      AudioUtils.stopProcessingSound();
       throw error;
     }
   }

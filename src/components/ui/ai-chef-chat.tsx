@@ -23,6 +23,10 @@ import { toast } from '@/hooks/use-toast';
 import { OpenAIService } from '@/services/openai';
 import { ElevenLabsTTS } from '@/services/elevenlabs-tts';
 import { useUser } from '@/contexts/UserContext';
+import { Recipe } from '@/types/recipe';
+import { RecipeDisplay } from './recipe-display';
+import { AudioUtils } from '@/lib/audio-utils';
+import { BrowserCompatibility } from '@/lib/browser-compatibility';
 
 interface Message {
   id: string;
@@ -53,14 +57,28 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   const [audioSupported, setAudioSupported] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(0);
+  const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Проверяем, является ли запрос запросом рецепта
+  const isRecipeRequest = (text: string): boolean => {
+    const recipeKeywords = [
+      'рецепт', 'приготовить', 'сварить', 'пожарить', 'запечь', 'сделать',
+      'как приготовить', 'как сделать', 'как сварить', 'рецепт на',
+      'рецепт приготовления', 'готовим', 'приготовление'
+    ];
+
+    const lowerText = text.toLowerCase();
+    return recipeKeywords.some(keyword => lowerText.includes(keyword));
+  };
 
   // Массив "мыслей" AI для визуализации
   const thinkingSteps = [
     "Анализирую ваш запрос...",
     "Подбираю подходящие ингредиенты...",
     "Составляю пошаговый план...",
+    "Генерирую изображения для шагов...",
     "Учитываю ваши предпочтения...",
     "Формирую детальный ответ...",
     "Проверяю рецепт на точность..."
@@ -101,13 +119,11 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   // Проверка поддержки аудио при загрузке
   useEffect(() => {
     const checkAudioSupport = () => {
-      const hasWebkitSpeechRecognition = !!(window as any).webkitSpeechRecognition;
-      const hasSpeechRecognition = !!(window as any).SpeechRecognition;
-      const hasSpeechRecognitionSupport = hasWebkitSpeechRecognition || hasSpeechRecognition;
+      const caps = BrowserCompatibility.getCapabilities();
+      const hasSpeechRecognitionSupport = caps.speechRecognition || caps.webkitSpeechRecognition;
       
       console.log('Speech Recognition Support Check:');
-      console.log('- webkitSpeechRecognition:', hasWebkitSpeechRecognition);
-      console.log('- SpeechRecognition:', hasSpeechRecognition);
+      console.log('- Capabilities:', caps);
       console.log('- Final support:', hasSpeechRecognitionSupport);
       
       setAudioSupported(hasSpeechRecognitionSupport);
@@ -134,35 +150,87 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
     setMessages(prev => [...prev, thinkingMessage]);
 
     try {
-      // Подготавливаем историю сообщений для контекста
-      const messageHistory = messages
-        .filter(msg => 
-          msg.id !== 'thinking' && 
-          !(msg.role === 'assistant' && msg.content === 'Готов помочь с кулинарными вопросами! Что хотите приготовить?')
-        )
-        .map(msg => ({
-          role: msg.role,
-          content: msg.content
-        }));
+      // Проверяем, является ли запрос запросом рецепта
+      const shouldGenerateRecipe = isRecipeRequest(messageText);
 
-      console.log('🔍 DEBUG: Sending message history:', messageHistory.length, 'messages');
+      console.log('🔍 [AI Chef Chat] Анализ запроса:', {
+        isRecipeRequest: shouldGenerateRecipe,
+        message: messageText
+      });
 
-      const response = await OpenAIService.chatWithChef(messageText, user?.healthProfile, messageHistory);
-      
+      let response: any;
+      let responseText: string;
+      let recipe: Recipe | null = null;
+
+      if (shouldGenerateRecipe) {
+        // Воспроизводим звук обработки во время генерации рецепта
+        AudioUtils.playProcessingSound();
+
+        // Генерируем рецепт с изображениями
+        console.log('🍳 [AI Chef Chat] Обнаружен запрос рецепта - генерируем с изображениями');
+        response = await OpenAIService.generateRecipe([messageText], user?.healthProfile, undefined, false, true);
+
+        if (response && response.instructions) {
+          recipe = response;
+          // Формируем текстовое описание рецепта с изображениями в тексте
+          responseText = `Отлично! Я подготовил рецепт "${response.title}". ${response.description}\n\n`;
+
+          response.instructions.forEach((instruction: string, index: number) => {
+            // Вставляем изображение перед каждым шагом, если оно есть
+            if (response.instructionImages && response.instructionImages[index]) {
+              responseText += `![Шаг ${index + 1}](${response.instructionImages[index]})\n\n`;
+            }
+            responseText += `**Шаг ${index + 1}:** ${instruction}\n\n`;
+          });
+
+          if (response.tips) {
+            responseText += `**Полезные советы:** ${response.tips}`;
+          }
+
+          console.log('🍳 [AI Chef Chat] Сформирован текстовый рецепт с изображениями в тексте');
+        } else {
+          responseText = response.content || response.description || 'Не удалось сгенерировать рецепт.';
+        }
+      } else {
+        // Подготавливаем историю сообщений для контекста
+        const messageHistory = messages
+          .filter(msg =>
+            msg.id !== 'thinking' &&
+            !(msg.role === 'assistant' && msg.content === 'Готов помочь с кулинарными вопросами! Что хотите приготовить?')
+          )
+          .map(msg => ({
+            role: msg.role,
+            content: msg.content
+          }));
+
+        console.log('🔍 DEBUG: Sending message history:', messageHistory.length, 'messages');
+
+        // Воспроизводим звук обработки во время генерации ответа
+        AudioUtils.playProcessingSound();
+
+        response = await OpenAIService.chatWithChef(messageText, user?.healthProfile, messageHistory);
+        responseText = response;
+      }
+
+      // Сохраняем рецепт если он был сгенерирован
+      if (recipe) {
+        setGeneratedRecipe(recipe);
+      }
+
       // Удаляем сообщение о мышлении
       setMessages(prev => {
         const withoutThinking = prev.filter(msg => msg.id !== 'thinking');
-        
+
         // Добавляем ответ только если он не пустой
-        if (response && response.trim()) {
+        if (responseText && responseText.trim()) {
           return [...withoutThinking, {
             id: Date.now().toString(),
-            content: response,
+            content: responseText,
             role: 'assistant',
             timestamp: new Date()
           }];
         }
-        
+
         return withoutThinking;
       });
     } catch (error) {
@@ -243,6 +311,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
         timestamp: new Date()
       }
     ]);
+    setGeneratedRecipe(null);
     toast({
       title: "Чат очищен",
       description: "История разговора удалена. Начинаем новый диалог!",
@@ -257,22 +326,30 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   };
 
   const formatMessageContent = (content: string) => {
-    // Сначала заменяем ### на ** для жирного текста большего шрифта
-    let formattedContent = content.replace(/\n### (.*?)(?=\n|$)/g, '\n**$1**');
-    
+    // Сначала обрабатываем изображения markdown: ![alt](url)
+    let formattedContent = content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
+      return `<img src="${url}" alt="${alt}" class="max-w-full h-auto rounded-lg my-2 shadow-md" />`;
+    });
+
+    // Затем заменяем ### на ** для жирного текста большего шрифта
+    formattedContent = formattedContent.replace(/\n### (.*?)(?=\n|$)/g, '\n**$1**');
+
     // Затем заменяем #### на ** для обычного жирного шрифта
     formattedContent = formattedContent.replace(/\n#### (.*?)(?=\n|$)/g, '\n**$1**');
-    
+
     // Затем обрабатываем markdown для жирного текста
-    const parts = formattedContent.split(/(\*\*.*?\*\*)/g);
+    const parts = formattedContent.split(/(\*\*.*?\*\*|<img[^>]*>)/g);
     
     const formattedParts = parts.map((part, index) => {
-      if (part.startsWith('**') && part.endsWith('**')) {
+      if (part.startsWith('<img') && part.endsWith('>')) {
+        // Это изображение - рендерим как HTML
+        return <div key={index} dangerouslySetInnerHTML={{ __html: part }} />;
+      } else if (part.startsWith('**') && part.endsWith('**')) {
         // Это жирный текст - проверяем, был ли это ### (больший шрифт)
         const text = part.slice(2, -2);
         const originalText = content;
         const isLargeFont = originalText.includes(`### ${text}`);
-        
+
         if (isLargeFont) {
           return <strong key={index} className="font-bold text-lg">{text}</strong>;
         } else {
@@ -308,7 +385,8 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   const startRecording = async () => {
     try {
       // Проверяем поддержку Web Speech API
-      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      const caps = BrowserCompatibility.getCapabilities();
+      if (!caps.speechRecognition && !caps.webkitSpeechRecognition) {
         throw new Error('Браузер не поддерживает распознавание речи');
       }
 
@@ -364,12 +442,13 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   const speechToText = (): Promise<string> => {
     return new Promise((resolve, reject) => {
       // Проверяем поддержку Web Speech API
-      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      const caps = BrowserCompatibility.getCapabilities();
+      if (!caps.speechRecognition && !caps.webkitSpeechRecognition) {
         reject(new Error('Браузер не поддерживает распознавание речи'));
         return;
       }
 
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       const recognition = new SpeechRecognition();
       
       recognition.lang = 'ru-RU';
@@ -454,6 +533,13 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
         )}
 
         <CardContent className="flex-1 flex flex-col p-0 min-h-0">
+          {/* Generated Recipe Display */}
+          {generatedRecipe && (
+            <div className="w-full max-w-4xl mx-auto mb-4">
+              <RecipeDisplay recipe={generatedRecipe} />
+            </div>
+          )}
+
         <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 sm:px-6 lg:px-[10%] min-h-0">
           <div className="space-y-4 pb-4">
             {messages.map((message) => (

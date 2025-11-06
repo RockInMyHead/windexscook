@@ -1,5 +1,6 @@
 import { UserHealthProfile } from '../types/health';
 import { WORLD_CUISINES } from '../types/cuisine';
+import { AudioUtils } from '../lib/audio-utils';
 
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || "";
 // Guard to ensure API key is provided
@@ -16,6 +17,7 @@ export interface Recipe {
   cuisine?: string;
   ingredients: string[];
   instructions: string[];
+  instructionImages?: string[]; // Массив изображений для каждого шага (base64 или URL)
   tips?: string;
   content?: string; // Для чата
 }
@@ -117,7 +119,7 @@ export class OpenAIService {
     }
   }
 
-  static async generateRecipe(ingredients: string[], healthProfile?: UserHealthProfile, cuisineId?: string, isChatMode: boolean = false): Promise<Recipe> {
+  static async generateRecipe(ingredients: string[], healthProfile?: UserHealthProfile, cuisineId?: string, isChatMode: boolean = false, includeImages: boolean = false): Promise<Recipe> {
     let healthConstraints = '';
     let cuisineConstraints = '';
     
@@ -236,6 +238,9 @@ ${constraints.join('\n')}
             }
           ];
 
+      // Запускаем звук обработки во время генерации рецепта
+      AudioUtils.startProcessingSound();
+
       const response = await this.makeRequest(messages);
 
       // Обработка ответа в зависимости от режима
@@ -323,7 +328,7 @@ ${constraints.join('\n')}
         );
       });
 
-      return {
+      const recipe: Recipe = {
         title: recipeData.title || "Вкусное блюдо",
         description: recipeData.description || "Ароматное и аппетитное блюдо",
         cookTime: recipeData.cookTime || "30 мин",
@@ -334,8 +339,30 @@ ${constraints.join('\n')}
         instructions: recipeData.instructions || ["Приготовьте блюдо по традиционному рецепту"],
         tips: recipeData.tips || "Подавайте горячим!"
       };
+
+      // Генерируем изображения для шагов, если запрошено
+      if (includeImages && recipe.instructions.length > 0) {
+        console.log('🖼️ [OpenAI] Generating images for recipe steps...');
+        try {
+          const recipeWithImages = await this.generateRecipeImages(recipe);
+          // Останавливаем звук обработки
+          AudioUtils.stopProcessingSound();
+          return recipeWithImages;
+        } catch (imageError) {
+          console.error('❌ [OpenAI] Failed to generate images, returning recipe without images:', imageError);
+          // Останавливаем звук обработки
+          AudioUtils.stopProcessingSound();
+          return recipe; // Возвращаем рецепт без изображений в случае ошибки
+        }
+      }
+
+      // Останавливаем звук обработки
+      AudioUtils.stopProcessingSound();
+      return recipe;
     } catch (error) {
       console.error('Error generating recipe:', error);
+      // Останавливаем звук обработки при ошибке
+      AudioUtils.stopProcessingSound();
       throw new Error('Не удалось сгенерировать рецепт. Попробуйте еще раз.');
     }
   }
@@ -353,6 +380,86 @@ ${constraints.join('\n')}
     }
     
     return variations;
+  }
+
+  // Генерация изображения для шага рецепта с помощью DALL-E 3
+  static async generateStepImage(stepInstruction: string, recipeTitle: string, style: string = "realistic kitchen photography"): Promise<string> {
+    try {
+      console.log('🎨 [OpenAI] Generating image for recipe step...');
+      console.log('🎨 [OpenAI] Step instruction:', stepInstruction);
+      console.log('🎨 [OpenAI] Recipe title:', recipeTitle);
+
+      const prompt = `Create a ${style} image showing the cooking step: "${stepInstruction}". This is for the recipe "${recipeTitle}". Show a clean, well-lit kitchen scene with high-quality food photography. Focus on the action described in the step. Professional cooking photo, appetizing presentation.`;
+
+      const messages = [{
+        role: "user",
+        content: prompt
+      }];
+
+      // Используем DALL-E 3 через API
+      const imageResponse = await fetch('/api/openai/generate-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          model: 'dall-e-3',
+          size: '1024x1024',
+          quality: 'standard'
+        }),
+      });
+
+      if (!imageResponse.ok) {
+        throw new Error(`DALL-E API error: ${imageResponse.status}`);
+      }
+
+      const imageData = await imageResponse.json();
+
+      if (imageData.success && imageData.imageUrl) {
+        console.log('✅ [OpenAI] Image generated successfully:', imageData.imageUrl);
+        return imageData.imageUrl;
+      } else {
+        console.error('❌ [OpenAI] Failed to generate image:', imageData);
+        return ''; // Возвращаем пустую строку в случае ошибки
+      }
+
+    } catch (error) {
+      console.error('❌ [OpenAI] Error generating step image:', error);
+      return ''; // Возвращаем пустую строку в случае ошибки
+    }
+  }
+
+  // Генерация изображений для всех шагов рецепта
+  static async generateRecipeImages(recipe: Recipe): Promise<Recipe> {
+    console.log('🖼️ [OpenAI] Starting image generation for recipe:', recipe.title);
+
+    const instructionImages: string[] = [];
+
+    // Генерируем изображение для каждого шага
+    for (let i = 0; i < recipe.instructions.length; i++) {
+      const stepInstruction = recipe.instructions[i];
+      console.log(`🖼️ [OpenAI] Generating image for step ${i + 1}/${recipe.instructions.length}`);
+
+      const imageUrl = await this.generateStepImage(
+        stepInstruction,
+        recipe.title,
+        "professional food photography, clean modern kitchen, natural lighting, high quality"
+      );
+
+      instructionImages.push(imageUrl);
+
+      // Небольшая задержка между запросами, чтобы не превысить лимиты API
+      if (i < recipe.instructions.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+
+    console.log('✅ [OpenAI] All recipe images generated successfully');
+    return {
+      ...recipe,
+      instructionImages
+    };
   }
 
   static async recognizeIngredientsFromImage(imageFile: File): Promise<string[]> {
@@ -374,6 +481,9 @@ ${constraints.join('\n')}
         };
         reader.readAsDataURL(compressedImage);
       });
+
+      // Запускаем звук обработки во время анализа изображения
+      AudioUtils.startProcessingSound();
 
       const response = await this.makeRequest([
         {
@@ -403,9 +513,14 @@ ${constraints.join('\n')}
         .map((item: string) => item.trim())
         .filter((item: string) => item.length > 0);
 
+      // Останавливаем звук обработки
+      AudioUtils.stopProcessingSound();
+
       return ingredients;
     } catch (error) {
       console.error('Error recognizing ingredients from image:', error);
+      // Останавливаем звук обработки при ошибке
+      AudioUtils.stopProcessingSound();
       throw new Error('Не удалось распознать продукты на изображении');
     }
   }
@@ -429,6 +544,9 @@ ${constraints.join('\n')}
         reader.readAsDataURL(compressedImage);
       });
 
+      // Запускаем звук обработки во время анализа изображения
+      AudioUtils.startProcessingSound();
+
       const response = await this.makeRequest([
         {
           role: "system",
@@ -443,9 +561,14 @@ ${constraints.join('\n')}
         }
       ], 'gpt-4-turbo');
 
+      // Останавливаем звук обработки
+      AudioUtils.stopProcessingSound();
+
       return response;
     } catch (error) {
       console.error('Error analyzing calories from image:', error);
+      // Останавливаем звук обработки при ошибке
+      AudioUtils.stopProcessingSound();
       throw new Error('Не удалось проанализировать калорийность на изображении');
     }
   }
@@ -532,14 +655,22 @@ ${constraints.join('\n')}
 
       console.log('🔍 DEBUG: Sending messages to OpenAI:', messages.length, 'messages');
 
+      // Запускаем звук обработки во время генерации ответа
+      AudioUtils.startProcessingSound();
+
       const response = await this.makeRequest(messages);
 
       // Заменяем цифры на слова для TTS
       const processedResponse = this.replaceNumbersWithWords(response);
 
+      // Останавливаем звук обработки
+      AudioUtils.stopProcessingSound();
+
       return processedResponse;
     } catch (error) {
       console.error('Error in chat with chef:', error);
+      // Останавливаем звук обработки при ошибке
+      AudioUtils.stopProcessingSound();
       throw new Error('Извините, произошла ошибка при обработке вашего сообщения. Попробуйте еще раз.');
     }
   }

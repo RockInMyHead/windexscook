@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Copy, Volume2, ThumbsUp, Bot, Clock } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { ElevenLabsTTS } from '@/services/elevenlabs-tts';
+import { AudioUtils } from '@/lib/audio-utils';
 
 interface CalorieAnalysisResultProps {
   result: string;
@@ -65,12 +66,18 @@ export const CalorieAnalysisResult: React.FC<CalorieAnalysisResultProps> = ({
 
   const handleSpeakMessage = async (content: string) => {
     try {
+      // Запускаем непрерывный звук обработки
+      AudioUtils.startProcessingSound();
       await ElevenLabsTTS.speak(content);
+      // Останавливаем звук обработки
+      AudioUtils.stopProcessingSound();
       toast({
         title: "🔊 Воспроизведение",
         description: "Результат анализа озвучен",
       });
     } catch (error) {
+      // Останавливаем звук обработки при ошибке
+      AudioUtils.stopProcessingSound();
       console.error('Error speaking message:', error);
       toast({
         title: "❌ Ошибка воспроизведения",

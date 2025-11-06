@@ -10,8 +10,12 @@ interface UserContextType {
   updateHealthProfile: (healthProfile: UserHealthProfile) => void;
   isAuthenticated: boolean;
   hasActiveSubscription: boolean;
+  hasActiveTrial: boolean;
+  hasPremiumAccess: boolean; // подписка ИЛИ пробный период
   activateSubscription: () => void;
+  activateTrialPeriod: () => void;
   isAdmin: boolean;
+  trialDaysLeft: number;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -88,8 +92,8 @@ export const UserProvider = ({ children }: UserProviderProps) => {
     if (user) {
       const expiresAt = new Date();
       expiresAt.setMonth(expiresAt.getMonth() + 1);
-      const updatedUser = { 
-        ...user, 
+      const updatedUser = {
+        ...user,
         subscription: {
           active: true,
           expiresAt: expiresAt.toISOString(),
@@ -101,13 +105,60 @@ export const UserProvider = ({ children }: UserProviderProps) => {
     }
   };
 
+  // Активация пробного периода на 3 дня
+  const activateTrialPeriod = () => {
+    if (user) {
+      // Проверяем, не был ли уже активирован пробный период
+      if (user.trialPeriod?.active) {
+        console.log('Пробный период уже активирован');
+        return;
+      }
+
+      const startedAt = new Date();
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 3); // 3 дня пробного периода
+
+      const updatedUser = {
+        ...user,
+        trialPeriod: {
+          active: true,
+          startedAt: startedAt.toISOString(),
+          expiresAt: expiresAt.toISOString()
+        }
+      };
+
+      setUser(updatedUser);
+      localStorage.setItem('ai-chef-user', JSON.stringify(updatedUser));
+
+      console.log('Пробный период активирован на 3 дня:', {
+        startedAt: startedAt.toISOString(),
+        expiresAt: expiresAt.toISOString()
+      });
+    }
+  };
+
+  const isAdmin = user?.role === 'admin';
+
   const hasActiveSubscription = !!(
-    user?.subscription?.active && 
-    user?.subscription?.expiresAt && 
+    user?.subscription?.active &&
+    user?.subscription?.expiresAt &&
     new Date(user.subscription.expiresAt) > new Date()
   );
 
-  const isAdmin = user?.role === 'admin';
+  // Проверка активного пробного периода
+  const hasActiveTrial = !!(
+    user?.trialPeriod?.active &&
+    user?.trialPeriod?.expiresAt &&
+    new Date(user.trialPeriod.expiresAt) > new Date()
+  );
+
+  // Расчет оставшихся дней пробного периода
+  const trialDaysLeft = user?.trialPeriod?.active && user?.trialPeriod?.expiresAt
+    ? Math.max(0, Math.ceil((new Date(user.trialPeriod.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0;
+
+  // Проверка доступа к премиум-функциям (подписка ИЛИ пробный период)
+  const hasPremiumAccess = hasActiveSubscription || hasActiveTrial || isAdmin;
 
   const value = {
     user,
@@ -117,8 +168,12 @@ export const UserProvider = ({ children }: UserProviderProps) => {
     updateHealthProfile,
     isAuthenticated: !!user,
     hasActiveSubscription,
+    hasActiveTrial,
+    hasPremiumAccess,
     activateSubscription,
+    activateTrialPeriod,
     isAdmin,
+    trialDaysLeft,
   };
 
   return (

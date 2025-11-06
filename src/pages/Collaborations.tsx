@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/contexts/UserContext";
 import { toast } from "@/hooks/use-toast";
 import { OpenAIService } from "@/services/openai";
+import { AudioUtils } from "@/lib/audio-utils";
 import { X } from "lucide-react";
 
 const Collaborations = () => {
@@ -17,7 +18,7 @@ const Collaborations = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login'|'register'>('login');
-  const { isAuthenticated, login, hasActiveSubscription } = useUser();
+  const { isAuthenticated, login, hasPremiumAccess } = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleRegister = () => { setAuthMode('register'); setShowAuthModal(true); };
@@ -29,7 +30,7 @@ const Collaborations = () => {
       return;
     }
     
-    if (!hasActiveSubscription) {
+    if (!hasPremiumAccess) {
       setShowPremiumModal(true);
       return;
     }
@@ -76,7 +77,7 @@ const Collaborations = () => {
       handleLogin();
       return;
     }
-    if (!hasActiveSubscription) {
+    if (!hasPremiumAccess) {
       setShowPremiumModal(true);
       return;
     }

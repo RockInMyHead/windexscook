@@ -2,11 +2,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Sparkles, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { X, Plus, Sparkles, Loader2, Image } from "lucide-react";
 import { OpenAIService, Recipe } from "@/services/openai";
 import { RecipeDisplay } from "./recipe-display";
 import { toast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
+import { AudioUtils } from "@/lib/audio-utils";
 
 interface IngredientInputProps {
   onGenerateRecipe: (ingredients: string[]) => void;
@@ -20,6 +23,7 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin, selecte
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
+  const [includeImages, setIncludeImages] = useState(false);
   const { user } = useUser();
 
   const addIngredient = () => {
@@ -52,7 +56,7 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin, selecte
 
     setIsLoading(true);
     try {
-      const recipe = await OpenAIService.generateRecipe(ingredients, user?.healthProfile, selectedCuisine);
+      const recipe = await OpenAIService.generateRecipe(ingredients, user?.healthProfile, selectedCuisine, false, includeImages);
       setGeneratedRecipe(recipe);
       
       toast({
@@ -128,7 +132,24 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin, selecte
           <p className="text-xs text-muted-foreground">
             💡 AI создаст рецепт только из этих ингредиентов + базовые специи (соль, перец, масло)
           </p>
-          
+
+          {/* Опция генерации изображений */}
+          <div className="flex items-center space-x-2 py-2">
+            <Checkbox
+              id="include-images"
+              checked={includeImages}
+              onCheckedChange={(checked) => setIncludeImages(checked as boolean)}
+              disabled={isLoading}
+            />
+            <Label
+              htmlFor="include-images"
+              className="text-sm text-muted-foreground cursor-pointer flex items-center gap-1"
+            >
+              <Image className="w-3 h-3" />
+              Создать изображения для каждого шага (DALL-E 3)
+            </Label>
+          </div>
+
           <Button 
             onClick={handleGenerate}
             disabled={isLoading}

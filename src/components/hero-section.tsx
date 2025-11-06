@@ -65,14 +65,15 @@ export const HeroSection = ({ onGetStarted, onViewExamples }: HeroSectionProps) 
                 <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
               
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 variant="secondary"
                 onClick={onViewExamples}
                 className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 hover:bg-secondary/80 transition-colors drop-shadow-md"
               >
                 Посмотреть примеры
               </Button>
+
             </div>
 
             {/* Stats */}

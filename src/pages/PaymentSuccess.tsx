@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Loader2, XCircle } from 'lucide-react';
@@ -9,6 +9,7 @@ import { toast } from '@/hooks/use-toast';
 const PaymentSuccess: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { activateSubscription } = useUser();
   const [paymentStatus, setPaymentStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [paymentData, setPaymentData] = useState<any>(null);
@@ -16,26 +17,88 @@ const PaymentSuccess: React.FC = () => {
   useEffect(() => {
     const checkPaymentStatus = async () => {
       try {
+        console.log('🔍 PaymentSuccess: ===== COMPONENT MOUNTED =====');
         console.log('🔍 PaymentSuccess: Component loaded, checking payment status...');
+        console.log('🔍 PaymentSuccess: ===== STARTING PAYMENT CHECK =====');
         console.log('🔍 PaymentSuccess: Current URL:', window.location.href);
         console.log('🔍 PaymentSuccess: URL hash:', window.location.hash);
+        console.log('🔍 PaymentSuccess: URL pathname:', window.location.pathname);
+        console.log('🔍 PaymentSuccess: URL hostname:', window.location.hostname);
+        console.log('🔍 PaymentSuccess: URL port:', window.location.port);
+        console.log('🔍 PaymentSuccess: Full URL:', window.location.href);
+        console.log('🔍 PaymentSuccess: Hash starts with #:', window.location.hash.startsWith('#'));
+        console.log('🔍 PaymentSuccess: Hash length:', window.location.hash.length);
         console.log('🔍 PaymentSuccess: Cookies:', document.cookie);
         console.log('🔍 PaymentSuccess: localStorage available:', typeof localStorage !== 'undefined');
+        console.log('🔍 PaymentSuccess: Window test data:', (window as any).__testPaymentData);
+        console.log('🔍 PaymentSuccess: URL search string:', window.location.search);
+        console.log('🔍 PaymentSuccess: React Router state:', location.state);
+        console.log('🔍 PaymentSuccess: ===== INITIALIZING PAYMENT SEARCH =====');
 
-        // Получаем paymentId из различных возможных источников
-        let paymentId = searchParams.get('paymentId') ||
-                       searchParams.get('orderId') ||
-                       searchParams.get('payment_id') ||
-                       searchParams.get('id'); // иногда YooKassa возвращает просто id
+        // Сначала проверяем React Router state (самый надежный способ для localhost)
+        let paymentId = null;
+        let userId = null;
+
+        console.log('🔍 PaymentSuccess: Checking React Router state...');
+        console.log('🔍 PaymentSuccess: location.state exists:', !!location.state);
+        console.log('🔍 PaymentSuccess: location.state type:', typeof location.state);
+
+        if (location.state) {
+          paymentId = location.state.paymentId;
+          userId = location.state.userId;
+          console.log('✅ PaymentSuccess: Found data in React Router state:', {
+            paymentId,
+            userId,
+            isTest: location.state.isTest,
+            fromLocalhost: location.state.fromLocalhost,
+            fullState: location.state
+          });
+        } else {
+          console.log('❌ PaymentSuccess: No data in React Router state');
+        }
+
+        // Если не нашли в state, проверяем URL параметры
+        if (!paymentId) {
+          paymentId = searchParams.get('paymentId') ||
+                     searchParams.get('orderId') ||
+                     searchParams.get('payment_id') ||
+                     searchParams.get('id'); // иногда YooKassa возвращает просто id
+
+          console.log('🔍 PaymentSuccess: Searched URL params for paymentId, found:', paymentId);
+        }
 
         console.log('🔍 PaymentSuccess: URL params:', Object.fromEntries(searchParams.entries()));
         console.log('🔍 PaymentSuccess: Initial paymentId from URL params:', paymentId);
+        console.log('🔍 PaymentSuccess: Checking individual params:');
+        console.log('🔍 PaymentSuccess: paymentId param:', searchParams.get('paymentId'));
+        console.log('🔍 PaymentSuccess: userId param:', searchParams.get('userId'));
 
-        // Проверяем URL hash
-        if (!paymentId && window.location.hash) {
+        // Проверяем URL hash (YooKassa возвращает данные здесь)
+        console.log('🔍 PaymentSuccess: Checking URL hash condition:', {
+          hasHash: !!window.location.hash,
+          hashValue: window.location.hash,
+          hashLength: window.location.hash.length
+        });
+
+        if (window.location.hash) {
+          console.log('🔍 PaymentSuccess: ===== PROCESSING URL HASH =====');
+          console.log('🔍 PaymentSuccess: Raw hash:', window.location.hash);
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          console.log('🔍 PaymentSuccess: Parsed hash params:', Object.fromEntries(hashParams.entries()));
           paymentId = hashParams.get('paymentId');
-          console.log('🔍 PaymentSuccess: Checked URL hash, found:', paymentId);
+          console.log('🔍 PaymentSuccess: paymentId from hash:', paymentId);
+          if (!userId) {
+            userId = hashParams.get('userId');
+            console.log('🔍 PaymentSuccess: userId from hash:', userId);
+          }
+          console.log('🔍 PaymentSuccess: Hash parsing results:', {
+            paymentId,
+            userId,
+            allHashParams: Object.fromEntries(hashParams.entries())
+          });
+          console.log('🔍 PaymentSuccess: ===== URL HASH PROCESSED =====');
+        } else {
+          console.log('🔍 PaymentSuccess: No URL hash found, skipping hash processing');
         }
 
         // Проверяем cookies
@@ -52,18 +115,66 @@ const PaymentSuccess: React.FC = () => {
           }
         }
 
-        // Проверяем localStorage (обычный способ)
+        // Проверяем localStorage для тестовых платежей
         if (!paymentId) {
           try {
+            console.log('🔍 PaymentSuccess: ===== CHECKING TEST PAYMENT DATA =====');
+            // Сначала проверяем test ключи (для тестовой оплаты)
+            paymentId = localStorage.getItem('testPaymentId') || sessionStorage.getItem('testPaymentId');
+            const testUserId = localStorage.getItem('testUserId') || sessionStorage.getItem('testUserId');
+            console.log('🔍 PaymentSuccess: Checked testPaymentId, found:', paymentId);
+            console.log('🔍 PaymentSuccess: Checked testUserId, found:', testUserId);
+            if (paymentId && !userId && testUserId) {
+              userId = testUserId;
+            }
+            // НЕ очищаем test ключи здесь - они будут очищены после успешной обработки
+          } catch (storageError) {
+            console.error('🔍 PaymentSuccess: Storage error:', storageError);
+          }
+        }
+
+        // Проверяем localStorage для paymentFlow данных (новые ключи для локального тестирования)
+        if (!paymentId) {
+          try {
+            console.log('🔍 PaymentSuccess: ===== CHECKING PAYMENT FLOW DATA =====');
+            paymentId = localStorage.getItem('paymentFlow_paymentId');
+            const paymentFlowUserId = localStorage.getItem('paymentFlow_userId');
+            console.log('🔍 PaymentSuccess: Checked localStorage (paymentFlow_paymentId), found:', paymentId);
+            console.log('🔍 PaymentSuccess: Checked localStorage (paymentFlow_userId), found:', paymentFlowUserId);
+            if (paymentId && !userId && paymentFlowUserId) {
+              userId = paymentFlowUserId;
+            }
+            // Очищаем эти ключи после использования
+            if (paymentId) {
+              localStorage.removeItem('paymentFlow_paymentId');
+              localStorage.removeItem('paymentFlow_userId');
+              console.log('🔍 PaymentSuccess: Cleared paymentFlow data from localStorage');
+            }
+          } catch (storageError) {
+            console.error('🔍 PaymentSuccess: paymentFlow localStorage error:', storageError);
+            paymentId = null;
+          }
+        }
+
+        // Проверяем localStorage для pendingPaymentId (основной способ для production)
+        if (!paymentId) {
+          try {
+            console.log('🔍 PaymentSuccess: ===== CHECKING PENDING PAYMENT DATA =====');
+            console.log('🔍 PaymentSuccess: All localStorage keys:', Object.keys(localStorage));
             paymentId = localStorage.getItem('pendingPaymentId');
+            const pendingUserId = localStorage.getItem('pendingUserId');
             console.log('🔍 PaymentSuccess: Checked localStorage (pendingPaymentId), found:', paymentId);
+            console.log('🔍 PaymentSuccess: Checked localStorage (pendingUserId), found:', pendingUserId);
+            if (paymentId && !userId && pendingUserId) {
+              userId = pendingUserId;
+            }
           } catch (storageError) {
             console.error('🔍 PaymentSuccess: localStorage error:', storageError);
             paymentId = null;
           }
         }
 
-        // Проверяем sessionStorage
+        // Проверяем sessionStorage для pendingPaymentId
         if (!paymentId) {
           try {
             paymentId = sessionStorage.getItem('pendingPaymentId');
@@ -74,21 +185,106 @@ const PaymentSuccess: React.FC = () => {
           }
         }
 
-        // Для локального тестирования проверяем testPaymentId
+        // Для локального тестирования проверяем testPaymentId (резервный вариант)
         if (!paymentId && window.location.hostname === 'localhost') {
-          try {
-            paymentId = localStorage.getItem('testPaymentId');
-            console.log('🔍 PaymentSuccess: Checked localStorage (testPaymentId for localhost), found:', paymentId);
-          } catch (storageError) {
-            console.error('🔍 PaymentSuccess: testPaymentId localStorage error:', storageError);
+          console.log('🔍 PaymentSuccess: Checking localhost data sources...');
+
+          // Сначала проверяем window данные (самый надежный способ)
+          const windowData = (window as any).__testPaymentData;
+          console.log('🔍 PaymentSuccess: Window data object:', windowData);
+          if (windowData && windowData.paymentId) {
+            paymentId = windowData.paymentId;
+            console.log('🔍 PaymentSuccess: Found paymentId in window data:', paymentId);
           }
 
+          // Затем localStorage для paymentFlow (новые ключи)
           if (!paymentId) {
             try {
-              paymentId = sessionStorage.getItem('testPaymentId');
-              console.log('🔍 PaymentSuccess: Checked sessionStorage (testPaymentId for localhost), found:', paymentId);
+              const lsValue = localStorage.getItem('paymentFlow_paymentId');
+              console.log('🔍 PaymentSuccess: Raw localStorage paymentFlow_paymentId value:', lsValue);
+              paymentId = lsValue;
+              console.log('🔍 PaymentSuccess: Set paymentId from paymentFlow localStorage:', paymentId);
+            } catch (storageError) {
+              console.error('🔍 PaymentSuccess: paymentFlow_paymentId localStorage error:', storageError);
+            }
+          }
+
+          // Затем sessionStorage для paymentFlow
+          if (!paymentId) {
+            try {
+              const ssValue = sessionStorage.getItem('paymentFlow_paymentId');
+              console.log('🔍 PaymentSuccess: Raw sessionStorage paymentFlow_paymentId value:', ssValue);
+              paymentId = ssValue;
+              console.log('🔍 PaymentSuccess: Set paymentId from paymentFlow sessionStorage:', paymentId);
+            } catch (storageError) {
+              console.error('🔍 PaymentSuccess: paymentFlow_paymentId sessionStorage error:', storageError);
+            }
+          }
+
+          // Затем старые ключи для совместимости
+          if (!paymentId) {
+            try {
+              const lsValue = localStorage.getItem('testPaymentId');
+              console.log('🔍 PaymentSuccess: Raw localStorage testPaymentId value (legacy):', lsValue);
+              paymentId = lsValue;
+              console.log('🔍 PaymentSuccess: Set paymentId from legacy localStorage:', paymentId);
+            } catch (storageError) {
+              console.error('🔍 PaymentSuccess: testPaymentId localStorage error:', storageError);
+            }
+          }
+
+          // Затем sessionStorage для старых ключей
+          if (!paymentId) {
+            try {
+              const ssValue = sessionStorage.getItem('testPaymentId');
+              console.log('🔍 PaymentSuccess: Raw sessionStorage testPaymentId value (legacy):', ssValue);
+              paymentId = ssValue;
+              console.log('🔍 PaymentSuccess: Set paymentId from legacy sessionStorage:', paymentId);
             } catch (storageError) {
               console.error('🔍 PaymentSuccess: testPaymentId sessionStorage error:', storageError);
+            }
+          }
+        }
+
+        // Если userId не найден в state, проверяем другие источники
+        if (!userId) {
+          userId = searchParams.get('userId') ||
+                   searchParams.get('user_id') ||
+                   searchParams.get('userid');
+        }
+
+        // Проверяем userId в URL hash
+        if (!userId && window.location.hash) {
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          userId = hashParams.get('userId');
+          console.log('🔍 PaymentSuccess: Checked URL hash for userId, found:', userId);
+        }
+
+        if (!userId && window.location.hostname === 'localhost') {
+          // Сначала проверяем window данные
+          const windowData = (window as any).__testPaymentData;
+          if (windowData && windowData.userId) {
+            userId = windowData.userId;
+            console.log('🔍 PaymentSuccess: Found userId in window data:', userId);
+          }
+
+          // Затем localStorage
+          if (!userId) {
+            try {
+              userId = localStorage.getItem('testUserId');
+              console.log('🔍 PaymentSuccess: Checked localStorage (testUserId for localhost), found:', userId);
+            } catch (storageError) {
+              console.error('🔍 PaymentSuccess: testUserId localStorage error:', storageError);
+            }
+          }
+
+          // Затем sessionStorage
+          if (!userId) {
+            try {
+              userId = sessionStorage.getItem('testUserId');
+              console.log('🔍 PaymentSuccess: Checked sessionStorage (testUserId for localhost), found:', userId);
+            } catch (storageError) {
+              console.error('🔍 PaymentSuccess: testUserId sessionStorage error:', storageError);
             }
           }
         }
@@ -99,15 +295,25 @@ const PaymentSuccess: React.FC = () => {
           console.error('❌ PaymentSuccess: No payment ID found in URL parameters or storage');
 
           // Попробуем найти последний платеж пользователя по userId
-          const userId = searchParams.get('userId');
-          console.log('🔍 PaymentSuccess: userId from URL:', userId);
-          console.log('🔍 PaymentSuccess: All searchParams:', Object.fromEntries(searchParams.entries()));
+        console.log('🔍 PaymentSuccess: userId from URL/localStorage:', userId);
+        console.log('🔍 PaymentSuccess: All searchParams:', Object.fromEntries(searchParams.entries()));
+        console.log('🔍 PaymentSuccess: Current state summary:', {
+          paymentId,
+          userId,
+          hasSearchParams: searchParams.toString().length > 0,
+          hasHash: window.location.hash.length > 0,
+          hashValue: window.location.hash,
+          fullUrl: window.location.href
+        });
 
           if (userId) {
             console.log('🔍 PaymentSuccess: Trying to find recent payment for userId:', userId);
             try {
-              console.log('🔍 PaymentSuccess: Calling API:', `/api/payments/user/${userId}/recent`);
-              const recentPaymentsResponse = await fetch(`/api/payments/user/${userId}/recent`);
+              const backendUrl = window.location.hostname === 'localhost'
+                ? 'http://localhost:3002'
+                : window.location.origin;
+              console.log('🔍 PaymentSuccess: Calling API:', `${backendUrl}/api/payments/user/${userId}/recent`);
+              const recentPaymentsResponse = await fetch(`${backendUrl}/api/payments/user/${userId}/recent`);
               console.log('🔍 PaymentSuccess: API response status:', recentPaymentsResponse.status);
 
               if (recentPaymentsResponse.ok) {
@@ -137,19 +343,114 @@ const PaymentSuccess: React.FC = () => {
           }
         }
 
-        // Проверяем статус платежа
+        // Проверяем статус платежа (используем backend сервер)
         console.log('🔍 PaymentSuccess: Checking payment status for:', paymentId);
-        const response = await fetch(`/api/payments/status/${paymentId}`);
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('❌ PaymentSuccess: API response not ok:', response.status, errorText);
-          throw new Error(`Не удалось проверить статус платежа: ${response.status}`);
+        // ВРЕМЕННОЕ РЕШЕНИЕ ДЛЯ ТЕСТИРОВАНИЯ: для localhost всегда возвращаем успешный статус
+        let data;
+        if (window.location.hostname === 'localhost') {
+          console.log('🔍 PaymentSuccess: LOCALHOST MODE - Simulating successful payment');
+          data = {
+            success: true,
+            paymentId: paymentId,
+            status: 'succeeded',
+            paid: true,
+            amount: '1.00',
+            currency: 'RUB',
+            metadata: { userId: userId || 'test-user', userEmail: 'test@example.com' }
+          };
+          console.log('🔍 PaymentSuccess: Mock payment data:', data);
+          setPaymentData(data);
+        } else {
+          // Продакшн код - проверяем статус платежа через API
+          console.log('🔍 PaymentSuccess: PRODUCTION MODE - Checking real payment status');
+          const backendUrl = window.location.hostname === 'localhost'
+            ? 'http://localhost:3002'
+            : window.location.origin;
+
+          try {
+            // Сначала пытаемся получить статус платежа
+            const statusResponse = await fetch(`${backendUrl}/api/payments/status/${paymentId}`);
+            console.log('🔍 PaymentSuccess: Status API response:', statusResponse.status);
+
+            if (!statusResponse.ok) {
+              const errorText = await statusResponse.text();
+              console.error('❌ PaymentSuccess: Status API error:', statusResponse.status, errorText);
+              throw new Error(`Не удалось проверить статус платежа: ${statusResponse.status}`);
+            }
+
+            const paymentInfo = await statusResponse.json();
+            console.log('🔍 PaymentSuccess: Payment info from API:', paymentInfo);
+
+            // Проверяем статус платежа
+            if (paymentInfo.status === 'succeeded' && paymentInfo.paid) {
+              console.log('✅ PaymentSuccess: Payment confirmed as successful');
+
+              // Подтверждаем платеж и активируем подписку
+              const confirmResponse = await fetch(`${backendUrl}/api/payments/confirm`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  paymentId: paymentId,
+                  userId: userId || paymentInfo.metadata?.userId
+                })
+              });
+
+              if (confirmResponse.ok) {
+                const confirmData = await confirmResponse.json();
+                console.log('✅ PaymentSuccess: Payment confirmed on server:', confirmData);
+                data = {
+                  success: true,
+                  paymentId: paymentId,
+                  status: 'succeeded',
+                  paid: true,
+                  amount: paymentInfo.amount?.value || '1.00',
+                  currency: paymentInfo.amount?.currency || 'RUB',
+                  metadata: paymentInfo.metadata,
+                  confirmed: true
+                };
+              } else {
+                console.error('❌ PaymentSuccess: Failed to confirm payment on server');
+                throw new Error('Не удалось подтвердить платеж на сервере');
+              }
+            } else if (paymentInfo.status === 'pending') {
+              console.log('⏳ PaymentSuccess: Payment is still pending');
+              data = {
+                success: false,
+                paymentId: paymentId,
+                status: 'pending',
+                paid: false,
+                message: 'Платеж находится в обработке'
+              };
+            } else {
+              console.error('❌ PaymentSuccess: Payment failed or canceled');
+              data = {
+                success: false,
+                paymentId: paymentId,
+                status: paymentInfo.status,
+                paid: false,
+                message: 'Платеж не был завершен успешно'
+              };
+            }
+
+            setPaymentData(data);
+
+          } catch (apiError) {
+            console.error('❌ PaymentSuccess: API error during payment check:', apiError);
+            // Fallback - показываем сообщение об ошибке
+            data = {
+              success: false,
+              paymentId: paymentId,
+              status: 'error',
+              paid: false,
+              message: 'Не удалось проверить статус платежа. Обратитесь в поддержку.',
+              error: apiError.message
+            };
+            setPaymentData(data);
+          }
         }
-
-        const data = await response.json();
-        console.log('🔍 PaymentSuccess: Payment data received:', data);
-        setPaymentData(data);
 
         if (data.success && data.paid && data.status === 'succeeded') {
           // Активируем подписку
@@ -157,8 +458,18 @@ const PaymentSuccess: React.FC = () => {
           activateSubscription();
           setPaymentStatus('success');
 
-          // Очищаем сохраненный paymentId из localStorage
+          // Очищаем сохраненные paymentId из всех хранилищ
           localStorage.removeItem('pendingPaymentId');
+          localStorage.removeItem('pendingUserId');
+          localStorage.removeItem('paymentFlow_paymentId');
+          localStorage.removeItem('paymentFlow_userId');
+          localStorage.removeItem('testPaymentId');
+          localStorage.removeItem('testUserId');
+          sessionStorage.removeItem('pendingPaymentId');
+          sessionStorage.removeItem('pendingUserId');
+          sessionStorage.removeItem('testPaymentId');
+          sessionStorage.removeItem('testUserId');
+          console.log('✅ PaymentSuccess: Cleared all payment data from storage');
 
           toast({
             title: "🎉 Подписка активирована!",
@@ -180,7 +491,7 @@ const PaymentSuccess: React.FC = () => {
     };
 
     checkPaymentStatus();
-  }, [searchParams, activateSubscription]);
+  }, [searchParams, location, activateSubscription]);
 
   const handleGoHome = () => {
     navigate('/');

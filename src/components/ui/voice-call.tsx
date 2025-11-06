@@ -161,7 +161,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
           type: event.type,
           timestamp: new Date().toISOString()
         });
-
+        
         setCallState(prev => ({ ...prev, isRecording: false, error: event.error }));
         isStartingRecordingRef.current = false; // Сбрасываем флаг при ошибке
       };
@@ -400,7 +400,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       if (!caps.getUserMedia) {
         throw new Error('Ваш браузер не поддерживает доступ к микрофону. Попробуйте обновить браузер или использовать Chrome/Edge.');
       }
-
+      
       // Проверяем поддержку микрофона
       console.log('🎤 [TTS] Проверяем доступ к микрофону...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -528,6 +528,15 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
         return;
       }
 
+      console.log('🔍 [Voice Call] Текущее состояние recognitionRef:', {
+        exists: !!recognitionRef.current,
+        hasStart: typeof recognitionRef.current.start === 'function',
+        hasStop: typeof recognitionRef.current.stop === 'function',
+        continuous: recognitionRef.current.continuous,
+        interimResults: recognitionRef.current.interimResults,
+        lang: recognitionRef.current.lang
+      });
+
       // Останавливаем предыдущую запись если она активна
       if (callState.isRecording) {
         console.log('🔄 [Voice Call] Останавливаем предыдущую запись перед началом новой');
@@ -549,12 +558,39 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
 
       // Дополнительная проверка состояния recognition перед запуском
       try {
-        recognitionRef.current.start();
-        setCallState(prev => ({ ...prev, isRecording: true }));
-        isStartingRecordingRef.current = false; // Сбрасываем флаг после успешного запуска
+        // Проверяем состояние объекта перед запуском
+        if (recognitionRef.current && typeof recognitionRef.current.start === 'function') {
+          console.log('🔍 [Voice Call] Состояние recognition перед запуском:', {
+            continuous: recognitionRef.current.continuous,
+            interimResults: recognitionRef.current.interimResults,
+            lang: recognitionRef.current.lang,
+            serviceURI: recognitionRef.current.serviceURI,
+            grammars: recognitionRef.current.grammars
+          });
 
-        console.log('✅ [Voice Call] Запись речи начата');
-        console.log('⏱️ [Voice Call] Время начала записи:', new Date().toISOString());
+          // Проверяем, не находится ли recognition уже в процессе запуска
+          try {
+            // Пытаемся вызвать abort() сначала, чтобы сбросить состояние
+            if (typeof recognitionRef.current.abort === 'function') {
+              recognitionRef.current.abort();
+              console.log('🔄 [Voice Call] Вызван abort() для сброса состояния');
+            }
+          } catch (abortError) {
+            console.log('⚠️ [Voice Call] Abort не удался (возможно, нормальное поведение):', abortError.message);
+          }
+
+          // Небольшая задержка после abort
+          await new Promise(resolve => setTimeout(resolve, 50));
+
+      recognitionRef.current.start();
+      setCallState(prev => ({ ...prev, isRecording: true }));
+          isStartingRecordingRef.current = false; // Сбрасываем флаг после успешного запуска
+
+      console.log('✅ [Voice Call] Запись речи начата');
+      console.log('⏱️ [Voice Call] Время начала записи:', new Date().toISOString());
+        } else {
+          throw new Error('Recognition object is not properly initialized');
+        }
       } catch (recognitionError: any) {
         console.error('❌ [Voice Call] ===== ОШИБКА НАЧАЛА ЗАПИСИ =====');
         console.error('🔍 [Voice Call] Детали ошибки:', recognitionError);
@@ -568,90 +604,127 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
           console.log('🔄 [Voice Call] InvalidStateError - пересоздаем объект recognition');
 
           try {
-            // Полностью пересоздаем объект распознавания речи
-            const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-            if (SpeechRecognition) {
-              recognitionRef.current = new SpeechRecognition();
-
-              // Переустанавливаем все обработчики событий
-              recognitionRef.current.continuous = true;
-              recognitionRef.current.interimResults = true;
-              recognitionRef.current.lang = 'ru-RU';
-
-              recognitionRef.current.onspeechstart = () => {
-                console.log('🎤 [Voice Call] ===== ОБНАРУЖЕНА РЕЧЬ ПОЛЬЗОВАТЕЛЯ =====');
-                console.log('🚫 [Voice Call] Проверяем, нужно ли прервать TTS...');
-
-                if (isPlayingRef.current) {
-                  console.log('🚫 [Voice Call] Автоматически прерываем TTS при обнаружении речи пользователя');
-                  OpenAITTS.stop();
-                  setCallState(prev => ({ ...prev, isPlaying: false }));
-                  console.log('✅ [Voice Call] TTS прерван автоматически');
-
-                  console.log('🎧 [Voice Call] Автоматически начинаем слушать после прерывания TTS');
-                  setTimeout(() => startRecording(), 300);
-                } else {
-                  console.log('ℹ️ [Voice Call] TTS не воспроизводится, прерывание не требуется');
-                }
-              };
-
-              recognitionRef.current.onresult = (event: any) => {
-                console.log('🎯 [Voice Call] ===== РЕЗУЛЬТАТ РАСПОЗНАВАНИЯ РЕЧИ =====');
-                console.log('📝 [Voice Call] Сырые данные события:', event);
-
-                let interimTranscript = '';
-                let finalTranscript = '';
-
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                  const transcript = event.results[i][0].transcript;
-                  if (event.results[i].isFinal) {
-                    finalTranscript += transcript;
-                  } else {
-                    interimTranscript += transcript;
-                  }
-                }
-
-                console.log('🗣️ [Voice Call] Распознанный текст:', {
-                  final: finalTranscript,
-                  interim: interimTranscript,
-                  isFinal: !!finalTranscript,
-                  timestamp: new Date().toISOString()
-                });
-
-                if (finalTranscript.trim()) {
-                  console.log('🔄 [Voice Call] Передаем финальный текст в обработчик сообщений');
-                  handleUserMessage(finalTranscript.trim());
-                }
-              };
-
-              recognitionRef.current.onerror = (event: any) => {
-                console.error('❌ [Voice Call] ===== ОШИБКА РАСПОЗНАВАНИЯ РЕЧИ =====');
-                console.error('🔍 [Voice Call] Детали ошибки:', {
-                  error: event.error,
-                  type: event.type,
-                  timestamp: new Date().toISOString()
-                });
-
-                setCallState(prev => ({ ...prev, isRecording: false, error: event.error }));
-                isStartingRecordingRef.current = false;
-              };
-
-              recognitionRef.current.onend = () => {
-                console.log('🏁 [Voice Call] ===== РАСПОЗНАВАНИЕ РЕЧИ ЗАВЕРШЕНО =====');
-                console.log('⏱️ [Voice Call] Время завершения:', new Date().toISOString());
-                setCallState(prev => ({ ...prev, isRecording: false }));
-                isStartingRecordingRef.current = false;
-              };
-
-              console.log('✅ [Voice Call] Объект recognition пересоздан успешно');
-
-              // Пробуем запустить через небольшую задержку
-              setTimeout(() => {
-                if (isConnectedRef.current) {
-                  startRecording();
-                }
-              }, 200);
+            // Сначала пытаемся остановить старый объект, если он существует
+            if (recognitionRef.current) {
+              try {
+                recognitionRef.current.stop();
+                recognitionRef.current = null;
+                console.log('🛑 [Voice Call] Старый объект recognition остановлен');
+              } catch (stopError) {
+                console.log('⚠️ [Voice Call] Не удалось остановить старый recognition:', stopError);
+              }
             }
+
+            // Ждем полной очистки
+            setTimeout(() => {
+              try {
+                // Полностью пересоздаем объект распознавания речи
+                const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+                if (SpeechRecognition) {
+                  const newRecognition = new SpeechRecognition();
+                  console.log('🆕 [Voice Call] Создан новый объект recognition');
+
+                  // Переустанавливаем все обработчики событий
+                  newRecognition.continuous = true;
+                  newRecognition.interimResults = true;
+                  newRecognition.lang = 'ru-RU';
+
+                  newRecognition.onspeechstart = () => {
+                    console.log('🎤 [Voice Call] ===== ОБНАРУЖЕНА РЕЧЬ ПОЛЬЗОВАТЕЛЯ =====');
+                    console.log('🚫 [Voice Call] Проверяем, нужно ли прервать TTS...');
+
+                    if (isPlayingRef.current) {
+                      console.log('🚫 [Voice Call] Автоматически прерываем TTS при обнаружении речи пользователя');
+                      OpenAITTS.stop();
+                      setCallState(prev => ({ ...prev, isPlaying: false }));
+                      console.log('✅ [Voice Call] TTS прерван автоматически');
+
+                      console.log('🎧 [Voice Call] Автоматически начинаем слушать после прерывания TTS');
+                      setTimeout(() => startRecording(), 500); // Увеличенная задержка
+                    } else {
+                      console.log('ℹ️ [Voice Call] TTS не воспроизводится, прерывание не требуется');
+                    }
+                  };
+
+                  newRecognition.onresult = (event: any) => {
+                    console.log('🎯 [Voice Call] ===== РЕЗУЛЬТАТ РАСПОЗНАВАНИЯ РЕЧИ =====');
+
+                    let interimTranscript = '';
+                    let finalTranscript = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                      const transcript = event.results[i][0].transcript;
+                      if (event.results[i].isFinal) {
+                        finalTranscript += transcript;
+                      } else {
+                        interimTranscript += transcript;
+                      }
+                    }
+
+                    console.log('🗣️ [Voice Call] Распознанный текст:', {
+                      final: finalTranscript,
+                      interim: interimTranscript,
+                      isFinal: !!finalTranscript,
+                      timestamp: new Date().toISOString()
+                    });
+
+                    if (finalTranscript.trim()) {
+                      console.log('🔄 [Voice Call] Передаем финальный текст в обработчик сообщений');
+                      handleUserMessage(finalTranscript.trim());
+                    }
+                  };
+
+                  newRecognition.onerror = (event: any) => {
+                    console.error('❌ [Voice Call] ===== ОШИБКА РАСПОЗНАВАНИЯ РЕЧИ =====');
+                    console.error('🔍 [Voice Call] Детали ошибки:', {
+                      error: event.error,
+                      type: event.type,
+                      timestamp: new Date().toISOString()
+                    });
+
+                    setCallState(prev => ({ ...prev, isRecording: false, error: event.error }));
+                    isStartingRecordingRef.current = false;
+                  };
+
+                  newRecognition.onend = () => {
+                    console.log('🏁 [Voice Call] ===== РАСПОЗНАВАНИЕ РЕЧИ ЗАВЕРШЕНО =====');
+                    console.log('⏱️ [Voice Call] Время завершения:', new Date().toISOString());
+                    setCallState(prev => ({ ...prev, isRecording: false }));
+                    isStartingRecordingRef.current = false;
+                  };
+
+                  // Устанавливаем новый объект
+                  recognitionRef.current = newRecognition;
+                  console.log('✅ [Voice Call] Объект recognition пересоздан и установлен');
+
+                  // Проверяем состояние объекта перед запуском
+                  setTimeout(() => {
+                    if (isConnectedRef.current && recognitionRef.current) {
+                      console.log('🔍 [Voice Call] Проверяем состояние нового recognition перед запуском');
+
+                      // Пытаемся запустить с дополнительными проверками
+                      try {
+                        console.log('🚀 [Voice Call] Запускаем новый recognition через 1000ms...');
+                        setTimeout(() => {
+                          if (isConnectedRef.current && recognitionRef.current) {
+                            startRecording();
+                          }
+                        }, 1000);
+                      } catch (finalError) {
+                        console.error('❌ [Voice Call] Ошибка при финальном запуске:', finalError);
+                        isStartingRecordingRef.current = false;
+                      }
+                    }
+                  }, 300);
+                } else {
+                  console.error('❌ [Voice Call] SpeechRecognition API недоступен');
+                  isStartingRecordingRef.current = false;
+                }
+              } catch (recreateError) {
+                console.error('❌ [Voice Call] Ошибка пересоздания recognition:', recreateError);
+                isStartingRecordingRef.current = false;
+              }
+            }, 150); // Задержка для полной остановки старого объекта
           } catch (recreateError) {
             console.error('❌ [Voice Call] Ошибка пересоздания recognition:', recreateError);
             isStartingRecordingRef.current = false;
@@ -668,10 +741,19 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
   const stopRecording = useCallback(() => {
     console.log('🛑 [Voice Call] ===== ОСТАНОВКА ЗАПИСИ РЕЧИ =====');
     console.log('⏱️ [Voice Call] Время остановки записи:', new Date().toISOString());
+    console.log('🔍 [Voice Call] Состояние перед остановкой:', {
+      recognitionExists: !!recognitionRef.current,
+      isRecording: callState.isRecording,
+      isStartingRecording: isStartingRecordingRef.current
+    });
 
     if (recognitionRef.current) {
+      try {
       recognitionRef.current.stop();
       console.log('✅ [Voice Call] Распознавание речи остановлено');
+      } catch (stopError) {
+        console.error('❌ [Voice Call] Ошибка при остановке recognition:', stopError);
+      }
     } else {
       console.log('⚠️ [Voice Call] Распознавание речи не было инициализировано');
     }
@@ -679,7 +761,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
     setCallState(prev => ({ ...prev, isRecording: false }));
     isStartingRecordingRef.current = false; // Сбрасываем флаг при остановке
     console.log('🏁 [Voice Call] Состояние записи сброшено');
-  }, []);
+  }, [callState.isRecording]);
 
 
   // Показываем предупреждение если браузер не поддерживается
@@ -776,7 +858,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
           </h3>
           <p className="text-muted-foreground max-w-md">
             {callState.isConnected
-              ? '🎙️ Я постоянно слушаю! Говорите о кулинарии - я отвечу и продолжу диалог автоматически. Можете перебить меня в любой момент!'
+              ? '🎙️ Говорите о кулинарии'
               : 'Нажмите кнопку звонка, чтобы начать разговор с AI кулинаром'
             }
           </p>

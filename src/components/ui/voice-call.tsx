@@ -359,13 +359,60 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       const startTime = Date.now();
       console.log('⏱️ [Voice Call] Время начала синтеза:', new Date().toISOString());
       
+      // Разделяем текст на предложения для параллельной обработки
+      const sentences = splitIntoSentences(text);
+      console.log('📝 [Voice Call] Разделено на предложения:', sentences.length, 'предложений');
+
+      if (sentences.length <= 1) {
+        // Если только одно предложение или текст не удалось разделить, используем обычный метод
+        console.log('📝 [Voice Call] Используем обычный синтез (одно предложение)');
       await OpenAITTS.speak(text, 'alloy');
+      } else {
+        // Параллельная обработка предложений
+        console.log('⚡ [Voice Call] Запускаем параллельную обработку предложений');
+
+        // Генерируем аудио для всех предложений параллельно
+        const audioPromises = sentences.map((sentence, index) => {
+          console.log(`🎵 [Voice Call] Генерируем аудио для предложения ${index + 1}:`, sentence.substring(0, 50) + '...');
+          return OpenAITTS.generateAudio(sentence.trim(), 'alloy');
+        });
+
+        // Ждем завершения всех генераций
+        const audioResults = await Promise.all(audioPromises);
+        console.log('✅ [Voice Call] Все аудио файлы сгенерированы');
+
+        // Воспроизводим аудио по порядку
+        for (let i = 0; i < audioResults.length; i++) {
+          const { blob } = audioResults[i];
+          console.log(`▶️ [Voice Call] Воспроизводим предложение ${i + 1}/${audioResults.length}`);
+
+          await new Promise<void>((resolve, reject) => {
+            const audioUrl = URL.createObjectURL(blob);
+            const audio = new Audio(audioUrl);
+
+            audio.onended = () => {
+              URL.revokeObjectURL(audioUrl);
+              resolve();
+            };
+
+            audio.onerror = (error) => {
+              URL.revokeObjectURL(audioUrl);
+              reject(error);
+            };
+
+            audio.play().catch(reject);
+          });
+        }
+
+        console.log('✅ [Voice Call] Все предложения воспроизведены');
+      }
       
       const duration = Date.now() - startTime;
       console.log('✅ [Voice Call] ===== СИНТЕЗ РЕЧИ ЗАВЕРШЕН =====');
       console.log(`⏱️ [Voice Call] Общее время синтеза: ${duration}ms`);
       console.log('📊 [Voice Call] Статистика:', {
         textLength: text.length,
+        sentencesCount: sentences.length,
         synthesisTime: duration + 'ms',
         timestamp: new Date().toISOString()
       });
@@ -388,6 +435,25 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       setCallState(prev => ({ ...prev, isPlaying: false }));
       console.log('🏁 [Voice Call] Состояние воспроизведения сброшено');
     }
+  };
+
+  // Функция для разделения текста на предложения
+  const splitIntoSentences = (text: string): string[] => {
+    // Разделяем по точкам, восклицательным и вопросительным знакам
+    // Сохраняем знаки препинания в предложениях
+    const sentences = text.split(/(?<=[.!?])\s+/);
+
+    // Фильтруем пустые строки и слишком короткие предложения
+    return sentences
+      .map(s => s.trim())
+      .filter(s => s.length > 0 && s.length > 3) // Игнорируем предложения короче 3 символов
+      .map(s => {
+        // Убеждаемся, что предложение заканчивается на знак препинания
+        if (!/[.!?]$/.test(s)) {
+          s += '.';
+        }
+        return s;
+      });
   };
 
   const startCall = async () => {

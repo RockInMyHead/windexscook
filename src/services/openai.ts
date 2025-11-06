@@ -62,7 +62,7 @@ export class OpenAIService {
     });
   }
 
-  private static async makeRequest(messages: any[], model: string = 'gpt-4o-mini') {
+  private static async makeRequest(messages: any[], model: string = 'gpt-3.5-turbo') {
     let response;
     try {
       // Always use relative URLs to avoid mixed content issues

@@ -907,16 +907,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
           </div>
         )}
 
-        {/* Error Display */}
-        {callState.error && (
-          <Card className="w-full max-w-md border-destructive">
-            <CardContent className="p-4">
-              <p className="text-destructive text-sm text-center">
-                {callState.error}
-              </p>
-            </CardContent>
-          </Card>
-        )}
+        {/* Error Display - убрано */}
       </div>
     </div>
   );

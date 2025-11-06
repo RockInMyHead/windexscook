@@ -851,18 +851,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
           }`} />
         </div>
 
-        {/* Status Text */}
-        <div className="text-center space-y-2">
-          <h3 className="text-xl font-semibold text-foreground">
-            {callState.isConnected ? 'AI Повар готов помочь!' : 'Начните звонок'}
-          </h3>
-          <p className="text-muted-foreground max-w-md">
-            {callState.isConnected
-              ? '🎙️ Говорите о кулинарии'
-              : 'Нажмите кнопку звонка, чтобы начать разговор с AI кулинаром'
-            }
-          </p>
-        </div>
+        {/* Status Text - убрано */}
 
         {/* Messages - убрано */}
 

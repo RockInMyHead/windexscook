@@ -62,7 +62,7 @@ export class OpenAIService {
     });
   }
 
-  private static async makeRequest(messages: any[], model: string = 'gpt-3.5-turbo') {
+  private static async makeRequest(messages: any[], model: string = 'gpt-4o') {
     let response;
     try {
       // Always use relative URLs to avoid mixed content issues
@@ -505,7 +505,7 @@ ${constraints.join('\n')}
             }
           ]
         }
-      ], 'gpt-4-turbo');
+      ], 'gpt-4o');
 
       // Парсим ответ и извлекаем продукты
       const ingredients = response
@@ -559,7 +559,7 @@ ${constraints.join('\n')}
             { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } }
           ]
         }
-      ], 'gpt-4-turbo');
+      ], 'gpt-4o');
 
       // Останавливаем звук обработки
       AudioUtils.stopProcessingSound();

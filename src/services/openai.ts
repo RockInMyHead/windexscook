@@ -17,7 +17,6 @@ export interface Recipe {
   cuisine?: string;
   ingredients: string[];
   instructions: string[];
-  instructionImages?: string[]; // Массив изображений для каждого шага (base64 или URL)
   tips?: string;
   content?: string; // Для чата
 }
@@ -119,7 +118,7 @@ export class OpenAIService {
     }
   }
 
-  static async generateRecipe(ingredients: string[], healthProfile?: UserHealthProfile, cuisineId?: string, isChatMode: boolean = false, includeImages: boolean = false): Promise<Recipe> {
+  static async generateRecipe(ingredients: string[], healthProfile?: UserHealthProfile, cuisineId?: string, isChatMode: boolean = false): Promise<Recipe> {
     let healthConstraints = '';
     let cuisineConstraints = '';
     
@@ -204,15 +203,32 @@ ${constraints.join('\n')}
   "tips": "Советы шеф-повара"
 }
 
-Требования:
-- Используй ТОЛЬКО указанные ингредиенты + базовые специи (соль, перец, масло)
-- Для поля "instructions": создай четкие пошаговые инструкции. Каждый шаг должен быть отдельным элементом массива.
+Требования к рецепту:
+- Используй ТОЛЬКО указанные ингредиенты + базовые специи (соль, перец, растительное масло, оливковое масло)
+- Укажи точные количества для каждого ингредиента в списке ингредиентов
+
+ПОДРОБНЫЕ ИНСТРУКЦИИ (ОЧЕНЬ ВАЖНО):
+- Создай МАКСИМАЛЬНО ПОДРОБНЫЕ пошаговые инструкции - каждый шаг должен объяснять процесс от начала до конца
+- Каждый шаг должен быть отдельным элементом массива
 - НЕ добавляй номера шагов в текст инструкций - они будут добавлены автоматически
 - НЕ добавляй мета-информацию типа "Оборудование:", "Время:", "Важно:" в начало строк
-- Включай всю необходимую информацию (время, оборудование, техники) прямо в текст шага
-- Укажи точные количества для каждого ингредиента
-- Сделай рецепт практичным, понятным даже новичку
-- Каждый шаг должен быть самодостаточным и понятным
+- Каждый шаг должен включать:
+  * Какое оборудование использовать (кастрюля, сковорода, нож, разделочная доска и т.д.)
+  * Точное время выполнения шага
+  * Уровень огня/температуры (слабый, средний, сильный огонь, или °C)
+  * Детальное описание техники выполнения (как резать, мешать, жарить)
+  * Что делать с продуктами на каждом этапе
+  * Признаки готовности (запах, цвет, консистенция)
+- Разбей сложные действия на несколько мелких шагов
+- Объясняй каждое действие так, будто учишь человека, который никогда не готовил
+- Укажи точные размеры нарезки (ломтики 1 см, кубики 2x2 см и т.д.)
+- Укажи точное время нагрева, приготовления, отдыха продуктов
+- Объясни, почему важно выполнять шаг именно так
+
+Практические советы:
+- Сделай рецепт понятным для любого уровня подготовки
+- Учитывай безопасность на кухне
+- Добавь советы по исправлению возможных ошибок
 `;
 
     try {
@@ -340,22 +356,6 @@ ${constraints.join('\n')}
         tips: recipeData.tips || "Подавайте горячим!"
       };
 
-      // Генерируем изображения для шагов, если запрошено
-      if (includeImages && recipe.instructions.length > 0) {
-        console.log('🖼️ [OpenAI] Generating images for recipe steps...');
-        try {
-          const recipeWithImages = await this.generateRecipeImages(recipe);
-          // Останавливаем звук обработки
-          AudioUtils.stopProcessingSound();
-          return recipeWithImages;
-        } catch (imageError) {
-          console.error('❌ [OpenAI] Failed to generate images, returning recipe without images:', imageError);
-          // Останавливаем звук обработки
-          AudioUtils.stopProcessingSound();
-          return recipe; // Возвращаем рецепт без изображений в случае ошибки
-        }
-      }
-
       // Останавливаем звук обработки
       AudioUtils.stopProcessingSound();
       return recipe;
@@ -382,85 +382,6 @@ ${constraints.join('\n')}
     return variations;
   }
 
-  // Генерация изображения для шага рецепта с помощью DALL-E 3
-  static async generateStepImage(stepInstruction: string, recipeTitle: string, style: string = "realistic kitchen photography"): Promise<string> {
-    try {
-      console.log('🎨 [OpenAI] Generating image for recipe step...');
-      console.log('🎨 [OpenAI] Step instruction:', stepInstruction);
-      console.log('🎨 [OpenAI] Recipe title:', recipeTitle);
-
-      const prompt = `Create a ${style} image showing the cooking step: "${stepInstruction}". This is for the recipe "${recipeTitle}". Show a clean, well-lit kitchen scene with high-quality food photography. Focus on the action described in the step. Professional cooking photo, appetizing presentation.`;
-
-      const messages = [{
-        role: "user",
-        content: prompt
-      }];
-
-      // Используем DALL-E 3 через API
-      const imageResponse = await fetch('/api/openai/generate-image', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: prompt,
-          model: 'dall-e-3',
-          size: '1024x1024',
-          quality: 'standard'
-        }),
-      });
-
-      if (!imageResponse.ok) {
-        throw new Error(`DALL-E API error: ${imageResponse.status}`);
-      }
-
-      const imageData = await imageResponse.json();
-
-      if (imageData.success && imageData.imageUrl) {
-        console.log('✅ [OpenAI] Image generated successfully:', imageData.imageUrl);
-        return imageData.imageUrl;
-      } else {
-        console.error('❌ [OpenAI] Failed to generate image:', imageData);
-        return ''; // Возвращаем пустую строку в случае ошибки
-      }
-
-    } catch (error) {
-      console.error('❌ [OpenAI] Error generating step image:', error);
-      return ''; // Возвращаем пустую строку в случае ошибки
-    }
-  }
-
-  // Генерация изображений для всех шагов рецепта
-  static async generateRecipeImages(recipe: Recipe): Promise<Recipe> {
-    console.log('🖼️ [OpenAI] Starting image generation for recipe:', recipe.title);
-
-    const instructionImages: string[] = [];
-
-    // Генерируем изображение для каждого шага
-    for (let i = 0; i < recipe.instructions.length; i++) {
-      const stepInstruction = recipe.instructions[i];
-      console.log(`🖼️ [OpenAI] Generating image for step ${i + 1}/${recipe.instructions.length}`);
-
-      const imageUrl = await this.generateStepImage(
-        stepInstruction,
-        recipe.title,
-        "professional food photography, clean modern kitchen, natural lighting, high quality"
-      );
-
-      instructionImages.push(imageUrl);
-
-      // Небольшая задержка между запросами, чтобы не превысить лимиты API
-      if (i < recipe.instructions.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
-
-    console.log('✅ [OpenAI] All recipe images generated successfully');
-    return {
-      ...recipe,
-      instructionImages
-    };
-  }
 
   static async recognizeIngredientsFromImage(imageFile: File): Promise<string[]> {
     try {
@@ -584,39 +505,39 @@ ${constraints.join('\n')}
     // Проверяем, является ли сообщение простым приветствием (только если нет истории)
     if (!messageHistory || messageHistory.length === 0) {
       try {
-        const greetingPatterns = [
-          /^привет$/i,
-          /^здравствуй$/i,
-          /^здравствуйте$/i,
-          /^hi$/i,
-          /^hello$/i,
-          /^добро пожаловать$/i,
-          /^добро пожаловать!$/i,
-          /^привет!$/i,
-          /^здравствуй!$/i,
-          /^здравствуйте!$/i
-        ];
+      const greetingPatterns = [
+        /^привет$/i,
+        /^здравствуй$/i,
+        /^здравствуйте$/i,
+        /^hi$/i,
+        /^hello$/i,
+        /^добро пожаловать$/i,
+        /^добро пожаловать!$/i,
+        /^привет!$/i,
+        /^здравствуй!$/i,
+        /^здравствуйте!$/i
+      ];
 
         const trimmedMessage = message?.trim() || '';
-        console.log('🔍 DEBUG: trimmed message:', JSON.stringify(trimmedMessage));
-
-        const isGreeting = greetingPatterns.some(pattern => {
+      console.log('🔍 DEBUG: trimmed message:', JSON.stringify(trimmedMessage));
+      
+      const isGreeting = greetingPatterns.some(pattern => {
           try {
-            const matches = pattern.test(trimmedMessage);
-            console.log('🔍 DEBUG: pattern', pattern, 'matches:', matches);
-            return matches;
+        const matches = pattern.test(trimmedMessage);
+        console.log('🔍 DEBUG: pattern', pattern, 'matches:', matches);
+        return matches;
           } catch (regexError) {
             console.warn('⚠️ [OpenAI] Ошибка в регулярном выражении:', regexError);
             return false;
           }
-        });
-
-        console.log('🔍 DEBUG: isGreeting:', isGreeting);
-
-        if (isGreeting) {
-          // Отвечаем на приветствия коротким сообщением
-          console.log('🔍 DEBUG: Returning greeting response');
-          return 'Здравствуйте! Готова помочь с кулинарными вопросами. Что хотите приготовить?';
+      });
+      
+      console.log('🔍 DEBUG: isGreeting:', isGreeting);
+      
+      if (isGreeting) {
+        // Отвечаем на приветствия коротким сообщением
+        console.log('🔍 DEBUG: Returning greeting response');
+        return 'Здравствуйте! Готова помочь с кулинарными вопросами. Что хотите приготовить?';
         }
       } catch (greetingError) {
         console.warn('⚠️ [OpenAI] Ошибка при проверке приветствия:', greetingError);
@@ -690,123 +611,123 @@ ${constraints.join('\n')}
    */
   private static replaceNumbersWithWords(text: string): string {
     try {
-      console.log('🔢 [OpenAI] Заменяем цифры на слова для TTS');
+    console.log('🔢 [OpenAI] Заменяем цифры на слова для TTS');
 
       // Проверяем входные данные
       if (!text || typeof text !== 'string') {
         console.warn('⚠️ [OpenAI] Неверный входной текст для замены цифр:', text);
         return text || '';
       }
+    
+    // Словарь для замены цифр
+    const numberWords: { [key: string]: string } = {
+      '0': 'ноль',
+      '1': 'один',
+      '2': 'два',
+      '3': 'три',
+      '4': 'четыре',
+      '5': 'пять',
+      '6': 'шесть',
+      '7': 'семь',
+      '8': 'восемь',
+      '9': 'девять',
+      '10': 'десять',
+      '11': 'одиннадцать',
+      '12': 'двенадцать',
+      '13': 'тринадцать',
+      '14': 'четырнадцать',
+      '15': 'пятнадцать',
+      '16': 'шестнадцать',
+      '17': 'семнадцать',
+      '18': 'восемнадцать',
+      '19': 'девятнадцать',
+      '20': 'двадцать',
+      '30': 'тридцать',
+      '40': 'сорок',
+      '50': 'пятьдесят',
+      '60': 'шестьдесят',
+      '70': 'семьдесят',
+      '80': 'восемьдесят',
+      '90': 'девяносто',
+      '100': 'сто',
+      '200': 'двести',
+      '300': 'триста',
+      '400': 'четыреста',
+      '500': 'пятьсот',
+      '600': 'шестьсот',
+      '700': 'семьсот',
+      '800': 'восемьсот',
+      '900': 'девятьсот',
+      '1000': 'тысяча'
+    };
 
-      // Словарь для замены цифр
-      const numberWords: { [key: string]: string } = {
-        '0': 'ноль',
-        '1': 'один',
-        '2': 'два',
-        '3': 'три',
-        '4': 'четыре',
-        '5': 'пять',
-        '6': 'шесть',
-        '7': 'семь',
-        '8': 'восемь',
-        '9': 'девять',
-        '10': 'десять',
-        '11': 'одиннадцать',
-        '12': 'двенадцать',
-        '13': 'тринадцать',
-        '14': 'четырнадцать',
-        '15': 'пятнадцать',
-        '16': 'шестнадцать',
-        '17': 'семнадцать',
-        '18': 'восемнадцать',
-        '19': 'девятнадцать',
-        '20': 'двадцать',
-        '30': 'тридцать',
-        '40': 'сорок',
-        '50': 'пятьдесят',
-        '60': 'шестьдесят',
-        '70': 'семьдесят',
-        '80': 'восемьдесят',
-        '90': 'девяносто',
-        '100': 'сто',
-        '200': 'двести',
-        '300': 'триста',
-        '400': 'четыреста',
-        '500': 'пятьсот',
-        '600': 'шестьсот',
-        '700': 'семьсот',
-        '800': 'восемьсот',
-        '900': 'девятьсот',
-        '1000': 'тысяча'
-      };
-
-      let result = text;
-
-      // Заменяем числа от большего к меньшему
-      const sortedNumbers = Object.keys(numberWords).sort((a, b) => parseInt(b) - parseInt(a));
-
-      for (const num of sortedNumbers) {
+    let result = text;
+    
+    // Заменяем числа от большего к меньшему
+    const sortedNumbers = Object.keys(numberWords).sort((a, b) => parseInt(b) - parseInt(a));
+    
+    for (const num of sortedNumbers) {
         try {
-          const word = numberWords[num];
+      const word = numberWords[num];
           // Экранируем специальные символы в номере для безопасности
           const escapedNum = num.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          // Заменяем только целые числа, не части других чисел
+      // Заменяем только целые числа, не части других чисел
           const regex = new RegExp(`\\b${escapedNum}\\b`, 'g');
-          result = result.replace(regex, word);
+      result = result.replace(regex, word);
         } catch (regexError) {
           console.warn('⚠️ [OpenAI] Ошибка при замене числа', num, ':', regexError);
           // Продолжаем с следующим числом
         }
-      }
-
-      // Специальные случаи для времени и количества
+    }
+    
+    // Специальные случаи для времени и количества
       try {
-        result = result.replace(/(\d+)\s*мин/gi, (match, num) => {
+    result = result.replace(/(\d+)\s*мин/gi, (match, num) => {
           try {
             const parsedNum = parseInt(num);
             if (isNaN(parsedNum)) return match;
             const word = this.numberToWords(parsedNum);
-            return `${word} минут`;
+      return `${word} минут`;
           } catch (e) {
             return match;
           }
-        });
+    });
       } catch (e) {
         console.warn('⚠️ [OpenAI] Ошибка замены минут:', e);
       }
-
+    
       try {
-        result = result.replace(/(\d+)\s*гр/gi, (match, num) => {
+    result = result.replace(/(\d+)\s*гр/gi, (match, num) => {
           try {
             const parsedNum = parseInt(num);
             if (isNaN(parsedNum)) return match;
             const word = this.numberToWords(parsedNum);
-            return `${word} грамм`;
+      return `${word} грамм`;
           } catch (e) {
             return match;
           }
-        });
+    });
       } catch (e) {
         console.warn('⚠️ [OpenAI] Ошибка замены грамм:', e);
       }
-
+    
       try {
-        result = result.replace(/(\d+)\s*шт/gi, (match, num) => {
+    result = result.replace(/(\d+)\s*шт/gi, (match, num) => {
           try {
             const parsedNum = parseInt(num);
             if (isNaN(parsedNum)) return match;
             const word = this.numberToWords(parsedNum);
-            return `${word} штук`;
+      return `${word} штук`;
           } catch (e) {
             return match;
           }
-        });
+    });
       } catch (e) {
         console.warn('⚠️ [OpenAI] Ошибка замены штук:', e);
       }
-
-      console.log('✅ [OpenAI] Замена цифр завершена');
-      return result;
+    
+    console.log('✅ [OpenAI] Замена цифр завершена');
+    return result;
     } catch (error) {
       console.error('❌ [OpenAI] Критическая ошибка в replaceNumbersWithWords:', error);
       // Возвращаем оригинальный текст в случае ошибки
@@ -829,27 +750,27 @@ ${constraints.join('\n')}
       if (num < 0) return 'ноль';
       if (num > 999999) return num.toString();
 
-      if (num <= 20) {
-        const words = ['ноль', 'один', 'два', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять', 'десять',
-          'одиннадцать', 'двенадцать', 'тринадцать', 'четырнадцать', 'пятнадцать', 'шестнадцать', 'семнадцать', 'восемнадцать', 'девятнадцать', 'двадцать'];
-        return words[num] || num.toString();
-      }
-
-      if (num < 100) {
-        const tens = Math.floor(num / 10) * 10;
-        const ones = num % 10;
-        const tensWords = ['', '', 'двадцать', 'тридцать', 'сорок', 'пятьдесят', 'шестьдесят', 'семьдесят', 'восемьдесят', 'девяносто'];
-        const onesWords = ['', 'один', 'два', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять'];
-
-        if (ones === 0) {
+    if (num <= 20) {
+      const words = ['ноль', 'один', 'два', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять', 'десять',
+        'одиннадцать', 'двенадцать', 'тринадцать', 'четырнадцать', 'пятнадцать', 'шестнадцать', 'семнадцать', 'восемнадцать', 'девятнадцать', 'двадцать'];
+      return words[num] || num.toString();
+    }
+    
+    if (num < 100) {
+      const tens = Math.floor(num / 10) * 10;
+      const ones = num % 10;
+      const tensWords = ['', '', 'двадцать', 'тридцать', 'сорок', 'пятьдесят', 'шестьдесят', 'семьдесят', 'восемьдесят', 'девяносто'];
+      const onesWords = ['', 'один', 'два', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять'];
+      
+      if (ones === 0) {
           return tensWords[Math.floor(num / 10)] || num.toString();
-        } else {
+      } else {
           return `${tensWords[Math.floor(num / 10)] || ''} ${onesWords[ones] || ''}`.trim();
         }
-      }
-
-      // Для больших чисел возвращаем как есть
-      return num.toString();
+    }
+    
+    // Для больших чисел возвращаем как есть
+    return num.toString();
     } catch (error) {
       console.error('❌ [OpenAI] Ошибка в numberToWords:', error);
       return num?.toString() || 'ноль';

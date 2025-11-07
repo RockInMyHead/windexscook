@@ -246,9 +246,9 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       let response;
 
       if (shouldGenerateRecipe) {
-        // Генерируем рецепт с изображениями
-        console.log('🍳 [Voice Call] Обнаружен запрос рецепта - генерируем с изображениями');
-        response = await OpenAIService.generateRecipe([text], undefined, undefined, false, true);
+        // Генерируем подробный рецепт без изображений
+        console.log('🍳 [Voice Call] Обнаружен запрос рецепта - генерируем подробный рецепт');
+        response = await OpenAIService.generateRecipe([text], undefined, undefined, false);
       } else {
         // Используем chatWithChef для обычного общения с кулинаром
         console.log('💬 [Voice Call] Обычный разговор с кулинаром');
@@ -268,14 +268,13 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
         hasContent: !!response.content,
         hasTitle: !!response.title,
         hasInstructions: !!(response as any).instructions,
-        hasImages: !!(response as any).instructionImages,
         timestamp: new Date().toISOString()
       });
 
       let responseText: string;
 
       if (shouldGenerateRecipe && (response as any).instructions) {
-        // Это рецепт с инструкциями - формируем текстовое описание с изображениями для озвучивания
+        // Это рецепт с инструкциями - формируем подробное текстовое описание для озвучивания
         const recipe = response as any;
         responseText = `Отлично! Я подготовил рецепт "${recipe.title}". ${recipe.description}\n\n`;
 

@@ -40,15 +40,17 @@ export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({
   onSave,
   showSaveButton = false
 }) => {
+  // State hooks must be declared at the top
+  const [dishImage, setDishImage] = useState<string | null>(null);
+  const [isImgLoading, setIsImgLoading] = useState(false);
   const { user } = useUser();
 
-  // Логируем получение рецепта
-  console.log('🍳 [RecipeDisplay] Recipe received:', {
-    title: recipe.title,
-    hasImage: !!recipe.image,
-    imageUrl: recipe.image,
-    userAuthenticated: !!user
-  });
+  // Автоматическая генерация изображения отключена
+  // useEffect(() => {
+  //   if (recipe && !dishImage && !isImgLoading) {
+  //     handleGenerateImage();
+  //   }
+  // }, [recipe]);
 
   const handleSave = () => {
     if (onSave) {
@@ -90,6 +92,66 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
     }
   };
 
+  const handleGenerateImage = async () => {
+    setIsImgLoading(true);
+    try {
+      // Генерируем уникальный идентификатор пользователя
+      const userIdentifier = user?.email || `anonymous_${Date.now()}`;
+      
+      const res = await fetch('/api/generate-nb-image', {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          prompt: recipe.title,
+          userIdentifier: userIdentifier
+        })
+      });
+      
+      if (!res.ok) {
+        // Проверяем, если это ошибка лимита
+        if (res.status === 429) {
+          const errorData = await res.json();
+          throw new Error(errorData.message || 'Достигнут дневной лимит генерации изображений');
+        }
+        throw new Error('Ошибка генерации изображения');
+      }
+      
+      let b;
+      // Проверяем, что сервер вернул JSON
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        try {
+          b = await res.json();
+        } catch (err) {
+          console.error('Failed to parse JSON from image response:', err);
+          throw new Error('Сервер вернул некорректный формат данных для изображения');
+        }
+      } else {
+        const text = await res.text();
+        console.error('Image API returned non-JSON:', text);
+        throw new Error('Сервер вернул неверный ответ при генерации изображения');
+      }
+      
+      setDishImage(b.image_base64 ? `data:image/png;base64,${b.image_base64}` : null);
+      
+      // Показываем информацию о лимитах, если они есть в ответе
+      if (b.currentCount && b.limit) {
+        toast({
+          title: "Изображение сгенерировано!",
+          description: `Использовано изображений: ${b.currentCount}/${b.limit}`,
+        });
+      }
+    } catch (e: any) {
+      console.error(e);
+      toast({ 
+        title: 'Ошибка', 
+        description: e.message || 'Не удалось сгенерировать изображение', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsImgLoading(false);
+    }
+  };
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty.toLowerCase()) {
@@ -136,15 +198,23 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
               </p>
             </CardContent>
           </Card>
-          {/* Main recipe image */}
-          {recipe.image && (
+          {/* Dish image preview */}
+          {isImgLoading && (
+            <Card>
+              <CardContent className="p-4 sm:p-6 text-center">
+                <Loader2 className="animate-spin h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 text-primary" />
+                <p className="text-muted-foreground text-sm sm:text-base">Генерируем изображение блюда...</p>
+              </CardContent>
+            </Card>
+          )}
+          {dishImage && (
             <Card>
               <CardContent className="p-2 sm:p-4">
                 <div className="relative overflow-hidden rounded-md">
-                  <img
-                    src={recipe.image}
-                    alt={`Фото блюда: ${recipe.title}`}
-                    className="w-full h-auto max-h-[300px] sm:max-h-[400px] object-cover rounded-md shadow-sm"
+                  <img 
+                    src={dishImage} 
+                    alt="Сгенерированное блюдо" 
+                    className="w-full h-auto max-h-[300px] sm:max-h-[400px] object-cover rounded-md shadow-sm" 
                   />
                 </div>
               </CardContent>
@@ -224,6 +294,9 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
                     .replace(/^(Оборудование|Время|Важно|Техника):\s*/i, '') // Убираем мета-префиксы
                     .trim();
 
+                  // Получаем изображение для этого шага
+                  const stepImage = recipe.instructionImages?.[index];
+
                   return (
                     <div key={index} className="space-y-3">
                       <div className="flex gap-3 sm:gap-4">
@@ -234,6 +307,27 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
                           {cleanInstruction}
                         </p>
                       </div>
+
+                      {/* Изображение для шага */}
+                      {stepImage && (
+                        <div className="ml-9 sm:ml-12">
+                          <div className="relative">
+                            <img
+                              src={stepImage}
+                              alt={`Шаг ${index + 1}: ${cleanInstruction.substring(0, 50)}...`}
+                              className="w-full max-w-md h-48 object-cover rounded-lg shadow-md"
+                              loading="lazy"
+                              onError={(e) => {
+                                console.error('Failed to load step image:', stepImage);
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                            <div className="absolute top-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs font-medium">
+                              Шаг {index + 1}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

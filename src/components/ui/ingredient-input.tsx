@@ -2,9 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { X, Plus, Sparkles, Loader2, Image } from "lucide-react";
+import { X, Plus, Sparkles, Loader2 } from "lucide-react";
 import { OpenAIService, Recipe } from "@/services/openai";
 import { RecipeDisplay } from "./recipe-display";
 import { toast } from "@/hooks/use-toast";
@@ -23,7 +21,6 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin, selecte
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
-  const [includeImages, setIncludeImages] = useState(false);
   const { user } = useUser();
 
   const addIngredient = () => {
@@ -56,7 +53,16 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin, selecte
 
     setIsLoading(true);
     try {
+      // Генерируем рецепт с изображениями только для авторизованных пользователей
+      const includeImages = !!user;
+      console.log(`🍳 [Ingredient Input] Генерируем рецепт ${includeImages ? 'с изображениями' : 'без изображений'} (пользователь ${user ? 'авторизован' : 'не авторизован'})`);
+      console.log('🍳 [Ingredient Input] User object:', user);
       const recipe = await OpenAIService.generateRecipe(ingredients, user?.healthProfile, selectedCuisine, false, includeImages);
+      console.log('🍳 [Ingredient Input] Generated recipe:', {
+        title: recipe.title,
+        hasImage: !!recipe.image,
+        imageUrl: recipe.image
+      });
       setGeneratedRecipe(recipe);
       
       toast({
@@ -132,23 +138,6 @@ export const IngredientInput = ({ onGenerateRecipe, onRegister, onLogin, selecte
           <p className="text-xs text-muted-foreground">
             💡 AI создаст рецепт только из этих ингредиентов + базовые специи (соль, перец, масло)
           </p>
-
-          {/* Опция генерации изображений */}
-          <div className="flex items-center space-x-2 py-2">
-            <Checkbox
-              id="include-images"
-              checked={includeImages}
-              onCheckedChange={(checked) => setIncludeImages(checked as boolean)}
-              disabled={isLoading}
-            />
-            <Label
-              htmlFor="include-images"
-              className="text-sm text-muted-foreground cursor-pointer flex items-center gap-1"
-            >
-              <Image className="w-3 h-3" />
-              Создать изображения для каждого шага (DALL-E 3)
-            </Label>
-          </div>
 
           <Button 
             onClick={handleGenerate}

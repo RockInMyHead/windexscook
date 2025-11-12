@@ -74,8 +74,13 @@ describe('OpenAIService', () => {
       axios.post.mockResolvedValue(mockResponse);
       
       const result = await OpenAIService.chatWithChef('Привет!');
-      
-      expect(result).toBe('Привет! Как дела?');
+
+      expect(result.content).toBe('Привет! Как дела?');
+      expect(result.usage).toEqual({
+        prompt_tokens: 10,
+        completion_tokens: 5,
+        total_tokens: 15
+      });
       expect(axios.post).toHaveBeenCalledWith(
         expect.stringContaining('/completions'),
         expect.objectContaining({

@@ -78,9 +78,10 @@ describe('Backend Services', () => {
         
         const message = 'Как приготовить борщ?';
         const result = await OpenAIService.chatWithChef(message);
-        
+
         expect(result).toBeDefined();
-        expect(result).toContain('Здравствуйте!');
+        expect(result.content).toContain('Здравствуйте!');
+        expect(result.usage).toBeDefined();
         expect(fetch).toHaveBeenCalledWith(
           expect.stringContaining('/api/openai/v1/chat/completions'),
           expect.objectContaining({

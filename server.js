@@ -6,6 +6,8 @@ import fs from 'fs';
 import path from 'path';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import crypto from 'crypto';
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -56,6 +58,98 @@ console.log('🔧 Proxy configuration:', {
 const logsDir = path.join(process.cwd(), 'logs');
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
+}
+
+// ===== SQLite DATABASE SETUP =====
+const dbPath = path.join(process.cwd(), 'data.sqlite');
+let db = null;
+
+// Функция для инициализации базы данных
+async function initializeDatabase() {
+  try {
+    db = await open({
+      filename: dbPath,
+      driver: sqlite3.Database
+    });
+
+    console.log('🗄️ [Database] Connected to SQLite database:', dbPath);
+
+    // Включаем foreign keys
+    await db.exec('PRAGMA foreign_keys = ON');
+
+    // Инициализируем таблицы если их нет
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT DEFAULT 'user',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS recipes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT,
+        ingredients TEXT NOT NULL,
+        instructions TEXT NOT NULL,
+        cook_time TEXT,
+        servings INTEGER,
+        difficulty TEXT,
+        category TEXT,
+        cuisine TEXT,
+        tips TEXT,
+        image TEXT,
+        author_id INTEGER,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        rating REAL DEFAULT 0,
+        likes INTEGER DEFAULT 0,
+        favorites INTEGER DEFAULT 0,
+        comments_count INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'pending',
+        FOREIGN KEY (author_id) REFERENCES users(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        recipe_id INTEGER NOT NULL,
+        author_id INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        likes INTEGER DEFAULT 0,
+        FOREIGN KEY (recipe_id) REFERENCES recipes(id),
+        FOREIGN KEY (author_id) REFERENCES users(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS user_likes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        recipe_id INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(user_id, recipe_id),
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (recipe_id) REFERENCES recipes(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS user_favorites (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        recipe_id INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(user_id, recipe_id),
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (recipe_id) REFERENCES recipes(id)
+      );
+    `);
+
+    console.log('✅ [Database] Tables initialized successfully');
+    return db;
+  } catch (error) {
+    console.error('❌ [Database] Failed to initialize database:', error);
+    process.exit(1);
+  }
 }
 
 // Система отслеживания лимитов изображений
@@ -191,6 +285,368 @@ app.use(express.static('dist', {
     }
   }
 }));
+
+// ===== DATABASE ROUTES =====
+
+// Получить все рецепты (с фильтрацией по статусу)
+app.get('/api/recipes', async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(503).json({ error: 'Database not initialized' });
+    }
+
+    const { status, moderator } = req.query;
+    let query = 'SELECT * FROM recipes';
+    let params = [];
+
+    if (status) {
+      query += ' WHERE status = ?';
+      params.push(status);
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    const recipes = await db.all(query, params);
+
+    console.log(`📖 [Database] Retrieved ${recipes.length} recipes${status ? ` with status: ${status}` : ''}`);
+    res.json(recipes);
+  } catch (error) {
+    console.error('❌ [Database] Error retrieving recipes:', error);
+    res.status(500).json({ error: 'Failed to retrieve recipes' });
+  }
+});
+
+// Получить рецепты на модерацию (только для администраторов)
+app.get('/api/admin/pending-recipes', async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(503).json({ error: 'Database not initialized' });
+    }
+
+    const recipes = await db.all(
+      'SELECT * FROM recipes WHERE status = ? ORDER BY created_at DESC',
+      ['pending']
+    );
+
+    console.log(`📋 [Database] Retrieved ${recipes.length} pending recipes for moderation`);
+    res.json(recipes);
+  } catch (error) {
+    console.error('❌ [Database] Error retrieving pending recipes:', error);
+    res.status(500).json({ error: 'Failed to retrieve pending recipes' });
+  }
+});
+
+// Получить опубликованные рецепты (только для администраторов)
+app.get('/api/admin/published-recipes', async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(503).json({ error: 'Database not initialized' });
+    }
+
+    const recipes = await db.all(
+      'SELECT * FROM recipes WHERE status = ? ORDER BY created_at DESC',
+      ['approved']
+    );
+
+    console.log(`📖 [Database] Retrieved ${recipes.length} published recipes for admin management`);
+    res.json(recipes);
+  } catch (error) {
+    console.error('❌ [Database] Error retrieving published recipes:', error);
+    res.status(500).json({ error: 'Failed to retrieve published recipes' });
+  }
+});
+
+// Одобрить рецепт
+app.put('/api/recipes/:id/approve', async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(503).json({ error: 'Database not initialized' });
+    }
+
+    const { id } = req.params;
+    const { moderatorId, reason } = req.body;
+
+    const now = new Date().toISOString();
+    const result = await db.run(
+      'UPDATE recipes SET status = ?, moderated_by = ?, moderated_at = ?, moderation_reason = ?, updated_at = ? WHERE id = ?',
+      ['approved', moderatorId || null, now, reason || 'Одобрен администратором', now, id]
+    );
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Recipe not found' });
+    }
+
+    console.log(`✅ [Database] Recipe ${id} approved by moderator ${moderatorId}`);
+    res.json({ message: 'Recipe approved successfully' });
+  } catch (error) {
+    console.error('❌ [Database] Error approving recipe:', error);
+    res.status(500).json({ error: 'Failed to approve recipe' });
+  }
+});
+
+// Отклонить рецепт
+app.put('/api/recipes/:id/reject', async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(503).json({ error: 'Database not initialized' });
+    }
+
+    const { id } = req.params;
+    const { moderatorId, reason } = req.body;
+
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ error: 'Reason is required for rejection' });
+    }
+
+    const now = new Date().toISOString();
+    const result = await db.run(
+      'UPDATE recipes SET status = ?, moderated_by = ?, moderated_at = ?, moderation_reason = ?, updated_at = ? WHERE id = ?',
+      ['rejected', moderatorId || null, now, reason, now, id]
+    );
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Recipe not found' });
+    }
+
+    console.log(`❌ [Database] Recipe ${id} rejected by moderator ${moderatorId}`);
+    res.json({ message: 'Recipe rejected successfully' });
+  } catch (error) {
+    console.error('❌ [Database] Error rejecting recipe:', error);
+    res.status(500).json({ error: 'Failed to reject recipe' });
+  }
+});
+
+// Получить все рецепты пользователя
+app.get('/api/recipes/user/:userId', async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(503).json({ error: 'Database not initialized' });
+    }
+
+    const { userId } = req.params;
+    const recipes = await db.all(
+      'SELECT * FROM recipes WHERE author_id = ? ORDER BY created_at DESC',
+      [userId]
+    );
+
+    console.log(`📖 [Database] Retrieved ${recipes.length} recipes for user ${userId}`);
+    res.json(recipes);
+  } catch (error) {
+    console.error('❌ [Database] Error retrieving user recipes:', error);
+    res.status(500).json({ error: 'Failed to retrieve recipes' });
+  }
+});
+
+// Сохранить рецепт
+app.post('/api/recipes', async (req, res) => {
+  try {
+    if (!db) {
+      console.error('❌ [Database] Database not initialized');
+      return res.status(503).json({ error: 'Database not initialized' });
+    }
+
+    const { title, description, ingredients, instructions, cookTime, servings, difficulty, cuisine, tips, image, authorId } = req.body;
+
+    console.log('📝 [Database] Received recipe save request:', {
+      title: title?.substring(0, 30),
+      authorId,
+      ingredientsType: Array.isArray(ingredients) ? 'array' : typeof ingredients,
+      instructionsType: Array.isArray(instructions) ? 'array' : typeof instructions
+    });
+
+    if (!title || !ingredients || !instructions) {
+      console.warn('⚠️ [Database] Missing required fields:', { title: !!title, ingredients: !!ingredients, instructions: !!instructions });
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const now = new Date().toISOString();
+    const result = await db.run(
+      `INSERT INTO recipes (title, description, ingredients, instructions, cook_time, servings, difficulty, cuisine, tips, image, author_id, created_at, updated_at, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        title,
+        description || '',
+        JSON.stringify(ingredients),
+        JSON.stringify(instructions),
+        cookTime || '',
+        servings || 0,
+        difficulty || 'Medium',
+        cuisine || '',
+        tips || '',
+        image || null,
+        authorId || null,
+        now,
+        now,
+        'pending' // Новые рецепты ждут модерации
+      ]
+    );
+
+    console.log(`✅ [Database] Recipe saved with ID: ${result.lastID}`);
+    res.json({ id: result.lastID, message: 'Recipe saved successfully' });
+  } catch (error) {
+    console.error('❌ [Database] Error saving recipe:', error.message, error.stack);
+    res.status(500).json({ error: 'Failed to save recipe', details: error.message });
+  }
+});
+
+// Получить рецепт по ID
+app.get('/api/recipes/:id', async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(503).json({ error: 'Database not initialized' });
+    }
+
+    const { id } = req.params;
+    const recipe = await db.get(
+      'SELECT * FROM recipes WHERE id = ?',
+      [id]
+    );
+
+    if (!recipe) {
+      return res.status(404).json({ error: 'Recipe not found' });
+    }
+
+    // Парсим JSON поля
+    recipe.ingredients = JSON.parse(recipe.ingredients);
+    recipe.instructions = JSON.parse(recipe.instructions);
+
+    res.json(recipe);
+  } catch (error) {
+    console.error('❌ [Database] Error retrieving recipe:', error);
+    res.status(500).json({ error: 'Failed to retrieve recipe' });
+  }
+});
+
+// Удалить рецепт
+app.delete('/api/recipes/:id', async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(503).json({ error: 'Database not initialized' });
+    }
+
+    const { id } = req.params;
+    const result = await db.run(
+      'DELETE FROM recipes WHERE id = ?',
+      [id]
+    );
+
+    if (result.changes > 0) {
+      console.log(`✅ [Database] Recipe ${id} deleted successfully`);
+      res.json({ message: 'Recipe deleted successfully' });
+    } else {
+      res.status(404).json({ error: 'Recipe not found' });
+    }
+  } catch (error) {
+    console.error('❌ [Database] Error deleting recipe:', error);
+    res.status(500).json({ error: 'Failed to delete recipe' });
+  }
+});
+
+// Зарегистрировать пользователя
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(503).json({ error: 'Database not initialized' });
+    }
+
+    const { name, email, passwordHash } = req.body;
+
+    if (!name || !email || !passwordHash) {
+      return res.status(400).json({ error: 'Name, email and password are required' });
+    }
+
+    const now = new Date().toISOString();
+    const result = await db.run(
+      'INSERT INTO users (email, password_hash, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      [email, passwordHash, 'user', now, now]
+    );
+
+    console.log(`✅ [Database] User registered with ID: ${result.lastID}`);
+    res.json({
+      id: result.lastID,
+      name,
+      email,
+      role: 'user',
+      message: 'User registered successfully'
+    });
+  } catch (error) {
+    if (error.message.includes('UNIQUE constraint failed')) {
+      console.warn(`⚠️ [Database] User already exists: ${req.body.email}`);
+      return res.status(400).json({ error: 'User already exists' });
+    }
+    console.error('❌ [Database] Error registering user:', error);
+    res.status(500).json({ error: 'Failed to register user' });
+  }
+});
+
+// Войти в аккаунт
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(503).json({ error: 'Database not initialized' });
+    }
+
+    const { email, passwordHash } = req.body;
+
+    if (!email || !passwordHash) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const user = await db.get(
+      'SELECT id, email, role, created_at, updated_at FROM users WHERE email = ? AND password_hash = ?',
+      [email, passwordHash]
+    );
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    console.log(`✅ [Database] User logged in: ${user.id} (${user.role})`);
+    res.json({
+      id: user.id,
+      name: email.split('@')[0], // Extract name from email as fallback
+      email: user.email,
+      role: user.role || 'user',
+      message: 'Login successful'
+    });
+  } catch (error) {
+    console.error('❌ [Database] Error logging in:', error);
+    res.status(500).json({ error: 'Failed to login' });
+  }
+});
+
+// Получить пользователя по email
+app.get('/api/auth/user/:email', async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(503).json({ error: 'Database not initialized' });
+    }
+
+    const { email } = req.params;
+    const user = await db.get(
+      'SELECT id, email, role, created_at, updated_at FROM users WHERE email = ?',
+      [email]
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      id: user.id,
+      name: email.split('@')[0], // Extract name from email as fallback
+      email: user.email,
+      role: user.role || 'user',
+      created_at: user.created_at,
+      updated_at: user.updated_at
+    });
+  } catch (error) {
+    console.error('❌ [Database] Error retrieving user:', error);
+    res.status(500).json({ error: 'Failed to retrieve user' });
+  }
+});
+
+// ===== ROUTES =====
 
 // ElevenLabs API роут - используем middleware для обработки всех запросов
 app.use('/api/elevenlabs', async (req, res) => {
@@ -590,6 +1046,170 @@ app.use('/api/openai', async (req, res) => {
     res.status(500).json({ 
       error: 'Internal server error',
       details: error.message 
+    });
+  }
+});
+
+// Роут для получения списка моделей OpenAI
+app.get('/api/openai/v1/models', async (req, res) => {
+  try {
+    const apiKey = process.env.VITE_OPENAI_API_KEY;
+
+    if (!apiKey) {
+      logToFile('ERROR', 'OpenAI API key not configured for models');
+      return res.status(500).json({
+        error: 'OpenAI API key not configured'
+      });
+    }
+
+    const url = 'https://api.openai.com/v1/models';
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [OpenAI Models] API Error:', response.status, errorText);
+      return res.status(response.status).send(errorText);
+    }
+
+    const data = await response.json();
+    res.json(data);
+
+  } catch (error) {
+    console.error('❌ [OpenAI Models] Error:', error);
+    logToFile('ERROR', 'OpenAI Models error', {
+      error: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
+// Специальный роут для стриминга OpenAI (потоковая передача)
+app.all('/api/openai/v1/chat/completions', async (req, res) => {
+  try {
+    const apiKey = process.env.VITE_OPENAI_API_KEY;
+
+    if (!apiKey) {
+      logToFile('ERROR', 'OpenAI API key not configured for streaming');
+      return res.status(500).json({
+        error: 'OpenAI API key not configured'
+      });
+    }
+
+    const url = 'https://api.openai.com/v1/chat/completions';
+
+    // Создаем заголовки для запроса к OpenAI
+    const headers = {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      ...req.headers
+    };
+
+    // Удаляем host заголовок
+    delete headers.host;
+
+    console.log('🎯 [OpenAI Streaming] Starting stream proxy:', {
+      url,
+      method: req.method,
+      hasStream: req.body?.stream,
+      contentLength: req.headers['content-length'],
+      userAgent: req.headers['user-agent']?.substring(0, 100),
+      bodyPreview: JSON.stringify(req.body).substring(0, 200)
+    });
+
+    // Устанавливаем таймаут для стриминга (5 минут)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 minutes
+
+    let response;
+    try {
+      // Используем fetch для стриминга вместо axios
+      response = await fetch(url, {
+        method: req.method,
+        headers,
+        body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+        signal: controller.signal,
+        // Настройка прокси если нужна
+        ...(proxyAgent && {
+          agent: proxyAgent
+        })
+      });
+
+      clearTimeout(timeoutId);
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        console.error('❌ [OpenAI Streaming] Request timed out');
+        return res.status(504).json({ error: 'Request timed out' });
+      }
+      throw fetchError;
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [OpenAI Streaming] API Error:', response.status, errorText);
+      return res.status(response.status).send(errorText);
+    }
+
+    // Устанавливаем заголовки для стриминга
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    // Читаем поток от OpenAI и передаем клиенту
+    const reader = response.body?.getReader();
+    if (!reader) {
+      console.error('❌ [OpenAI Streaming] No reader available');
+      return res.status(500).json({ error: 'Stream reader not available' });
+    }
+
+    const decoder = new TextDecoder();
+
+    try {
+      let chunkCount = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          console.log('✅ [OpenAI Streaming] Stream completed, total chunks:', chunkCount);
+          res.end();
+          break;
+        }
+
+        chunkCount++;
+        const chunk = decoder.decode(value, { stream: true });
+        console.log(`📦 [OpenAI Streaming] Sending chunk ${chunkCount}: ${chunk.length} chars`);
+
+        // Отправляем чанк клиенту сразу
+        res.write(chunk);
+
+        // Маленькая задержка для предотвращения перегрузки
+        await new Promise(resolve => setTimeout(resolve, 1));
+      }
+    } catch (streamError) {
+      console.error('❌ [OpenAI Streaming] Stream error:', streamError);
+      res.end();
+    }
+
+  } catch (error) {
+    console.error('❌ [OpenAI Streaming] Proxy error:', error);
+    logToFile('ERROR', 'OpenAI Streaming Proxy error', {
+      error: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({
+      error: 'Internal server error',
+      details: error.message
     });
   }
 });
@@ -1653,6 +2273,161 @@ app.post('/api/auth/send-premium-confirmation', async (req, res) => {
   }
 });
 
+// Потоковая выдача токенов для чата с LLM
+app.post('/api/chat', async (req, res) => {
+  console.log('🔍 [API Chat] Received request:', {
+    body: req.body,
+    headers: req.headers,
+    url: req.url
+  });
+
+  try {
+    const { messages, model = 'gpt-4o', stream = true } = req.body;
+
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: 'Messages array is required' });
+    }
+
+    const apiKey = process.env.VITE_OPENAI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
+    }
+
+    const url = 'https://api.openai.com/v1/chat/completions';
+    const requestBody = {
+      model,
+      messages,
+      temperature: 0.8,
+      max_tokens: 16000,
+      ...(stream && { stream: true })
+    };
+
+    if (stream) {
+      // Парсим SSE и отдаем чистые токены (не SSE)
+      console.log('🎯 [Chat Streaming] Starting stream parsing');
+
+      const openaiResponse = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(5 * 60 * 1000) // 5 минут таймаут
+      });
+
+      if (!openaiResponse.ok) {
+        const errorText = await openaiResponse.text();
+        console.error('❌ [Chat Streaming] OpenAI API Error:', openaiResponse.status, errorText);
+        return res.status(openaiResponse.status).send(errorText);
+      }
+
+      // Отдаем чистые токены (не SSE)
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no'); // nginx - антибуферизация
+      res.setHeader('Content-Encoding', 'identity');
+      res.flushHeaders?.();
+
+      const reader = openaiResponse.body?.getReader();
+      if (!reader) {
+        console.error('❌ [Chat Streaming] No reader available');
+        return res.status(500).json({ error: 'Stream reader not available' });
+      }
+
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      const flushLines = () => {
+        let idx;
+        while ((idx = buffer.indexOf('\n')) >= 0) {
+          let line = buffer.slice(0, idx);       // не трогаем переносы
+          buffer = buffer.slice(idx + 1);
+
+          // SSE-комментарии вида ": keep-alive"
+          if (line.startsWith(':')) continue;
+
+          if (!line.startsWith('data:')) continue;
+
+          // Срезаем только префикс и ведущий пробел после него, контент не трогаем
+          const payload = line.slice(5).trimStart();
+
+          if (payload === '[DONE]') {
+            console.log('✅ [Chat Streaming] Stream completed');
+            res.end();
+            return true;
+          }
+
+          try {
+            const evt = JSON.parse(payload);
+            const delta = evt?.choices?.[0]?.delta;
+            if (delta?.content) {
+              console.log('📤 [Server Streaming] Sending token:', JSON.stringify(delta.content));
+              res.write(delta.content); // Отправляем только чистый текст
+            }
+            // Можно обработать function_call / tool_calls если нужно
+          } catch (parseError) {
+            // Игнорируем полусырые куски, ждем следующую порцию
+            console.log('⚠️ [Chat Streaming] Ignoring partial chunk:', payload);
+          }
+        }
+        return false;
+      };
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          if (flushLines()) return;
+        }
+
+        // Добиваем хвост
+        flushLines();
+        res.end();
+      } catch (streamError) {
+        console.error('❌ [Chat Streaming] Stream error:', streamError);
+        res.end();
+      }
+    } else {
+      // Обычный запрос без стриминга
+      console.log('🔄 [Chat Regular] Making regular request');
+
+      const openaiResponse = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(5 * 60 * 1000)
+      });
+
+      if (!openaiResponse.ok) {
+        const errorText = await openaiResponse.text();
+        console.error('❌ [Chat Regular] OpenAI API Error:', openaiResponse.status, errorText);
+        return res.status(openaiResponse.status).send(errorText);
+      }
+
+      const data = await openaiResponse.json();
+      res.json(data);
+    }
+
+  } catch (error) {
+    console.error('❌ [Chat API] Error:', error);
+    logToFile('ERROR', 'Chat API error', {
+      error: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
 // Fallback для SPA - все остальные запросы возвращают index.html
 app.use((req, res) => {
   // Отключаем кэширование для HTML файлов
@@ -1662,23 +2437,40 @@ app.use((req, res) => {
   res.sendFile('dist/index.html', { root: '.' });
 });
 
-app.listen(PORT, () => {
-  logToFile('INFO', `Pastel Chef AI API server started`, {
-    port: PORT,
-    elevenlabsConfigured: !!process.env.ELEVENLABS_API_KEY,
-    openaiConfigured: !!process.env.VITE_OPENAI_API_KEY,
-    proxyConfigured: true,
-    proxyHost: PROXY_HOST,
-    proxyPort: PROXY_PORT,
-    proxyUsername: PROXY_USERNAME,
-    logsDirectory: logsDir,
-    serverUrl: `http://localhost:${PORT}`
-  });
-  
-  console.log(`🚀 Pastel Chef AI API server running on port ${PORT}`);
-  console.log(`🔑 ElevenLabs API key configured: ${process.env.ELEVENLABS_API_KEY ? 'Yes' : 'No'}`);
-  console.log(`🔑 OpenAI API key configured: ${process.env.VITE_OPENAI_API_KEY ? 'Yes' : 'No'}`);
-  console.log(`🌐 Proxy configured: ${PROXY_HOST}:${PROXY_PORT} (${PROXY_USERNAME})`);
-  console.log(`📁 Logs directory: ${logsDir}`);
-  console.log(`🌐 Server URL: http://localhost:${PORT}`);
-});
+// Инициализируем базу данных и запускаем сервер
+async function startServer() {
+  try {
+    // Инициализируем SQLite базу данных
+    await initializeDatabase();
+
+    app.listen(PORT, () => {
+      logToFile('INFO', `Pastel Chef AI API server started`, {
+        port: PORT,
+        databaseConnected: !!db,
+        databasePath: dbPath,
+        elevenlabsConfigured: !!process.env.ELEVENLABS_API_KEY,
+        openaiConfigured: !!process.env.VITE_OPENAI_API_KEY,
+        proxyConfigured: true,
+        proxyHost: PROXY_HOST,
+        proxyPort: PROXY_PORT,
+        proxyUsername: PROXY_USERNAME,
+        logsDirectory: logsDir,
+        serverUrl: `http://localhost:${PORT}`
+      });
+
+      console.log(`🚀 Pastel Chef AI API server running on port ${PORT}`);
+      console.log(`🗄️ SQLite database: ${dbPath}`);
+      console.log(`🔑 ElevenLabs API key configured: ${process.env.ELEVENLABS_API_KEY ? 'Yes' : 'No'}`);
+      console.log(`🔑 OpenAI API key configured: ${process.env.VITE_OPENAI_API_KEY ? 'Yes' : 'No'}`);
+      console.log(`🌐 Proxy configured: ${PROXY_HOST}:${PROXY_PORT} (${PROXY_USERNAME})`);
+      console.log(`📁 Logs directory: ${logsDir}`);
+      console.log(`🌐 Server URL: http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ [Server] Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Запускаем сервер
+startServer();

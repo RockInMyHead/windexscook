@@ -239,13 +239,59 @@ const Recipes: React.FC = () => {
     [filters]
   );
 
-  // Load recipes
+  // Load recipes from both static service and database
   const loadRecipes = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await RecipeService.getRecipes();
-      setRecipes(data);
+      // Load static recipes
+      const staticRecipes = await RecipeService.getRecipes();
+
+      // Load recipes from database
+      let dbRecipes: any[] = [];
+      try {
+        const response = await fetch('/api/recipes?status=approved');
+        if (response.ok) {
+          dbRecipes = await response.json();
+          // Transform database recipes to match Recipe interface
+          dbRecipes = dbRecipes.map((recipe: any) => ({
+            id: recipe.id.toString(),
+            title: recipe.title,
+            description: recipe.description || '',
+            image: recipe.image || undefined,
+            cookTime: recipe.cook_time || '30 мин',
+            servings: recipe.servings || 4,
+            difficulty: recipe.difficulty || 'Medium',
+            category: recipe.category || 'main',
+            cuisine: recipe.cuisine || undefined,
+            ingredients: Array.isArray(recipe.ingredients) ? recipe.ingredients : JSON.parse(recipe.ingredients || '[]'),
+            instructions: Array.isArray(recipe.instructions) ? recipe.instructions : JSON.parse(recipe.instructions || '[]'),
+            tips: recipe.tips || undefined,
+            author: {
+              id: recipe.author_id?.toString() || '1',
+              name: 'Пользователь',
+              email: 'user@example.com'
+            },
+            createdAt: recipe.created_at,
+            updatedAt: recipe.updated_at,
+            rating: recipe.rating || 0,
+            likes: recipe.likes || 0,
+            favorites: recipe.favorites || 0,
+            commentsCount: recipe.comments_count || 0,
+            status: recipe.status || 'approved'
+          }));
+        }
+      } catch (apiError) {
+        console.warn('⚠️ Failed to load recipes from database, using only static recipes:', apiError);
+      }
+
+      // Combine static and database recipes with unique IDs
+      const allRecipes = [
+        ...staticRecipes,
+        ...dbRecipes.map(recipe => ({ ...recipe, id: `db-${recipe.id}` }))
+      ];
+      setRecipes(allRecipes);
     } catch (error) {
+      console.error('❌ Error loading recipes:', error);
       toast({
         title: 'Ошибка',
         description: 'Не удалось загрузить рецепты',
@@ -285,10 +331,39 @@ const Recipes: React.FC = () => {
           description: 'Рецепт обновлен'
         });
       } else {
-        await RecipeService.createRecipe(recipeData, user!);
+        // Создание нового рецепта - отправляем через API на модерацию
+        const authorId = parseInt(user!.id, 10);
+
+        const response = await fetch('/api/recipes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: recipeData.title,
+            description: recipeData.description,
+            ingredients: recipeData.ingredients,
+            instructions: recipeData.instructions,
+            cookTime: recipeData.cookTime,
+            servings: recipeData.servings,
+            difficulty: recipeData.difficulty,
+            cuisine: recipeData.cuisine,
+            tips: recipeData.tips,
+            image: recipeData.image,
+            authorId: authorId
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save recipe');
+        }
+
+        const result = await response.json();
+        console.log('✅ Recipe sent to moderation:', result);
+
         toast({
           title: 'Успех',
-          description: 'Рецепт создан'
+          description: 'Рецепт отправлен на модерацию'
         });
       }
       setShowRecipeModal(false);
@@ -390,8 +465,11 @@ const Recipes: React.FC = () => {
     navigate(`/recipes/${recipe.id}`);
   }, [navigate]);
 
-  const handleAuthSuccess = useCallback((userData: { name: string; email: string }) => {
-    login(userData);
+  const handleAuthSuccess = useCallback((userData: { id: number | string; name: string; email: string; role?: string }) => {
+    login({
+      ...userData,
+      id: userData.id.toString() // Ensure id is string for User type
+    });
     setShowAuthModal(false);
     toast({
       title: 'Добро пожаловать!',

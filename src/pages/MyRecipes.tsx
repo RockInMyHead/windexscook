@@ -44,7 +44,7 @@ export const MyRecipes = () => {
   const [currentIngredient, setCurrentIngredient] = useState("");
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [selectedCuisine, setSelectedCuisine] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isAILoading, setIsAILoading] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -55,29 +55,130 @@ export const MyRecipes = () => {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumFeature, setPremiumFeature] = useState<string>('');
   // removed local product selector state
-  const { isAuthenticated, user, hasPremiumAccess } = useUser();
+  const { isAuthenticated, user, hasPremiumAccess, login } = useUser();
   
   // Handler to save generated recipe to collection
-  const handleSaveGeneratedRecipe = useCallback((recipeToSave: Recipe) => {
-    const newSaved: SavedRecipe = {
-      ...recipeToSave,
-      id: Date.now().toString(),
-      savedAt: new Date().toISOString(),
-      userId: user?.id || ''
-    };
-    setSavedRecipes(prev => [newSaved, ...prev]);
-    setGeneratedRecipe(null);
-    toast({ title: 'Сохранено', description: 'Рецепт добавлен в вашу коллекцию' });
+  const handleSaveGeneratedRecipe = useCallback(async (recipeToSave: Recipe) => {
+    if (!user) {
+      toast({
+        title: 'Требуется авторизация',
+        description: 'Войдите в аккаунт, чтобы сохранять рецепты',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      // user.id is already a string from UserContext
+      const authorId = parseInt(user.id, 10);
+
+      const response = await fetch('/api/recipes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: recipeToSave.title,
+          description: recipeToSave.description,
+          ingredients: recipeToSave.ingredients,
+          instructions: recipeToSave.instructions,
+          cookTime: recipeToSave.cookTime,
+          servings: recipeToSave.servings,
+          difficulty: recipeToSave.difficulty,
+          cuisine: recipeToSave.cuisine,
+          tips: recipeToSave.tips,
+          image: recipeToSave.image,
+          authorId: authorId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save recipe');
+      }
+
+      const result = await response.json();
+      console.log('✅ Recipe saved to database:', result);
+
+      // Обновляем локальный state
+      const newSaved: SavedRecipe = {
+        ...recipeToSave,
+        id: result.id.toString(),
+        savedAt: new Date().toISOString(),
+        userId: user.id
+      };
+      setSavedRecipes(prev => [newSaved, ...prev]);
+
+      // Очищаем сгенерированный рецепт
+      setGeneratedRecipe(null);
+
+      // Удаляем старые данные из localStorage для этого пользователя (очистка)
+      try {
+        const allSaved = JSON.parse(localStorage.getItem('saved-recipes') || '[]');
+        const filteredSaved = allSaved.filter((recipe: SavedRecipe) => recipe.userId !== user.id);
+        localStorage.setItem('saved-recipes', JSON.stringify(filteredSaved));
+      } catch (error) {
+        console.warn('⚠️ Failed to clean localStorage:', error);
+      }
+
+      toast({
+        title: '✅ Сохранено',
+        description: 'Рецепт добавлен в вашу коллекцию'
+      });
+    } catch (error) {
+      console.error('❌ Error saving recipe:', error);
+      toast({
+        title: 'Ошибка сохранения',
+        description: 'Не удалось сохранить рецепт. Попробуйте еще раз.',
+        variant: 'destructive'
+      });
+    }
   }, [user]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Загружаем сохраненные рецепты при монтировании компонента
+  // Загружаем сохраненные рецепты из базы данных при монтировании компонента
   useEffect(() => {
-    if (isAuthenticated && user) {
-      const saved = JSON.parse(localStorage.getItem('saved-recipes') || '[]');
-      const userRecipes = saved.filter((recipe: SavedRecipe) => recipe.userId === user.email);
-      setSavedRecipes(userRecipes);
-    }
+    const loadUserRecipes = async () => {
+      if (isAuthenticated && user) {
+        try {
+          const userId = typeof user.id === 'string' ? user.id : user.id.toString();
+          const response = await fetch(`/api/recipes/user/${userId}`);
+
+          if (response.ok) {
+            const dbRecipes = await response.json();
+
+            // Преобразуем рецепты из БД в формат SavedRecipe
+            const savedRecipes: SavedRecipe[] = dbRecipes.map((recipe: any) => ({
+              ...recipe,
+              id: recipe.id.toString(),
+              savedAt: recipe.created_at || new Date().toISOString(),
+              userId: user.id,
+              // Парсим JSON поля
+              ingredients: Array.isArray(recipe.ingredients) ? recipe.ingredients : JSON.parse(recipe.ingredients || '[]'),
+              instructions: Array.isArray(recipe.instructions) ? recipe.instructions : JSON.parse(recipe.instructions || '[]')
+            }));
+
+            setSavedRecipes(savedRecipes);
+          } else {
+            console.warn('⚠️ Failed to load recipes from database, falling back to localStorage');
+            // Fallback to localStorage if API fails
+            const saved = JSON.parse(localStorage.getItem('saved-recipes') || '[]');
+            const userRecipes = saved.filter((recipe: SavedRecipe) => recipe.userId === user.id);
+            setSavedRecipes(userRecipes);
+          }
+        } catch (error) {
+          console.error('❌ Error loading recipes from database:', error);
+          // Fallback to localStorage
+          const saved = JSON.parse(localStorage.getItem('saved-recipes') || '[]');
+          const userRecipes = saved.filter((recipe: SavedRecipe) => recipe.userId === user.id);
+          setSavedRecipes(userRecipes);
+        }
+      } else {
+        // Если пользователь не авторизован, очищаем рецепты
+        setSavedRecipes([]);
+      }
+    };
+
+    loadUserRecipes();
   }, [isAuthenticated, user]);
 
   const addIngredient = () => {
@@ -114,11 +215,11 @@ export const MyRecipes = () => {
       return;
     }
 
-    setIsLoading(true);
+    setIsAILoading(true);
     try {
       const recipe = await OpenAIService.generateRecipe(ingredients, user?.healthProfile, selectedCuisine);
       setGeneratedRecipe(recipe);
-      
+
       const cuisineName = selectedCuisine ? WORLD_CUISINES.find(c => c.id === selectedCuisine)?.name : '';
       toast({
         title: "🎉 Рецепт готов!",
@@ -132,7 +233,7 @@ export const MyRecipes = () => {
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsAILoading(false);
     }
   };
 
@@ -156,15 +257,32 @@ export const MyRecipes = () => {
     });
   };
 
-  const handleDeleteRecipe = (recipeId: string) => {
-    const updatedRecipes = savedRecipes.filter(recipe => recipe.id !== recipeId);
-    setSavedRecipes(updatedRecipes);
-    localStorage.setItem('saved-recipes', JSON.stringify(updatedRecipes));
-    
-    toast({
-      title: "Рецепт удален",
-      description: "Рецепт был удален из вашей коллекции",
-    });
+  const handleDeleteRecipe = async (recipeId: string) => {
+    try {
+      const response = await fetch(`/api/recipes/${recipeId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        // Удаляем из локального state
+        const updatedRecipes = savedRecipes.filter(recipe => recipe.id !== recipeId);
+        setSavedRecipes(updatedRecipes);
+
+        toast({
+          title: "✅ Рецепт удален",
+          description: "Рецепт был удален из вашей коллекции",
+        });
+      } else {
+        throw new Error('Failed to delete recipe from database');
+      }
+    } catch (error) {
+      console.error('❌ Error deleting recipe:', error);
+      toast({
+        title: "Ошибка удаления",
+        description: "Не удалось удалить рецепт. Попробуйте еще раз.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleCloseRecipe = () => {
@@ -197,7 +315,7 @@ export const MyRecipes = () => {
       return;
     }
 
-    setIsLoading(true);
+    setIsAILoading(true);
     try {
       const recognizedIngredients = await OpenAIService.recognizeIngredientsFromImage(file);
       if (recognizedIngredients.length > 0) {
@@ -212,7 +330,7 @@ export const MyRecipes = () => {
     } catch (err) {
       toast({ title: 'Ошибка распознавания', description: err instanceof Error ? err.message : 'Ошибка AI', variant: 'destructive' });
     } finally {
-      setIsLoading(false);
+      setIsAILoading(false);
     }
   };
 
@@ -294,7 +412,7 @@ export const MyRecipes = () => {
                       className="w-full flex items-center gap-2 bg-gradient-to-r from-primary/10 to-accent/10 hover:from-primary/20 hover:to-accent/20 border-primary/30"
                     >
                       <Camera className="w-4 h-4" />
-                      {isLoading ? 'AI распознает продукты...' : '📸 Сфотографировать продукты'}
+                      {isAILoading ? 'AI распознает продукты...' : '📸 Сфотографировать продукты'}
                     </Button>
                     <div className="flex gap-2">
                       <Input
@@ -338,11 +456,11 @@ export const MyRecipes = () => {
 
                     <Button 
                       onClick={handleGenerateRecipe}
-                      disabled={isLoading || ingredients.length === 0}
+                      disabled={isAILoading || ingredients.length === 0}
                       className="w-full bg-gradient-primary hover:opacity-90 transition-opacity disabled:opacity-50"
                       size="lg"
                     >
-                      {isLoading ? (
+                      {isAILoading ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                           AI создает рецепт...
@@ -525,6 +643,11 @@ export const MyRecipes = () => {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         onSuccess={(userData) => {
+          // Обновляем user context
+          login({
+            ...userData,
+            id: userData.id.toString() // Ensure id is string for User type
+          });
           setShowAuthModal(false);
           toast({
             title: "Добро пожаловать!",

@@ -40,7 +40,14 @@ export const UserProvider = ({ children }: UserProviderProps) => {
     const savedUser = localStorage.getItem('ai-chef-user');
     if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+        console.log('🔄 [UserContext] Loaded user from localStorage:', {
+          id: parsedUser.id,
+          email: parsedUser.email,
+          role: parsedUser.role,
+          idType: typeof parsedUser.id
+        });
+        setUser(parsedUser);
       } catch (error) {
         console.error('Error parsing saved user:', error);
         localStorage.removeItem('ai-chef-user');
@@ -49,6 +56,13 @@ export const UserProvider = ({ children }: UserProviderProps) => {
   }, []);
 
   const login = (userData: User) => {
+    console.log('🔑 [UserContext] Login called with userData:', {
+      id: userData.id,
+      email: userData.email,
+      role: userData.role,
+      idType: typeof userData.id
+    });
+
     // Если это администратор, добавляем Premium подписку
     if (userData.role === 'admin') {
       const adminUser = {
@@ -59,9 +73,11 @@ export const UserProvider = ({ children }: UserProviderProps) => {
           plan: 'premium' as const
         }
       };
+      console.log('👑 [UserContext] Admin user created:', { id: adminUser.id, email: adminUser.email });
       setUser(adminUser);
       localStorage.setItem('ai-chef-user', JSON.stringify(adminUser));
     } else {
+      console.log('👤 [UserContext] Regular user set:', { id: userData.id, email: userData.email });
       setUser(userData);
       localStorage.setItem('ai-chef-user', JSON.stringify(userData));
     }

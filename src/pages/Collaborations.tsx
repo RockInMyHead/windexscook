@@ -133,7 +133,14 @@ const Collaborations = () => {
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
-        onSuccess={(userData) => { login(userData); setShowAuthModal(false); toast({ title: 'Добро пожаловать!', description: `Привет, ${userData.name}!` }); }}
+        onSuccess={(userData) => {
+          login({
+            ...userData,
+            id: userData.id.toString() // Ensure id is string for User type
+          });
+          setShowAuthModal(false);
+          toast({ title: 'Добро пожаловать!', description: `Привет, ${userData.name}!` });
+        }}
       />
       <PremiumModal
         isOpen={showPremiumModal}

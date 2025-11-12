@@ -1,0 +1,21 @@
+# OpenAI API ключи
+VITE_OPENAI_API_KEY=your_openai_api_key_here
+ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
+
+# Настройки сервера
+PORT=4000
+
+# Настройки прокси для обхода геоблоков OpenAI (опционально)
+# PROXY_HOST=your_proxy_host
+# PROXY_PORT=your_proxy_port
+# PROXY_USERNAME=your_proxy_username
+# PROXY_PASSWORD=your_proxy_password
+
+# Альтернативно можно использовать системный прокси:
+# export HTTP_PROXY=http://username:password@host:port
+# export HTTPS_PROXY=http://username:password@host:port
+
+
+
+
+

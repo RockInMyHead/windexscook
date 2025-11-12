@@ -51,14 +51,11 @@ const Index = () => {
     setShowAuthModal(true);
   };
 
-  const handleAuthSuccess = (userData: { name: string; email: string }) => {
-    const user = {
-      id: Date.now().toString(),
-      name: userData.name,
-      email: userData.email,
-      role: 'user' as const
-    };
-    login(user);
+  const handleAuthSuccess = (userData: { id: number | string; name: string; email: string; role?: string }) => {
+    login({
+      ...userData,
+      id: userData.id.toString() // Ensure id is string for User type
+    });
     setShowAuthModal(false);
     toast({
       title: "Добро пожаловать!",

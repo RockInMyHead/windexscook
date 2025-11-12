@@ -298,14 +298,14 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
                     feature.highlight ? 'text-amber-500' : 'text-green-500'
                   }`} />
                   <div className="flex-1">
-                    <p className={`font-medium ${feature.highlight ? 'text-amber-700 dark:text-amber-300' : ''}`}>
-                      {feature.title}
+                    <div className={`font-medium ${feature.highlight ? 'text-amber-700 dark:text-amber-300' : ''}`}>
+                      <span>{feature.title}</span>
                       {feature.highlight && (
                         <Badge className="ml-2 bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 text-xs">
                           Требуется
                         </Badge>
                       )}
-                    </p>
+                    </div>
                     <p className="text-sm text-muted-foreground">
                       {feature.description}
                     </p>

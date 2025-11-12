@@ -252,11 +252,13 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       } else {
         // Используем chatWithChef для обычного общения с кулинаром
         console.log('💬 [Voice Call] Обычный разговор с кулинаром');
-        response = await OpenAIService.chatWithChef(text, undefined, []);
+        const chatResponse = await OpenAIService.chatWithChef(text, undefined, []);
+        response = chatResponse.content;
         console.log('✅ [Voice Call] Ответ от chatWithChef:', {
           type: typeof response,
           isString: typeof response === 'string',
           length: response ? response.length : 'undefined',
+          usage: chatResponse.usage,
           value: response
         });
       }

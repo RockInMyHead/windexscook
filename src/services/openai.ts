@@ -19,6 +19,7 @@ export interface Recipe {
   instructions: string[];
   tips?: string;
   content?: string; // Для чата
+  image?: string; // URL основного изображения рецепта
 }
 
 export class OpenAIService {
@@ -76,7 +77,7 @@ export class OpenAIService {
           model,
           messages,
           temperature: 0.8,
-          max_tokens: 2000,
+          max_tokens: 12000,
         }),
       });
     } catch (networkError) {
@@ -87,11 +88,11 @@ export class OpenAIService {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenAI API Error Details:', errorText);
-      
+
       // Пытаемся распарсить JSON ошибку
       try {
         const errorData = JSON.parse(errorText);
-        if (errorData.error && errorData.error.code === 'regional_restriction') {
+        if (errorData.error && (errorData.error.code === 'regional_restriction' || errorData.error.code === 'unsupported_country_region_territory')) {
           throw new Error('AI функции временно недоступны в вашем регионе. Мы работаем над решением этой проблемы.');
         }
         if (errorData.error && errorData.error.message) {
@@ -105,7 +106,7 @@ export class OpenAIService {
         // Если это не русский текст, используем стандартную ошибку
         throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
       }
-      
+
       throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
     }
 
@@ -118,7 +119,256 @@ export class OpenAIService {
     }
   }
 
-  static async generateRecipe(ingredients: string[], healthProfile?: UserHealthProfile, cuisineId?: string, isChatMode: boolean = false): Promise<Recipe> {
+  private static async generateImage(prompt: string): Promise<string> {
+    try {
+      console.log('🎨 [DALL-E] Starting image generation...');
+      console.log('🎨 [DALL-E] Prompt:', prompt.substring(0, 100) + '...');
+
+      const requestUrl = '/api/openai/generate-image';
+      console.log('🎨 [DALL-E] Request URL:', requestUrl);
+
+      const requestBody = {
+        model: 'dall-e-3',
+        prompt: prompt,
+        size: '1024x1024',
+        quality: 'standard',
+        n: 1,
+      };
+      console.log('🎨 [DALL-E] Request body prepared');
+
+      const response = await fetch(requestUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log('🎨 [DALL-E] Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('DALL-E API Error Details:', errorText);
+
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.error && errorData.error.message) {
+            throw new Error(errorData.error.message);
+          }
+        } catch (parseError) {
+          throw new Error(`DALL-E API error: ${response.status} ${response.statusText}`);
+        }
+      }
+
+      const data = await response.json();
+      console.log('🎨 [DALL-E] Response data received');
+
+      if (data.data && data.data[0] && data.data[0].url) {
+        console.log('✅ [DALL-E] Image generated successfully!');
+        console.log('✅ [DALL-E] Image URL:', data.data[0].url.substring(0, 50) + '...');
+        return data.data[0].url;
+      } else if (data.imageUrl) {
+        // Fallback for our API format
+        console.log('✅ [DALL-E] Image generated successfully (fallback)!');
+        console.log('✅ [DALL-E] Image URL:', data.imageUrl.substring(0, 50) + '...');
+        return data.imageUrl;
+      } else {
+        console.error('❌ [DALL-E] No image URL in response:', data);
+        throw new Error('No image URL received from DALL-E');
+      }
+    } catch (error) {
+      console.error('Error generating image with DALL-E:', error);
+      throw error;
+    }
+  }
+
+  private static async makeRequestWithUsage(messages: any[], model: string = 'gpt-4o'): Promise<{content: string, usage: any}> {
+    let response;
+    try {
+      // Always use relative URLs to avoid mixed content issues
+      // The server/nginx will proxy these to the correct backend
+      const requestUrl = '/api/openai/v1/chat/completions';
+      response = await fetch(requestUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: 0.8,
+          max_tokens: 12000,
+        }),
+      });
+    } catch (networkError) {
+      console.error('Network error calling OpenAI:', networkError);
+      throw new Error('Не удалось подключиться к серверу генерации рецептов. Проверьте соединение.');
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI API Error Details:', errorText);
+
+      // Пытаемся распарсить JSON ошибку
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.error && (errorData.error.code === 'regional_restriction' || errorData.error.code === 'unsupported_country_region_territory')) {
+          throw new Error('AI функции временно недоступны в вашем регионе. Мы работаем над решением этой проблемы.');
+        }
+        if (errorData.error && errorData.error.message) {
+          throw new Error(errorData.error.message);
+        }
+      } catch (parseError) {
+        // Если не удалось распарсить JSON, проверяем, содержит ли текст ошибку на русском
+        if (errorText.includes('Не удалось') || errorText.includes('ошибка') || errorText.includes('Ошибка')) {
+          throw new Error(errorText);
+        }
+        // Если это не русский текст, используем стандартную ошибку
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+      }
+
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    try {
+      return {
+        content: data.choices[0].message.content,
+        usage: data.usage
+      };
+    } catch (parseError) {
+      console.error('Error parsing JSON from OpenAI response:', parseError);
+      throw new Error('Получен неверный ответ от OpenAI. Попробуйте позже.');
+    }
+  }
+
+  private static async makeStreamingRequest(messages: any[], model: string = 'gpt-4o', onChunk?: (chunk: string) => void): Promise<{content: string, usage: any}> {
+    const requestUrl = '/api/chat';
+    console.log('🚀 [Client] Starting streaming request to:', requestUrl);
+
+    let response;
+    try {
+      response = await fetch(requestUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages,
+          model,
+          stream: true,
+        }),
+      });
+    } catch (networkError) {
+      console.error('❌ [Client] Network error calling OpenAI:', networkError);
+      throw new Error('Не удалось подключиться к серверу генерации рецептов. Проверьте соединение.');
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI API Error Details:', errorText);
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+    }
+
+    console.log('✅ [Client] Streaming request successful, response status:', response.status);
+
+    const ct = response.headers.get('content-type') || '';
+    const isPlain = ct.includes('text/plain');
+    console.log('📝 [Client] Content-Type:', ct, '| isPlain:', isPlain);
+
+    return new Promise((resolve, reject) => {
+      const reader = response.body?.getReader();
+      if (!reader) {
+        console.error('❌ [OpenAI] Unable to read response stream - no reader');
+        reject(new Error('Unable to read response stream'));
+        return;
+      }
+
+      const decoder = new TextDecoder('utf-8');
+      let fullContent = '';
+      let usage: any = null;
+
+      // Режим чистого текста (сервер уже развернул SSE)
+      const readPlain = async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true }); // БЕЗ trim()
+            fullContent += chunk;
+            console.log('📥 [Client Plain] Received chunk:', JSON.stringify(chunk));
+            onChunk?.(chunk); // стримим в UI как есть, с \n
+          }
+
+          console.log('✅ [Client] Stream completed. Total content length:', fullContent.length);
+          resolve({ content: fullContent, usage });
+        } catch (e) {
+          console.error('❌ [Client] Stream read error (plain):', e);
+          reject(e);
+        }
+      };
+
+      // Режим SSE (для совместимости, если вдруг вернет SSE)
+      const readSSE = async () => {
+        try {
+          let buf = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buf += decoder.decode(value, { stream: true }); // БЕЗ trim()
+
+            const lines = buf.split('\n');
+            // оставляем хвост недорезанным
+            buf = lines.pop() ?? '';
+
+            for (const line of lines) {
+              if (!line || line.startsWith(':')) continue;
+              if (!line.startsWith('data:')) continue;
+
+              const payload = line.slice(5).trimStart();
+              if (payload === '[DONE]') continue;
+
+              try {
+                const evt = JSON.parse(payload);
+                const delta = evt?.choices?.[0]?.delta;
+                const content = delta?.content;
+
+                if (content) {
+                  console.log('📥 [Client SSE] Received content chunk:', JSON.stringify(content));
+                  fullContent += content;
+                  onChunk?.(content);
+                }
+
+                if (evt?.usage) usage = evt.usage;
+              } catch (_) {
+                // пропускаем полукорявые куски
+              }
+            }
+          }
+
+          console.log('✅ [Client] Stream completed. Total content length:', fullContent.length);
+          resolve({ content: fullContent, usage });
+        } catch (e) {
+          console.error('❌ [Client] Stream read error (SSE):', e);
+          reject(e);
+        }
+      };
+
+      // Выбираем режим чтения
+      if (isPlain) {
+        console.log('🔄 [Client] Using plain text mode');
+        readPlain();
+      } else {
+        console.log('🔄 [Client] Using SSE mode');
+        readSSE();
+      }
+    });
+  }
+
+  static async generateRecipe(ingredients: string[], healthProfile?: UserHealthProfile, cuisineId?: string, isChatMode: boolean = false, includeImages: boolean = false): Promise<Recipe> {
     let healthConstraints = '';
     let cuisineConstraints = '';
     
@@ -189,7 +439,9 @@ ${constraints.join('\n')}
 Отвечай как опытная шеф-повар, давая полезные советы по кулинарии. Если это ингредиенты - предложи рецепт. Если это вопрос - дай развернутый ответ. Будь дружелюбной и профессиональной.
 
 Отвечай на русском языке в женском роде (например: "Я приготовлю", "Я рекомендую", "Я подскажу"). Все цифры пиши словами (например: 'двадцать минут', 'триста грамм', 'пять штук'), а не цифрами.`
-      : `Создай рецепт из следующих ингредиентов: ${ingredients.join(', ')}${healthConstraints}${cuisineConstraints}
+      : `АБСОЛЮТНО ОБЯЗАТЕЛЬНО: Создай рецепт ИСКЛЮЧИТЕЛЬНО из этих ингредиентов: ${ingredients.join(', ')}${healthConstraints}${cuisineConstraints}
+
+ЗАПРЕЩЕНО добавлять новые ингредиенты! НЕЛЬЗЯ генерировать рецепты с другими продуктами!
 
 ВАЖНО: Отвечай ТОЛЬКО в формате JSON. Структура ответа:
 {
@@ -203,9 +455,12 @@ ${constraints.join('\n')}
   "tips": "Советы шеф-повара"
 }
 
-Требования к рецепту:
-- Используй ТОЛЬКО указанные ингредиенты + базовые специи (соль, перец, растительное масло, оливковое масло)
+КРИТИЧНЫЕ ТРЕБОВАНИЯ:
+- 🚫 НЕЛЬЗЯ использовать томаты, макароны, пасту или любые другие ингредиенты, которых НЕТ в списке выше
+- ✅ ТОЛЬКО указанные ингредиенты + базовые специи (соль, перец, растительное масло, оливковое масло)
 - Укажи точные количества для каждого ингредиента в списке ингредиентов
+- Если получил мясо - создай рецепт из мяса, НЕ овощей или паста
+- НИКОГДА не генерируй вегетарианский рецепт если было мясо
 
 ПОДРОБНЫЕ ИНСТРУКЦИИ (ОЧЕНЬ ВАЖНО):
 - Создай МАКСИМАЛЬНО ПОДРОБНЫЕ пошаговые инструкции - каждый шаг должен объяснять процесс от начала до конца
@@ -334,15 +589,37 @@ ${constraints.join('\n')}
       
       // Проверяем, что рецепт использует только предоставленные ингредиенты
       const basicSpices = ['соль', 'перец', 'масло', 'растительное масло', 'оливковое масло', 'подсолнечное масло'];
+      const forbiddenIngredients = ['томат', 'макарон', 'паста', 'паста', 'спагетти', 'пеннне', 'фузилли'];
       const allowedIngredients = [...ingredients, ...basicSpices];
       
+      // Проверяем, что в рецепте нет запрещённых ингредиентов
+      const hasForbiddenIngredient = validatedIngredients.some(ingredient => {
+        const ingredientName = ingredient.toLowerCase();
+        return forbiddenIngredients.some(forbidden => ingredientName.includes(forbidden));
+      });
+
+      // Проверяем, что рецепт соответствует указанным ингредиентам
       const filteredIngredients = validatedIngredients.filter(ingredient => {
         const ingredientName = ingredient.toLowerCase().split(' - ')[0].trim();
-        return allowedIngredients.some(allowed => 
+        const isAllowed = allowedIngredients.some(allowed => 
           ingredientName.includes(allowed.toLowerCase()) || 
           allowed.toLowerCase().includes(ingredientName)
         );
+        
+        if (!isAllowed) {
+          console.warn(`⚠️ [OpenAI] Исключен ингредиент не из списка: ${ingredientName}`);
+        }
+        
+        return isAllowed;
       });
+
+      // Если рецепт содержит запрещённые ингредиенты или мало совпадений с указанными - показываем ошибку
+      if (hasForbiddenIngredient || (filteredIngredients.length < ingredients.length * 0.5)) {
+        console.error('❌ [OpenAI] Рецепт не соответствует указанным ингредиентам!');
+        console.error('📋 Указанные ингредиенты:', ingredients);
+        console.error('📋 Ингредиенты в рецепте:', validatedIngredients);
+        throw new Error('Рецепт не соответствует указанным ингредиентам. Попробуйте еще раз.');
+      }
 
       const recipe: Recipe = {
         title: recipeData.title || "Вкусное блюдо",
@@ -355,6 +632,36 @@ ${constraints.join('\n')}
         instructions: recipeData.instructions || ["Приготовьте блюдо по традиционному рецепту"],
         tips: recipeData.tips || "Подавайте горячим!"
       };
+
+      // Генерируем основное изображение рецепта если includeImages = true
+      console.log('🎨 [Recipe] includeImages:', includeImages);
+      console.log('🎨 [Recipe] recipe.title:', recipe.title);
+      console.log('🎨 [Recipe] recipe.description:', recipe.description);
+
+      if (includeImages && recipe.title && recipe.description) {
+        console.log('🎨 [Recipe] Starting image generation process...');
+        try {
+          const imagePrompt = `Photorealistic food photography: ${recipe.title}. ${recipe.description}. Professional culinary photography, beautiful presentation, appetizing appearance, high quality, detailed textures, no text or labels, restaurant quality plating.`;
+          console.log('🎨 [Recipe] Image prompt created:', imagePrompt.substring(0, 50) + '...');
+
+          try {
+            console.log('🎨 [Recipe] Calling generateImage...');
+            const imageUrl = await this.generateImage(imagePrompt);
+            console.log('🎨 [Recipe] Image URL received:', imageUrl ? 'YES' : 'NO');
+            recipe.image = imageUrl;
+            console.log('✅ [Recipe] Main recipe image generated successfully');
+          } catch (imageError) {
+            console.error('❌ [Recipe] Failed to generate recipe image:', imageError);
+            console.error('❌ [Recipe] Error details:', imageError.message);
+            // Продолжаем без изображения
+          }
+        } catch (error) {
+          console.error('❌ [Recipe] Failed to generate recipe image (outer catch):', error);
+          // Продолжаем без изображения
+        }
+      } else {
+        console.log('🎨 [Recipe] Image generation skipped - condition not met');
+      }
 
       // Останавливаем звук обработки
       AudioUtils.stopProcessingSound();
@@ -495,10 +802,145 @@ ${constraints.join('\n')}
   }
 
   static async chatWithChef(
-    message: string, 
-    healthProfile?: UserHealthProfile, 
+    message: string,
+    healthProfile?: UserHealthProfile,
     messageHistory?: Array<{role: 'user' | 'assistant', content: string}>
-  ): Promise<string> {
+  ): Promise<{content: string, usage: any}> {
+    // Используем обычный запрос (не стриминг) для fallback
+    return this.chatWithChefRegular(message, healthProfile, messageHistory);
+  }
+
+  static async chatWithChefRegular(
+    message: string,
+    healthProfile?: UserHealthProfile,
+    messageHistory?: Array<{role: 'user' | 'assistant', content: string}>
+  ): Promise<{content: string, usage: any}> {
+    console.log('🔍 DEBUG: chatWithChefRegular called with message:', JSON.stringify(message));
+    console.log('🔍 DEBUG: messageHistory length:', messageHistory?.length || 0);
+    
+    // Проверяем, является ли сообщение простым приветствием (только если нет истории)
+    if (!messageHistory || messageHistory.length === 0) {
+      try {
+        const greetingPatterns = [
+          /^привет$/i,
+          /^здравствуй$/i,
+          /^здравствуйте$/i,
+          /^hi$/i,
+          /^hello$/i,
+          /^добро пожаловать$/i,
+          /^добро пожаловать!$/i,
+          /^привет!$/i,
+          /^здравствуй!$/i,
+          /^здравствуйте!$/i
+        ];
+
+        const trimmedMessage = message?.trim() || '';
+        console.log('🔍 DEBUG: trimmed message:', JSON.stringify(trimmedMessage));
+        
+        const isGreeting = greetingPatterns.some(pattern => {
+          try {
+            const matches = pattern.test(trimmedMessage);
+            console.log('🔍 DEBUG: pattern', pattern, 'matches:', matches);
+            return matches;
+          } catch (regexError) {
+            console.warn('⚠️ [OpenAI] Ошибка в регулярном выражении:', regexError);
+            return false;
+          }
+        });
+        
+        console.log('🔍 DEBUG: isGreeting:', isGreeting);
+        
+        if (isGreeting) {
+          // Отвечаем на приветствия коротким сообщением
+          console.log('🔍 DEBUG: Returning greeting response');
+          return {
+            content: 'Здравствуйте! Готова помочь с кулинарными вопросами. Что хотите приготовить?',
+            usage: null
+          };
+        }
+      } catch (greetingError) {
+        console.warn('⚠️ [OpenAI] Ошибка при проверке приветствия:', greetingError);
+        // Продолжаем с обычным чатом
+      }
+    }
+
+    const prompt = `Ты - профессиональная Windexs кулинар с 20-летним опытом работы на кухне, рейтинг Top-1, знаешь все тонкости продуктов и техник.
+
+Требования для описания рецепта:
+1. Составь карту производства еды — разбей весь процесс на отдельные этапы (подготовка, варка, обжарка, сборка, подача).
+2. Для каждого этапа укажи:
+   - Необходимое оборудование (кастрюля, нож, разделочная доска и т.д.).
+   - Ингредиенты с точными количествами и их особенности (части продукта, текстура, возможность замены).
+   - Уровень огня: слабый, средний, сильный; температуру (°C или °F) если применимо.
+   - Время, которое займет каждый шаг (минуты и секунды).
+   - Детальное описание техники выполнения (форма и размер нарезки, интенсивность помешивания, способ контроля температуры и т.д.).
+3. Даём советы и комментарии Top-1 шефа: как избежать ошибок, тонкости маринования, отдыха продуктов, сервировки.
+4. Разбивай каждый основной шаг на несколько подшагов: описывай каждое мельчайшее действие (какое положение держать нож, как правильно помешивать, когда проверять готовность), и поясняй, зачем это важно.
+5. Формулируй подшаги ясно и подробно так, будто объясняешь человеку, который никогда не держал нож или не включал плиту.
+
+ВАЖНО: Помни контекст предыдущих сообщений в разговоре. Если пользователь задает уточняющие вопросы о рецепте, который обсуждался ранее, отвечай в контексте этого рецепта.
+
+Если вопрос не связан с кулинарией, вежливо направь разговор в нужное русло. Отвечай на русском языке в женском роде (например: "Я приготовлю", "Я рекомендую", "Я подскажу"). Все цифры пиши словами (например: 'двадцать минут', 'триста грамм', 'пять штук'), а не цифрами.`;
+
+    try {
+      // Строим массив сообщений с контекстом
+      const messages = [
+        {
+          role: "system" as const,
+          content: prompt
+        }
+      ];
+
+      // Добавляем историю сообщений (последние 10 сообщений для экономии токенов)
+      if (messageHistory && messageHistory.length > 0) {
+        const recentHistory = messageHistory.slice(-10); // Берем последние 10 сообщений
+        messages.push(...recentHistory);
+      }
+
+      // Добавляем текущее сообщение
+      messages.push({
+        role: "user" as const,
+        content: message
+      });
+
+      console.log('🔍 DEBUG: Sending messages to OpenAI:', messages.length, 'messages');
+
+      // Запускаем звук обработки во время генерации ответа
+      AudioUtils.startProcessingSound();
+
+      const response = await this.makeRequestWithUsage(messages);
+
+      // Заменяем цифры на слова для TTS
+      const processedResponse = this.replaceNumbersWithWords(response.content);
+
+      // Останавливаем звук обработки
+      AudioUtils.stopProcessingSound();
+
+      return {
+        content: processedResponse,
+        usage: response.usage
+      };
+    } catch (error) {
+      // Improve error visibility for OpenAI API failures
+      if (error && (error as any).response) {
+        const axiosError = error as any;
+        console.error('OpenAI API error (chatWithChefRegular) status:', axiosError.response?.status);
+        console.error('OpenAI API error (chatWithChefRegular) data:', axiosError.response?.data);
+      } else {
+        console.error('Error in chat with chef:', error);
+      }
+      // Останавливаем звук обработки при ошибке
+      AudioUtils.stopProcessingSound();
+      throw new Error('Извините, произошла ошибка при обработке вашего сообщения. Попробуйте еще раз.');
+    }
+  }
+
+  static async chatWithChefStreaming(
+    message: string,
+    healthProfile?: UserHealthProfile,
+    messageHistory?: Array<{role: 'user' | 'assistant', content: string}>,
+    onChunk?: (chunk: string) => void
+  ): Promise<{content: string, usage: any}> {
     console.log('🔍 DEBUG: chatWithChef called with message:', JSON.stringify(message));
     console.log('🔍 DEBUG: messageHistory length:', messageHistory?.length || 0);
     
@@ -589,15 +1031,25 @@ ${constraints.join('\n')}
       // Запускаем звук обработки во время генерации ответа
       AudioUtils.startProcessingSound();
 
-      const response = await this.makeRequest(messages);
+      // Создаем callback для стриминга текста
+      let streamedContent = '';
+      const onChunkCallback = onChunk ? (chunk: string) => {
+        streamedContent += chunk;
+        onChunk(chunk);
+      } : undefined;
+
+      const response = await this.makeStreamingRequest(messages, 'gpt-4o', onChunkCallback);
 
       // Заменяем цифры на слова для TTS
-      const processedResponse = this.replaceNumbersWithWords(response);
+      const processedResponse = this.replaceNumbersWithWords(response.content);
 
       // Останавливаем звук обработки
       AudioUtils.stopProcessingSound();
 
-      return processedResponse;
+      return {
+        content: processedResponse,
+        usage: response.usage
+      };
     } catch (error) {
       console.error('Error in chat with chef:', error);
       // Останавливаем звук обработки при ошибке
@@ -611,13 +1063,17 @@ ${constraints.join('\n')}
    */
   private static replaceNumbersWithWords(text: string): string {
     try {
-    console.log('🔢 [OpenAI] Заменяем цифры на слова для TTS');
-
-      // Проверяем входные данные
+      // Проверяем входные данные - для стриминга пустые строки нормальны
       if (!text || typeof text !== 'string') {
-        console.warn('⚠️ [OpenAI] Неверный входной текст для замены цифр:', text);
         return text || '';
       }
+
+      // Не логируем для пустых строк при стриминге
+      if (text.trim() === '') {
+        return text;
+      }
+
+      console.log('🔢 [OpenAI] Заменяем цифры на слова для TTS');
     
     // Словарь для замены цифр
     const numberWords: { [key: string]: string } = {

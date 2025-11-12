@@ -42,8 +42,11 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const handleAuthSuccess = (userData: { name: string; email: string }) => {
-    login(userData);
+  const handleAuthSuccess = (userData: { id: number | string; name: string; email: string; role?: string }) => {
+    login({
+      ...userData,
+      id: userData.id.toString() // Ensure id is string for User type
+    });
     setShowAuthModal(false);
     toast({
       title: "Добро пожаловать!",

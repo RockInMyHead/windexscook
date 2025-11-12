@@ -8,10 +8,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { X, Mail, Lock, User, ChefHat, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
+// Функция для хэширования пароля (простая реализация для демо)
+const hashPassword = async (password: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (user: { name: string; email: string }) => void;
+  onSuccess: (user: { id: number | string; name: string; email: string; role?: string }) => void;
 }
 
 export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
@@ -33,43 +42,62 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Проверка на администратора
-    if (loginData.email === "admin@cook.windexs.ru" && loginData.password === "admin123") {
-      onSuccess({ 
-        name: "Администратор", 
-        email: "admin@cook.windexs.ru",
-        role: "admin"
-      });
-      toast({
-        title: "Добро пожаловать, Администратор!",
-        description: "Вы вошли с правами администратора",
-      });
-      onClose();
-      setIsLoading(false);
-      return;
-    }
+    try {
+      // Хэшируем пароль
+      const passwordHash = await hashPassword(loginData.password);
 
-    // Симуляция API вызова для обычных пользователей
-    setTimeout(() => {
-      if (loginData.email && loginData.password) {
-        onSuccess({ 
-          name: loginData.email.split('@')[0], 
-          email: loginData.email 
+      // Вызываем API входа
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: loginData.email,
+          passwordHash
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const isAdmin = data.role === 'admin';
+        onSuccess({
+          id: data.id.toString(),
+          name: data.name,
+          email: data.email,
+          role: data.role
         });
-        toast({
-          title: "Добро пожаловать!",
-          description: "Вы успешно вошли в личный кабинет",
-        });
+
+        if (isAdmin) {
+          toast({
+            title: "Добро пожаловать, Администратор!",
+            description: "Вы вошли с правами администратора",
+          });
+        } else {
+          toast({
+            title: "Добро пожаловать!",
+            description: "Вы успешно вошли в личный кабинет",
+          });
+        }
         onClose();
       } else {
         toast({
           title: "Ошибка входа",
-          description: "Пожалуйста, заполните все поля",
+          description: data.error || "Неверный email или пароль",
           variant: "destructive",
         });
       }
+    } catch (error) {
+      console.error('Login error:', error);
+      toast({
+        title: "Ошибка входа",
+        description: "Произошла ошибка при входе. Попробуйте еще раз.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -96,19 +124,54 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
       return;
     }
 
-    // Симуляция API вызова
-    setTimeout(() => {
-      onSuccess({ 
-        name: registerData.name, 
-        email: registerData.email 
+    try {
+      // Хэшируем пароль
+      const passwordHash = await hashPassword(registerData.password);
+
+      // Вызываем API регистрации
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: registerData.name,
+          email: registerData.email,
+          passwordHash
+        })
       });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        onSuccess({
+          id: data.id.toString(),
+          name: data.name,
+          email: data.email,
+          role: data.role
+        });
+        toast({
+          title: "Регистрация успешна!",
+          description: "Добро пожаловать в кулинар!",
+        });
+        onClose();
+      } else {
+        toast({
+          title: "Ошибка регистрации",
+          description: data.error || "Не удалось зарегистрироваться",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
       toast({
-        title: "Регистрация успешна!",
-        description: "Добро пожаловать в кулинар!",
+        title: "Ошибка регистрации",
+        description: "Произошла ошибка при регистрации. Попробуйте еще раз.",
+        variant: "destructive",
       });
-      onClose();
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {

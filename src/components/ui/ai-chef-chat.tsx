@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import { Button } from './button';
 import { Input } from './input';
 import { Card, CardContent, CardHeader, CardTitle } from './card';
@@ -35,6 +36,7 @@ interface Message {
   timestamp: Date;
   isTyping?: boolean;
   isAudio?: boolean;
+  isStreaming?: boolean;
 }
 
 interface AiChefChatProps {
@@ -59,6 +61,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   const [thinkingStep, setThinkingStep] = useState(0);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const autoScrollRef = useRef(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Проверяем, является ли запрос запросом рецепта
@@ -84,32 +87,75 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
     "Проверяю рецепт на точность..."
   ];
 
+  // Демо-ответы для случаев когда API недоступен
+  const getDemoResponse = (message: string): string => {
+    const lowerMessage = message.toLowerCase();
+
+    // Приветствия
+    if (lowerMessage.includes('привет') || lowerMessage.includes('здравствуй') || lowerMessage.includes('hi') || lowerMessage.includes('hello')) {
+      return 'Привет! Я - ваш виртуальный шеф-повар. Расскажите, что вы хотели бы приготовить, и я помогу с рецептом!';
+    }
+
+    // Вопросы о кулинарии
+    if (lowerMessage.includes('как') && (lowerMessage.includes('приготовить') || lowerMessage.includes('сделать'))) {
+      return 'Я вижу, что вы спрашиваете о приготовлении. В демо-режиме я могу дать общие советы. Для полноценных рецептов с AI нужны API ключи. Попробуйте другие функции приложения - анализ изображений или голосовое управление!';
+    }
+
+    // Ингредиенты
+    if (lowerMessage.includes('рецепт') || lowerMessage.includes('ингредиент')) {
+      return 'Вы спрашиваете о рецепте. В демо-режиме рецепты ограничены. Попробуйте загрузить фото продуктов - функция анализа изображений работает без API ключей!';
+    }
+
+    // Общие вопросы
+    if (lowerMessage.includes('что') || lowerMessage.includes('как') || lowerMessage.includes('почему')) {
+      return 'Интересный вопрос! В демо-режиме я даю базовые советы. Для глубоких консультаций с AI нужно настроить API ключи. А пока попробуйте голосовое управление - оно работает автономно!';
+    }
+
+    // По умолчанию
+    return 'Спасибо за ваш вопрос! Сейчас приложение работает в демо-режиме. Попробуйте:\n• 📸 Анализ фото продуктов\n• 🎤 Голосовое управление\n• 📊 Калькулятор калорий\n\nДля полноценного AI чата настройте API ключи OpenAI.';
+  };
+
   // Автоскролл к последнему сообщению
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
+    if (!viewport) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = viewport;
+      const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+      const shouldAutoScroll = distanceFromBottom <= 120;
+
+      if (autoScrollRef.current !== shouldAutoScroll) {
+        autoScrollRef.current = shouldAutoScroll;
       }
+    };
+
+    handleScroll();
+    viewport.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      viewport.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
+    if (!viewport || !autoScrollRef.current) return;
+
+    try {
+      viewport.scrollTo({
+        top: viewport.scrollHeight,
+        behavior: 'auto'
+      });
+    } catch {
+      viewport.scrollTop = viewport.scrollHeight;
     }
   }, [messages]);
 
-  // Анимация мыслей AI
+  // Анимация мыслей AI (теперь только для индикации загрузки)
   useEffect(() => {
     if (isThinking) {
       const interval = setInterval(() => {
-        setThinkingStep(prev => {
-          const nextStep = (prev + 1) % thinkingSteps.length;
-          // Обновляем содержимое сообщения о мышлении
-          setMessages(currentMessages => 
-            currentMessages.map(msg => 
-              msg.id === 'thinking' 
-                ? { ...msg, content: thinkingSteps[nextStep] }
-                : msg
-            )
-          );
-          return nextStep;
-        });
+        setThinkingStep(prev => (prev + 1) % thinkingSteps.length);
       }, 1500); // Меняем мысль каждые 1.5 секунды
 
       return () => clearInterval(interval);
@@ -138,16 +184,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
     setIsThinking(true);
     setThinkingStep(0);
 
-    // Добавляем сообщение о том, что AI думает
-    const thinkingMessage: Message = {
-      id: 'thinking',
-      content: thinkingSteps[0],
-      role: 'assistant',
-      timestamp: new Date(),
-      isTyping: true
-    };
-
-    setMessages(prev => [...prev, thinkingMessage]);
+    let didStreamResponse = false;
 
     try {
       // Проверяем, является ли запрос запросом рецепта
@@ -163,8 +200,8 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
       let recipe: Recipe | null = null;
 
       if (shouldGenerateRecipe) {
-        // Воспроизводим звук обработки во время генерации рецепта
-        AudioUtils.playProcessingSound();
+        // Воспроизводим звук обработки во время генерации рецепта (уже вызывается в сервисе)
+        // AudioUtils.playProcessingSound();
 
         // Генерируем рецепт с изображениями
         console.log('🍳 [AI Chef Chat] Обнаружен запрос рецепта - генерируем с изображениями');
@@ -195,7 +232,6 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
         // Подготавливаем историю сообщений для контекста
         const messageHistory = messages
           .filter(msg =>
-            msg.id !== 'thinking' &&
             !(msg.role === 'assistant' && msg.content === 'Готов помочь с кулинарными вопросами! Что хотите приготовить?')
           )
           .map(msg => ({
@@ -205,11 +241,121 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
 
         console.log('🔍 DEBUG: Sending message history:', messageHistory.length, 'messages');
 
-        // Воспроизводим звук обработки во время генерации ответа
-        AudioUtils.playProcessingSound();
+        // Создаем сообщение для стриминга
+        const streamingMessageId = `streaming-${Date.now()}`;
+        const streamingMessage: Message = {
+          id: streamingMessageId,
+          content: '',
+          role: 'assistant',
+          timestamp: new Date(),
+          isStreaming: true
+        };
 
-        response = await OpenAIService.chatWithChef(messageText, user?.healthProfile, messageHistory);
-        responseText = response;
+        // Добавляем пустое сообщение для стриминга
+        setMessages(prev => [...prev, streamingMessage]);
+
+        // Воспроизводим звук обработки во время генерации ответа (уже вызывается в сервисе)
+        // AudioUtils.playProcessingSound();
+
+        // Используем настоящий стриминг от сервера с очередью чанков
+        let currentContent = '';
+        let chunkQueue: string[] = [];
+        let isProcessingQueue = false;
+
+        const processChunkQueue = async () => {
+          if (isProcessingQueue || chunkQueue.length === 0) return;
+          isProcessingQueue = true;
+
+          while (chunkQueue.length > 0) {
+            const chunk = chunkQueue.shift()!;
+            console.log('🎯 [Client Streaming] Processing chunk:', chunk.length, 'chars:', JSON.stringify(chunk));
+
+          currentContent += chunk;
+
+            // Используем flushSync для немедленного обновления UI
+            flushSync(() => {
+          setMessages(prev => prev.map(msg =>
+            msg.id === streamingMessageId
+              ? { ...msg, content: currentContent }
+              : msg
+          ));
+            });
+
+            // Задержка между чанками для визуального эффекта
+            await new Promise(resolve => setTimeout(resolve, 20));
+          }
+
+          isProcessingQueue = false;
+        };
+
+        const onChunk = (chunk: string) => {
+          console.log('📥 [Client Streaming] Received chunk:', chunk.length, 'chars:', JSON.stringify(chunk));
+          if (!chunk) return;
+
+          chunkQueue.push(chunk);
+          didStreamResponse = true;
+
+          // Запускаем обработку очереди
+          processChunkQueue();
+        };
+
+        try {
+          response = await OpenAIService.chatWithChefStreaming(messageText, user?.healthProfile, messageHistory, onChunk);
+
+          // Убеждаемся, что все оставшиеся чанки обработаны перед завершением
+          await new Promise(resolve => {
+            const checkQueue = () => {
+              if (isProcessingQueue || chunkQueue.length > 0) {
+                setTimeout(checkQueue, 50);
+              } else {
+                resolve(null);
+              }
+            };
+            checkQueue();
+          });
+
+          // Завершаем стриминг
+          const finalStreamedContent = currentContent.length > 0 ? currentContent : response.content; // без .trim()
+          setMessages(prev => prev.map(msg =>
+            msg.id === streamingMessageId
+              ? { ...msg, content: finalStreamedContent, isStreaming: false }
+              : msg
+          ));
+
+          responseText = finalStreamedContent;
+
+          // Если ответ пустой, пробуем обычный запрос
+          if (!responseText || !responseText.trim()) {
+            console.warn('⚠️ [AI Chef Chat] Streaming returned empty response, trying regular request');
+            
+            // Удаляем пустое стриминговое сообщение
+            setMessages(prev => prev.filter(msg => msg.id !== streamingMessageId));
+            didStreamResponse = false;
+
+            // Пробуем обычный запрос
+            const regularResponse = await OpenAIService.chatWithChef(messageText, user?.healthProfile, messageHistory);
+            responseText = regularResponse.content;
+          }
+        } catch (streamError) {
+          console.error('❌ [AI Chef Chat] Streaming failed, trying regular request:', streamError);
+          if (streamError && (streamError as any).response) {
+            const err = streamError as any;
+            console.error('OpenAI streaming error status:', err.response?.status);
+            console.error('OpenAI streaming error data:', err.response?.data);
+          }
+          
+          // Удаляем пустое стриминговое сообщение
+          setMessages(prev => prev.filter(msg => msg.id !== streamingMessageId));
+          didStreamResponse = false;
+
+          // Fallback на обычный запрос
+          try {
+            const regularResponse = await OpenAIService.chatWithChef(messageText, user?.healthProfile, messageHistory);
+            responseText = regularResponse.content;
+          } catch (fallbackError) {
+            throw streamError; // Бросаем оригинальную ошибку стриминга
+          }
+        }
       }
 
       // Сохраняем рецепт если он был сгенерирован
@@ -217,35 +363,54 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
         setGeneratedRecipe(recipe);
       }
 
-      // Удаляем сообщение о мышлении
-      setMessages(prev => {
-        const withoutThinking = prev.filter(msg => msg.id !== 'thinking');
-
         // Добавляем ответ только если он не пустой
         if (responseText && responseText.trim()) {
-          return [...withoutThinking, {
+        if (!didStreamResponse) {
+          setMessages(prev => [...prev, {
             id: Date.now().toString(),
             content: responseText,
             role: 'assistant',
             timestamp: new Date()
-          }];
+          }]);
         }
-
-        return withoutThinking;
-      });
+      }
     } catch (error) {
       console.error('Error sending message:', error);
-      
-      // Удаляем сообщение о мышлении и добавляем сообщение об ошибке
-      setMessages(prev => {
-        const withoutThinking = prev.filter(msg => msg.id !== 'thinking');
-        return [...withoutThinking, {
-          id: Date.now().toString(),
-          content: 'Извините, я временно недоступен. Попробуйте позже или обратитесь к другим функциям приложения.',
-          role: 'assistant',
-          timestamp: new Date()
-        }];
-      });
+
+      // Определяем тип ошибки
+      let useDemoMode = false;
+      let errorMessage = 'Извините, я временно недоступен. Попробуйте позже или обратитесь к другим функциям приложения.';
+
+      if (error instanceof Error) {
+        const errorText = error.message.toLowerCase();
+
+        if (errorText.includes('недоступны в вашем регионе') || errorText.includes('unsupported_country') || errorText.includes('regional_restriction')) {
+          useDemoMode = true; // Используем демо-режим для геоблокировок
+        } else if (errorText.includes('api key not configured') || errorText.includes('api key')) {
+          useDemoMode = true; // Используем демо-режим если нет API ключей
+        } else if (errorText.includes('network') || errorText.includes('подключиться')) {
+          errorMessage = 'Проблемы с подключением к интернету. Проверьте соединение и попробуйте еще раз.';
+        }
+      }
+
+      // Если используем демо-режим, показываем демо-ответ
+      if (useDemoMode) {
+        const demoResponse = getDemoResponse(messageText);
+        setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            content: demoResponse,
+            role: 'assistant',
+            timestamp: new Date()
+        }]);
+      } else {
+        // Добавляем сообщение об ошибке
+        setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            content: errorMessage,
+            role: 'assistant',
+            timestamp: new Date()
+        }]);
+      }
     } finally {
       setIsLoading(false);
       setIsThinking(false);
@@ -325,61 +490,22 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
     });
   };
 
+  // Простое форматирование сообщений для базовой обработки списков
   const formatMessageContent = (content: string) => {
-    // Сначала обрабатываем изображения markdown: ![alt](url)
-    let formattedContent = content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
-      return `<img src="${url}" alt="${alt}" class="max-w-full h-auto rounded-lg my-2 shadow-md" />`;
-    });
+    if (!content) return content;
 
-    // Затем заменяем ### на ** для жирного текста большего шрифта
-    formattedContent = formattedContent.replace(/\n### (.*?)(?=\n|$)/g, '\n**$1**');
+    // Обработка списков: превращаем - в • для лучшего отображения
+    let formatted = content;
 
-    // Затем заменяем #### на ** для обычного жирного шрифта
-    formattedContent = formattedContent.replace(/\n#### (.*?)(?=\n|$)/g, '\n**$1**');
+    // Превращаем маркеры списков - в •
+    formatted = formatted.replace(/^(\s*)-(\s+)/gm, '$1•$2');
 
-    // Затем обрабатываем markdown для жирного текста
-    const parts = formattedContent.split(/(\*\*.*?\*\*|<img[^>]*>)/g);
-    
-    const formattedParts = parts.map((part, index) => {
-      if (part.startsWith('<img') && part.endsWith('>')) {
-        // Это изображение - рендерим как HTML
-        return <div key={index} dangerouslySetInnerHTML={{ __html: part }} />;
-      } else if (part.startsWith('**') && part.endsWith('**')) {
-        // Это жирный текст - проверяем, был ли это ### (больший шрифт)
-        const text = part.slice(2, -2);
-        const originalText = content;
-        const isLargeFont = originalText.includes(`### ${text}`);
+    // Убираем лишние пустые строки между элементами списка
+    formatted = formatted.replace(/(\n\s*•[^\n]*)\n\s*\n\s*(?=•)/g, '$1\n');
 
-        if (isLargeFont) {
-          return <strong key={index} className="font-bold text-lg">{text}</strong>;
-        } else {
-          return <strong key={index} className="font-bold">{text}</strong>;
-        }
-      }
-      return part;
-    });
-
-    // Теперь обрабатываем Windexs
-    const finalParts: React.ReactNode[] = [];
-    
-    formattedParts.forEach((part, index) => {
-      if (typeof part === 'string') {
-        const windexsParts = part.split('Windexs');
-        windexsParts.forEach((subPart, subIndex) => {
-          if (subIndex > 0) {
-            finalParts.push(<span key={`${index}-${subIndex}`} className="text-primary font-semibold">Windexs</span>);
-          }
-          if (subPart) {
-            finalParts.push(subPart);
-          }
-        });
-      } else {
-        finalParts.push(part);
-      }
-    });
-
-    return finalParts;
+    return formatted;
   };
+
 
   // Функции для работы с аудио
   const startRecording = async () => {
@@ -581,9 +707,11 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
                           <p className="text-sm whitespace-pre-wrap opacity-90">{message.content}</p>
                         </div>
                       </div>
-                    ) : message.isTyping ? (
+                    ) : message.isTyping || message.isStreaming ? (
                       <div className="flex items-center gap-2">
-                        <p className="text-sm whitespace-pre-wrap">{formatMessageContent(message.content)}</p>
+                        <div className="text-sm whitespace-pre-wrap">
+                          {message.content}
+                        </div>
                         <div className="flex gap-1">
                           <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                           <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
@@ -591,7 +719,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm whitespace-pre-wrap">{formatMessageContent(message.content)}</p>
+                      <div className="text-sm whitespace-pre-wrap">{message.content}</div>
                     )}
                   </div>
                   
@@ -599,7 +727,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
                     <span className="text-xs text-muted-foreground">
                       {formatTime(message.timestamp)}
                     </span>
-                    {message.role === 'assistant' && !message.isTyping && (
+                    {message.role === 'assistant' && !message.isTyping && !message.isStreaming && (
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"

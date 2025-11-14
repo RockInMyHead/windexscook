@@ -22,7 +22,6 @@ import {
   Globe
 } from "lucide-react";
 import { OpenAIService, Recipe } from "@/services/openai";
-import { RecipeDisplay } from "@/components/ui/recipe-display";
 import { CuisineSelector } from "@/components/ui/cuisine-selector";
 import { Header } from "@/components/header";
 import { AuthModal } from "@/components/ui/auth-modal";
@@ -46,6 +45,7 @@ export const MyRecipes = () => {
   const [selectedCuisine, setSelectedCuisine] = useState<string>("");
   const [isAILoading, setIsAILoading] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
+  const [recipeText, setRecipeText] = useState<string>('');
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDifficulty, setFilterDifficulty] = useState<string>("all");
@@ -220,6 +220,23 @@ export const MyRecipes = () => {
       const recipe = await OpenAIService.generateRecipe(ingredients, user?.healthProfile, selectedCuisine, false, true);
       setGeneratedRecipe(recipe);
 
+      // Формируем текстовое описание рецепта как в чате
+      let text = `Отлично! Я подготовил рецепт "${recipe.title}". ${recipe.description}\n\n`;
+
+      recipe.instructions.forEach((instruction: string, index: number) => {
+        // Вставляем изображение перед каждым шагом, если оно есть
+        if (recipe.instructionImages && recipe.instructionImages[index]) {
+          text += `![Шаг ${index + 1}](${recipe.instructionImages[index]})\n\n`;
+        }
+        text += `**Шаг ${index + 1}:** ${instruction}\n\n`;
+      });
+
+      if (recipe.tips) {
+        text += `**Полезные советы:** ${recipe.tips}`;
+      }
+
+      setRecipeText(text);
+
       const cuisineName = selectedCuisine ? WORLD_CUISINES.find(c => c.id === selectedCuisine)?.name : '';
       toast({
         title: "🎉 Рецепт готов!",
@@ -287,10 +304,12 @@ export const MyRecipes = () => {
 
   const handleCloseRecipe = () => {
     setGeneratedRecipe(null);
+    setRecipeText('');
   };
 
   const handleGenerateNew = () => {
     setGeneratedRecipe(null);
+    setRecipeText('');
     setIngredients([]);
   };
 
@@ -475,6 +494,53 @@ export const MyRecipes = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Generated Recipe Display */}
+              {recipeText && (
+                <Card className="bg-gradient-card border-border/50 mt-6">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <ChefHat className="w-5 h-5 text-primary" />
+                      Сгенерированный рецепт
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="prose prose-sm max-w-none dark:prose-invert">
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {recipeText}
+                      </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-4 border-t">
+                      <Button
+                        onClick={handleSaveGeneratedRecipe}
+                        className="bg-gradient-primary hover:opacity-90 transition-opacity flex items-center gap-2"
+                        size="sm"
+                      >
+                        <Save className="h-4 w-4" />
+                        Сохранить рецепт
+                      </Button>
+                      <Button
+                        onClick={handleGenerateNew}
+                        variant="outline"
+                        className="flex items-center gap-2"
+                        size="sm"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Создать новый
+                      </Button>
+                      <Button
+                        onClick={handleCloseRecipe}
+                        variant="ghost"
+                        className="flex items-center gap-2"
+                        size="sm"
+                      >
+                        <X className="h-4 w-4" />
+                        Закрыть
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             {/* Saved Recipes Tab */}
@@ -622,18 +688,6 @@ export const MyRecipes = () => {
         </div>
       </div>
 
-      {/* Recipe Display Modal */}
-      {generatedRecipe && (
-        <RecipeDisplay
-          recipe={generatedRecipe}
-          onClose={handleCloseRecipe}
-          onGenerateNew={handleGenerateNew}
-          onRegister={() => {}}
-          onLogin={() => {}}
-          onSave={handleSaveGeneratedRecipe}
-          showSaveButton={true}
-        />
-      )}
 
       {/* Product Selector Modal */}
       {/* Removed Product Selector Modal */}

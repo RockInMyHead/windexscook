@@ -83,6 +83,20 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
     return recipeKeywords.some(keyword => lowerText.includes(keyword));
   };
 
+  // Проверяем, является ли запрос запросом на показ фото блюда
+  const isImageRequest = (text: string): boolean => {
+    const lowerText = text.toLowerCase();
+
+    const imageKeywords = [
+      'покажи фото', 'покажите фото', 'покажи изображение', 'покажите изображение',
+      'фото блюда', 'изображение блюда', 'как выглядит', 'покажи как выглядит',
+      'визуально', 'визуализация', 'нарисуй', 'нарисуйте', 'изобрази', 'изобразите',
+      'генерируй фото', 'сгенерируй фото', 'создай изображение'
+    ];
+
+    return imageKeywords.some(keyword => lowerText.includes(keyword));
+  };
+
   // Массив "мыслей" AI для визуализации
   const thinkingSteps = [
     "Анализирую ваш запрос...",
@@ -194,11 +208,13 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
     let didStreamResponse = false;
 
     try {
-      // Проверяем, является ли запрос запросом рецепта
+      // Проверяем, является ли запрос запросом рецепта или изображения
       const shouldGenerateRecipe = isRecipeRequest(messageText);
+      const shouldGenerateImage = isImageRequest(messageText);
 
       console.log('🔍 [AI Chef Chat] Анализ запроса:', {
         isRecipeRequest: shouldGenerateRecipe,
+        isImageRequest: shouldGenerateImage,
         message: messageText
       });
 
@@ -234,6 +250,41 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
           console.log('🍳 [AI Chef Chat] Сформирован текстовый рецепт с изображениями в тексте');
         } else {
           responseText = response.content || response.description || 'Не удалось сгенерировать рецепт.';
+        }
+      } else if (shouldGenerateImage) {
+        // Генерируем изображение блюда
+        console.log('🎨 [AI Chef Chat] Обнаружен запрос изображения блюда');
+
+        // Извлекаем название блюда из запроса
+        const dishName = messageText.toLowerCase()
+          .replace(/покажи(te)? фото/i, '')
+          .replace(/покажи(te)? изображение/i, '')
+          .replace(/фото блюда/i, '')
+          .replace(/изображение блюда/i, '')
+          .replace(/как выглядит/i, '')
+          .replace(/визуально/i, '')
+          .replace(/визуализация/i, '')
+          .replace(/нарисуй(te)?/i, '')
+          .replace(/изобрази(te)?/i, '')
+          .replace(/генерируй(te)? фото/i, '')
+          .replace(/сгенерируй(te)? фото/i, '')
+          .replace(/создай(te)? изображение/i, '')
+          .trim();
+
+        console.log('🎨 [AI Chef Chat] Извлеченное название блюда:', dishName);
+
+        // Генерируем изображение
+        const imagePrompt = dishName
+          ? `Photorealistic food photography: ${dishName}. Professional culinary photography, beautiful presentation, appetizing appearance, high quality, detailed textures, restaurant quality plating.`
+          : `Photorealistic food photography: delicious gourmet dish. Professional culinary photography, beautiful presentation, appetizing appearance, high quality, detailed textures, restaurant quality plating.`;
+
+        try {
+          const imageUrl = await OpenAIService.generateImage(imagePrompt);
+          responseText = `Вот как может выглядеть${dishName ? ` "${dishName}"` : ' ваше блюдо'}:\n\n![Блюдо](${imageUrl})\n\nНадеюсь, вам понравилось изображение! Если хотите рецепт приготовления, просто спросите.`;
+          console.log('✅ [AI Chef Chat] Изображение блюда сгенерировано успешно');
+        } catch (imageError) {
+          console.error('❌ [AI Chef Chat] Ошибка генерации изображения:', imageError);
+          responseText = 'Извините, не удалось сгенерировать изображение блюда. Попробуйте позже или опишите блюдо подробнее.';
         }
       } else {
         // Подготавливаем историю сообщений для контекста

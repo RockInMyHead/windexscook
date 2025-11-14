@@ -217,26 +217,16 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {recipe.instructions.map((instruction, index) => {
-                  // Очищаем инструкцию от лишних цифр и мета-информации
-                  const cleanInstruction = instruction
-                    .replace(/^[0-9.\s\-]+/, '') // Убираем номера в начале
-                    .replace(/^(Оборудование|Время|Важно|Техника):\s*/i, '') // Убираем мета-префиксы
-                    .trim();
-
-                  return (
-                    <div key={index} className="space-y-3">
-                      <div className="flex gap-3 sm:gap-4">
-                        <span className="flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold text-xs sm:text-sm">
-                          {index + 1}
-                        </span>
-                        <p className="text-foreground leading-relaxed pt-0.5 sm:pt-1 text-sm sm:text-base">
-                          {cleanInstruction}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
+                {recipe.instructions.map((instruction, index) => (
+                  <div key={index} className="space-y-2">
+                    <h4 className="font-semibold text-primary text-sm sm:text-base">
+                      Шаг {index + 1}:
+                    </h4>
+                    <p className="text-foreground leading-relaxed pl-4 text-sm sm:text-base whitespace-pre-wrap">
+                      {instruction}
+                    </p>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

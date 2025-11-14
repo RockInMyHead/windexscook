@@ -38,10 +38,9 @@ const PROXY_HOST = process.env.PROXY_HOST;
 const PROXY_PORT = process.env.PROXY_PORT;
 const PROXY_USERNAME = process.env.PROXY_USERNAME;
 const PROXY_PASSWORD = process.env.PROXY_PASSWORD;
-const DISABLE_PROXY = process.env.DISABLE_PROXY === 'true'; // Новый флаг для отключения прокси
 
-// Создаем прокси агент для HTTPS только если все данные прокси указаны и прокси не отключен
-const proxyUrl = !DISABLE_PROXY && PROXY_HOST && PROXY_PORT && PROXY_USERNAME && PROXY_PASSWORD
+// Создаем прокси агент для HTTPS только если все данные прокси указаны
+const proxyUrl = PROXY_HOST && PROXY_PORT && PROXY_USERNAME && PROXY_PASSWORD 
   ? `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`
   : null;
 
@@ -52,8 +51,7 @@ console.log('🔧 Proxy configuration:', {
   proxyHost: PROXY_HOST,
   proxyPort: PROXY_PORT,
   proxyUsername: PROXY_USERNAME,
-  proxyEnabled: !!proxyAgent,
-  proxyDisabledByFlag: DISABLE_PROXY
+  proxyEnabled: !!proxyAgent
 });
 
 // Создаем директорию для логов

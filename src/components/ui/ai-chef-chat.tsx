@@ -66,13 +66,20 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
 
   // Проверяем, является ли запрос запросом рецепта
   const isRecipeRequest = (text: string): boolean => {
+    const lowerText = text.toLowerCase();
+
+    // Исключаем разговорные фразы типа "хочу рецепт картошки" - это не явный запрос рецепта
+    if (lowerText.includes('хочу рецепт') || lowerText.includes('дай рецепт')) {
+      return false;
+    }
+
     const recipeKeywords = [
-      'рецепт', 'приготовить', 'сварить', 'пожарить', 'запечь', 'сделать',
+      'приготовить', 'сварить', 'пожарить', 'запечь', 'сделать',
       'как приготовить', 'как сделать', 'как сварить', 'рецепт на',
-      'рецепт приготовления', 'готовим', 'приготовление'
+      'рецепт приготовления', 'готовим', 'приготовление',
+      'покажи рецепт', 'дайте рецепт', 'нужен рецепт'
     ];
 
-    const lowerText = text.toLowerCase();
     return recipeKeywords.some(keyword => lowerText.includes(keyword));
   };
 

@@ -217,7 +217,7 @@ export const MyRecipes = () => {
 
     setIsAILoading(true);
     try {
-      const recipe = await OpenAIService.generateRecipe(ingredients, user?.healthProfile, selectedCuisine);
+      const recipe = await OpenAIService.generateRecipe(ingredients, user?.healthProfile, selectedCuisine, false, true);
       setGeneratedRecipe(recipe);
 
       const cuisineName = selectedCuisine ? WORLD_CUISINES.find(c => c.id === selectedCuisine)?.name : '';

@@ -142,20 +142,20 @@ async function initializeDatabase() {
         FOREIGN KEY (user_id) REFERENCES users(id),
         FOREIGN KEY (recipe_id) REFERENCES recipes(id)
       );
-
-      // Add health_profile column to users table if it doesn't exist
-      try {
-        await db.run(`ALTER TABLE users ADD COLUMN health_profile TEXT DEFAULT NULL`);
-        console.log('✅ [Database] Added health_profile column to users table');
-      } catch (alterError) {
-        // Column might already exist, ignore error
-        if (alterError.message.includes('duplicate column name')) {
-          console.log('ℹ️ [Database] health_profile column already exists');
-        } else {
-          console.warn('⚠️ [Database] Error adding health_profile column:', alterError.message);
-        }
-      }
     `);
+
+    // Add health_profile column to users table if it doesn't exist
+    try {
+      await db.run(`ALTER TABLE users ADD COLUMN health_profile TEXT DEFAULT NULL`);
+      console.log('✅ [Database] Added health_profile column to users table');
+    } catch (alterError) {
+      // Column might already exist, ignore error
+      if (alterError.message.includes('duplicate column name')) {
+        console.log('ℹ️ [Database] health_profile column already exists');
+      } else {
+        console.warn('⚠️ [Database] Error adding health_profile column:', alterError.message);
+      }
+    }
 
     console.log('✅ [Database] Tables initialized successfully');
     return db;

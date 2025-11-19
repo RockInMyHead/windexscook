@@ -764,14 +764,35 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
                         <div className="flex-1">
                           <p className="text-sm font-medium mb-1">🎤 Голосовое сообщение</p>
                           <div className="text-sm opacity-90 prose prose-sm max-w-none dark:prose-invert">
-                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                            <ReactMarkdown
+                              components={{
+                                p: ({children}) => <p className="mb-4 leading-relaxed">{children}</p>,
+                                h1: ({children}) => <h1 className="text-lg font-bold mb-3 mt-4">{children}</h1>,
+                                h2: ({children}) => <h2 className="text-base font-semibold mb-3 mt-4">{children}</h2>,
+                                h3: ({children}) => <h3 className="text-sm font-medium mb-2 mt-3">{children}</h3>,
+                                ul: ({children}) => <ul className="mb-4 ml-4 space-y-1">{children}</ul>,
+                                ol: ({children}) => <ol className="mb-4 ml-4 space-y-1">{children}</ol>,
+                                li: ({children}) => <li className="leading-relaxed">{children}</li>
+                              }}
+                            >{message.content}</ReactMarkdown>
                           </div>
                         </div>
                       </div>
                     ) : message.isTyping || message.isStreaming ? (
                       <div className="flex items-center gap-2">
                         <div className="text-sm whitespace-pre-wrap">
-                          <ReactMarkdown className="prose prose-sm max-w-none dark:prose-invert">{message.content}</ReactMarkdown>
+                          <ReactMarkdown
+                            className="prose prose-sm max-w-none dark:prose-invert"
+                            components={{
+                              p: ({children}) => <p className="mb-4 leading-relaxed">{children}</p>,
+                              h1: ({children}) => <h1 className="text-lg font-bold mb-3 mt-4">{children}</h1>,
+                              h2: ({children}) => <h2 className="text-base font-semibold mb-3 mt-4">{children}</h2>,
+                              h3: ({children}) => <h3 className="text-sm font-medium mb-2 mt-3">{children}</h3>,
+                              ul: ({children}) => <ul className="mb-4 ml-4 space-y-1">{children}</ul>,
+                              ol: ({children}) => <ol className="mb-4 ml-4 space-y-1">{children}</ol>,
+                              li: ({children}) => <li className="leading-relaxed">{children}</li>
+                            }}
+                          >{message.content}</ReactMarkdown>
                         </div>
                         <div className="flex gap-1">
                           <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
@@ -781,7 +802,17 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
                       </div>
                     ) : (
                       <div className="text-sm prose prose-sm max-w-none dark:prose-invert">
-                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                        <ReactMarkdown
+                          components={{
+                            p: ({children}) => <p className="mb-4 leading-relaxed">{children}</p>,
+                            h1: ({children}) => <h1 className="text-lg font-bold mb-3 mt-4">{children}</h1>,
+                            h2: ({children}) => <h2 className="text-base font-semibold mb-3 mt-4">{children}</h2>,
+                            h3: ({children}) => <h3 className="text-sm font-medium mb-2 mt-3">{children}</h3>,
+                            ul: ({children}) => <ul className="mb-4 ml-4 space-y-1">{children}</ul>,
+                            ol: ({children}) => <ol className="mb-4 ml-4 space-y-1">{children}</ol>,
+                            li: ({children}) => <li className="leading-relaxed">{children}</li>
+                          }}
+                        >{message.content}</ReactMarkdown>
                       </div>
                     )}
                   </div>

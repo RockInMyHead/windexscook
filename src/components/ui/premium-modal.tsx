@@ -22,7 +22,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 }) => {
   console.log('🔄 PremiumModal rendered - isOpen:', isOpen, 'feature:', feature);
 
-  const { hasActiveSubscription, hasActiveTrial, hasPremiumAccess, activateSubscription, activateTrialPeriod, trialDaysLeft } = useUser();
+  const { user, isAuthenticated, hasActiveSubscription, hasActiveTrial, hasPremiumAccess, activateSubscription, activateTrialPeriod, trialDaysLeft } = useUser();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = React.useState(false);
   const [isActivatingTrial, setIsActivatingTrial] = React.useState(false);
@@ -109,40 +109,16 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
     console.log('💰 PremiumModal: Set loading state to true');
 
     try {
-      // Получаем данные пользователя
-      console.log('💰 PremiumModal: ===== CHECKING USER DATA =====');
-      console.log('💰 PremiumModal: All localStorage keys:', Object.keys(localStorage));
+      // Проверяем авторизацию через UserContext
+      console.log('💰 PremiumModal: ===== CHECKING AUTHENTICATION =====');
+      console.log('💰 PremiumModal: isAuthenticated:', isAuthenticated);
+      console.log('💰 PremiumModal: User from context:', user);
 
-      const userStr = localStorage.getItem('ai-chef-user');
-      console.log('💰 PremiumModal: Raw localStorage ai-chef-user value:', userStr);
-
-      if (!userStr) {
-        console.error('💰 PremiumModal: ❌ No ai-chef-user in localStorage!');
-        alert('ОШИБКА: Пользователь не авторизован! Сначала войдите в систему.');
-        throw new Error('Пользователь не авторизован');
-      }
-
-      const user = userStr ? JSON.parse(userStr) : {};
-      console.log('💰 PremiumModal: Parsed user object:', user);
-      console.log('💰 PremiumModal: user.id value:', user.id);
-      console.log('💰 PremiumModal: user.email value:', user.email);
-      console.log('💰 PremiumModal: All user keys:', Object.keys(user));
-
-      if (!user || typeof user !== 'object') {
-        console.error('💰 PremiumModal: ❌ User is not an object!');
-        alert('ОШИБКА: Данные пользователя повреждены!');
-        throw new Error('Данные пользователя повреждены');
-      }
-
-      if (!user.id || !user.email) {
-        console.error('💰 PremiumModal: ❌ User validation FAILED!');
+      if (!isAuthenticated || !user || !user.id || !user.email) {
+        console.error('💰 PremiumModal: ❌ User not authenticated!');
         console.error('💰 PremiumModal: user object:', user);
-        console.error('💰 PremiumModal: user.id exists:', !!user.id);
-        console.error('💰 PremiumModal: user.email exists:', !!user.email);
-        console.error('💰 PremiumModal: user.id type:', typeof user.id);
-        console.error('💰 PremiumModal: user.email type:', typeof user.email);
-
-        alert(`ОШИБКА ВАЛИДАЦИИ!\nuser.id: ${user.id} (exists: ${!!user.id})\nuser.email: ${user.email} (exists: ${!!user.email})`);
+        console.error('💰 PremiumModal: user.id exists:', !!user?.id);
+        console.error('💰 PremiumModal: user.email exists:', !!user?.email);
 
         toast({
           title: "Ошибка",

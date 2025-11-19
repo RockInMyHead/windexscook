@@ -29,6 +29,7 @@ interface RecipeDisplayProps {
   onLogin: () => void;
   onSave?: (recipe: Recipe) => void;
   showSaveButton?: boolean;
+  asDialog?: boolean;
 }
 
 export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({
@@ -38,7 +39,8 @@ export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({
   onRegister,
   onLogin,
   onSave,
-  showSaveButton = false
+  showSaveButton = false,
+  asDialog = true
 }) => {
   const { user } = useUser();
 
@@ -104,30 +106,31 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
     }
   };
 
-  return (
-    <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-[90vw] md:w-full mx-2 sm:mx-4">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg sm:text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
-              <ChefHat className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-              <span className="truncate">{recipe.title}</span>
-            </DialogTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="h-8 w-8 shrink-0"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          <DialogDescription className="sr-only">
-            Рецепт блюда: {recipe.title}
-          </DialogDescription>
-        </DialogHeader>
+  const content = (
+    <div className="space-y-4 sm:space-y-6">
+      {/* Recipe Header */}
+      <div className="flex items-center justify-between">
+        <div className="text-lg sm:text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
+          <ChefHat className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+          <span className="truncate">{recipe.title}</span>
+        </div>
+        {!asDialog && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="h-8 w-8 shrink-0"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
 
-        <div className="space-y-4 sm:space-y-6">
+      {asDialog && (
+        <div className="sr-only">
+          Рецепт блюда: {recipe.title}
+        </div>
+      )}
           {/* Recipe Description */}
           <Card>
             <CardContent className="p-4 sm:p-6">
@@ -219,10 +222,7 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
               <div className="space-y-4">
                 {recipe.instructions.map((instruction, index) => (
                   <div key={index} className="space-y-2">
-                    <h4 className="font-semibold text-primary text-sm sm:text-base">
-                      Шаг {index + 1}:
-                    </h4>
-                    <p className="text-foreground leading-relaxed pl-4 text-sm sm:text-base whitespace-pre-wrap">
+                    <p className="text-foreground leading-relaxed text-sm sm:text-base whitespace-pre-wrap">
                       {instruction}
                     </p>
                   </div>
@@ -286,8 +286,30 @@ ${recipe.tips ? `СОВЕТ: ${recipe.tips}` : ''}
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+  );
+
+  if (asDialog) {
+    return (
+      <Dialog open={true} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-[90vw] md:w-full mx-2 sm:mx-4">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Рецепт блюда: {recipe.title}</DialogTitle>
+            <DialogDescription>
+              Подробный рецепт с ингредиентами и инструкциями приготовления
+            </DialogDescription>
+          </DialogHeader>
+          {content}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Card className="bg-gradient-card border-border/50">
+      <CardContent className="p-4 sm:p-6">
+        {content}
+      </CardContent>
+    </Card>
   );
 };
 

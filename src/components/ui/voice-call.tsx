@@ -54,6 +54,8 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
   const isPlayingRef = useRef<boolean>(false);
   const isConnectedRef = useRef<boolean>(false);
   const isStartingRecordingRef = useRef<boolean>(false);
+  const accumulatedTextRef = useRef<string>(''); // Накопленный текст пользователя
+  const messageTimeoutRef = useRef<number | null>(null); // Таймер задержки перед отправкой сообщения
 
   // Проверка совместимости браузера
   useEffect(() => {
@@ -128,6 +130,13 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
         console.log('🎯 [Voice Call] ===== РЕЗУЛЬТАТ РАСПОЗНАВАНИЯ РЕЧИ =====');
         console.log('📝 [Voice Call] Сырые данные события:', event);
 
+        // Отменяем таймер задержки, если пользователь продолжает говорить
+        if (messageTimeoutRef.current) {
+          console.log('⏸️ [Voice Call] Пользователь продолжает говорить - отменяем таймер отправки');
+          clearTimeout(messageTimeoutRef.current);
+          messageTimeoutRef.current = null;
+        }
+
         let interimTranscript = '';
         let finalTranscript = '';
 
@@ -147,10 +156,10 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
           timestamp: new Date().toISOString()
         });
 
-        // Обрабатываем только финальный результат
+        // Накопляем финальный текст вместо немедленной отправки
         if (finalTranscript.trim()) {
-          console.log('🔄 [Voice Call] Передаем финальный текст в обработчик сообщений');
-          handleUserMessage(finalTranscript.trim());
+          accumulatedTextRef.current += (accumulatedTextRef.current ? ' ' : '') + finalTranscript.trim();
+          console.log('📚 [Voice Call] Накопленный текст:', accumulatedTextRef.current);
         }
       };
 
@@ -177,6 +186,44 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
         console.log('⏱️ [Voice Call] Время завершения:', new Date().toISOString());
         setCallState(prev => ({ ...prev, isRecording: false }));
         isStartingRecordingRef.current = false; // Сбрасываем флаг при завершении
+
+        // Если есть накопленный текст, запускаем таймер задержки перед отправкой
+        if (accumulatedTextRef.current.trim()) {
+          console.log('⏳ [Voice Call] Запускаем таймер задержки (2 сек) перед отправкой накопленного текста');
+          
+          // Отменяем предыдущий таймер, если он есть
+          if (messageTimeoutRef.current) {
+            clearTimeout(messageTimeoutRef.current);
+          }
+
+          // Запускаем таймер задержки (2 секунды) - если пользователь продолжит говорить, таймер отменится
+          messageTimeoutRef.current = window.setTimeout(() => {
+            const textToSend = accumulatedTextRef.current.trim();
+            console.log('📤 [Voice Call] Отправляем накопленный текст после паузы:', textToSend);
+            
+            // Очищаем накопленный текст
+            accumulatedTextRef.current = '';
+            messageTimeoutRef.current = null;
+
+            // Отправляем сообщение только если пользователь не начал говорить снова
+            // Проверяем через ref, чтобы избежать проблем с замыканием состояния
+            if (textToSend && !isStartingRecordingRef.current) {
+              // Прерываем текущее воспроизведение TTS перед отправкой нового сообщения
+              OpenAITTS.stop();
+              setCallState(prev => ({ ...prev, isPlaying: false }));
+              
+              handleUserMessage(textToSend);
+            } else {
+              console.log('⚠️ [Voice Call] Пользователь начал говорить снова - отменяем отправку');
+            }
+          }, 2000); // 2 секунды задержки
+        } else {
+          // Если текста нет, автоматически перезапускаем запись в постоянном режиме
+          if (callState.isContinuousMode && isConnectedRef.current) {
+            console.log('🔄 [Voice Call] Нет текста - перезапускаем запись в постоянном режиме');
+            setTimeout(() => startRecording(), 500);
+          }
+        }
       };
 
       console.log('✅ [Voice Call] Распознавание речи инициализировано успешно');
@@ -226,6 +273,13 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
     if (!text.trim()) {
       console.log('⚠️ [Voice Call] Получен пустой текст, пропускаем обработку');
       return;
+    }
+
+    // Прерываем текущее воспроизведение TTS, если оно активно
+    if (callState.isPlaying) {
+      console.log('🚫 [Voice Call] Прерываем текущее TTS перед обработкой нового сообщения');
+      OpenAITTS.stop();
+      setCallState(prev => ({ ...prev, isPlaying: false }));
     }
 
     console.log('🗣️ [Voice Call] ===== ОБРАБОТКА СООБЩЕНИЯ ПОЛЬЗОВАТЕЛЯ =====');
@@ -552,6 +606,14 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       clearTimeout(callTimerRef.current);
       callTimerRef.current = null;
     }
+    
+    // Очищаем накопленный текст и отменяем таймер отправки
+    accumulatedTextRef.current = '';
+    if (messageTimeoutRef.current) {
+      clearTimeout(messageTimeoutRef.current);
+      messageTimeoutRef.current = null;
+    }
+    
     console.log('📞 [TTS] Завершаем голосовой звонок...');
     
     // Останавливаем распознавание речи
@@ -597,6 +659,17 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
     if (isStartingRecordingRef.current) {
       console.log('⚠️ [Voice Call] Распознавание уже запускается - пропускаем');
       return;
+    }
+
+    // Если это новая сессия записи (не продолжение), очищаем накопленный текст
+    if (!callState.isRecording) {
+      console.log('🆕 [Voice Call] Начинаем новую сессию записи - очищаем накопленный текст');
+      accumulatedTextRef.current = '';
+      // Отменяем таймер, если он был запущен
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current);
+        messageTimeoutRef.current = null;
+      }
     }
 
     isStartingRecordingRef.current = true;
@@ -761,6 +834,13 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
                   newRecognition.onresult = (event: any) => {
                     console.log('🎯 [Voice Call] ===== РЕЗУЛЬТАТ РАСПОЗНАВАНИЯ РЕЧИ =====');
 
+                    // Отменяем таймер задержки, если пользователь продолжает говорить
+                    if (messageTimeoutRef.current) {
+                      console.log('⏸️ [Voice Call] Пользователь продолжает говорить - отменяем таймер отправки');
+                      clearTimeout(messageTimeoutRef.current);
+                      messageTimeoutRef.current = null;
+                    }
+
                     let interimTranscript = '';
                     let finalTranscript = '';
 
@@ -780,9 +860,10 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
                       timestamp: new Date().toISOString()
                     });
 
+                    // Накопляем финальный текст вместо немедленной отправки
                     if (finalTranscript.trim()) {
-                      console.log('🔄 [Voice Call] Передаем финальный текст в обработчик сообщений');
-                      handleUserMessage(finalTranscript.trim());
+                      accumulatedTextRef.current += (accumulatedTextRef.current ? ' ' : '') + finalTranscript.trim();
+                      console.log('📚 [Voice Call] Накопленный текст:', accumulatedTextRef.current);
                     }
                   };
 
@@ -809,6 +890,44 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
                     console.log('⏱️ [Voice Call] Время завершения:', new Date().toISOString());
                     setCallState(prev => ({ ...prev, isRecording: false }));
                     isStartingRecordingRef.current = false;
+
+                    // Если есть накопленный текст, запускаем таймер задержки перед отправкой
+                    if (accumulatedTextRef.current.trim()) {
+                      console.log('⏳ [Voice Call] Запускаем таймер задержки (2 сек) перед отправкой накопленного текста');
+                      
+                      // Отменяем предыдущий таймер, если он есть
+                      if (messageTimeoutRef.current) {
+                        clearTimeout(messageTimeoutRef.current);
+                      }
+
+                      // Запускаем таймер задержки (2 секунды) - если пользователь продолжит говорить, таймер отменится
+                      messageTimeoutRef.current = window.setTimeout(() => {
+                        const textToSend = accumulatedTextRef.current.trim();
+                        console.log('📤 [Voice Call] Отправляем накопленный текст после паузы:', textToSend);
+                        
+                        // Очищаем накопленный текст
+                        accumulatedTextRef.current = '';
+                        messageTimeoutRef.current = null;
+
+                        // Отправляем сообщение только если пользователь не начал говорить снова
+                        // Проверяем через ref, чтобы избежать проблем с замыканием состояния
+                        if (textToSend && !isStartingRecordingRef.current) {
+                          // Прерываем текущее воспроизведение TTS перед отправкой нового сообщения
+                          OpenAITTS.stop();
+                          setCallState(prev => ({ ...prev, isPlaying: false }));
+                          
+                          handleUserMessage(textToSend);
+                        } else {
+                          console.log('⚠️ [Voice Call] Пользователь начал говорить снова - отменяем отправку');
+                        }
+                      }, 2000); // 2 секунды задержки
+                    } else {
+                      // Если текста нет, автоматически перезапускаем запись в постоянном режиме
+                      if (callState.isContinuousMode && isConnectedRef.current) {
+                        console.log('🔄 [Voice Call] Нет текста - перезапускаем запись в постоянном режиме');
+                        setTimeout(() => startRecording(), 500);
+                      }
+                    }
                   };
 
                   // Устанавливаем новый объект

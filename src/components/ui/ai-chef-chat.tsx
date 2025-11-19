@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { flushSync } from 'react-dom';
+import ReactMarkdown from 'react-markdown';
 import { Button } from './button';
 import { Input } from './input';
 import { Card, CardContent, CardHeader, CardTitle } from './card';
@@ -762,13 +763,15 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
                         </div>
                         <div className="flex-1">
                           <p className="text-sm font-medium mb-1">🎤 Голосовое сообщение</p>
-                          <p className="text-sm whitespace-pre-wrap opacity-90">{message.content}</p>
+                          <div className="text-sm opacity-90 prose prose-sm max-w-none dark:prose-invert">
+                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                          </div>
                         </div>
                       </div>
                     ) : message.isTyping || message.isStreaming ? (
                       <div className="flex items-center gap-2">
                         <div className="text-sm whitespace-pre-wrap">
-                          {message.content}
+                          <ReactMarkdown className="prose prose-sm max-w-none dark:prose-invert">{message.content}</ReactMarkdown>
                         </div>
                         <div className="flex gap-1">
                           <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
@@ -777,7 +780,9 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
                         </div>
                       </div>
                     ) : (
-                      <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                      <div className="text-sm prose prose-sm max-w-none dark:prose-invert">
+                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                      </div>
                     )}
                   </div>
                   

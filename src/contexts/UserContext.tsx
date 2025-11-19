@@ -55,7 +55,7 @@ export const UserProvider = ({ children }: UserProviderProps) => {
     }
   }, []);
 
-  const login = (userData: User) => {
+  const login = async (userData: User) => {
     console.log('🔑 [UserContext] Login called with userData:', {
       id: userData.id,
       email: userData.email,
@@ -63,23 +63,64 @@ export const UserProvider = ({ children }: UserProviderProps) => {
       idType: typeof userData.id
     });
 
-    // Если это администратор, добавляем Premium подписку
-    if (userData.role === 'admin') {
-      const adminUser = {
-        ...userData,
-        subscription: {
-          active: true,
-          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-          plan: 'premium' as const
-        }
-      };
-      console.log('👑 [UserContext] Admin user created:', { id: adminUser.id, email: adminUser.email });
-      setUser(adminUser);
-      localStorage.setItem('ai-chef-user', JSON.stringify(adminUser));
-    } else {
-      console.log('👤 [UserContext] Regular user set:', { id: userData.id, email: userData.email });
-      setUser(userData);
-      localStorage.setItem('ai-chef-user', JSON.stringify(userData));
+    try {
+      // Load health profile from server
+      const healthResponse = await fetch(`/api/health-profile/${userData.id}`);
+      let healthProfile = null;
+
+      if (healthResponse.ok) {
+        healthProfile = await healthResponse.json();
+        console.log('✅ [UserContext] Health profile loaded from server for user:', userData.id);
+      } else {
+        console.warn('⚠️ [UserContext] Failed to load health profile from server, using default');
+        healthProfile = {
+          conditions: [],
+          dietaryRestrictions: [],
+          allergies: [],
+          notes: ''
+        };
+      }
+
+      // Merge user data with health profile
+      const completeUserData = { ...userData, healthProfile };
+
+      // Если это администратор, добавляем Premium подписку
+      if (completeUserData.role === 'admin') {
+        const adminUser = {
+          ...completeUserData,
+          subscription: {
+            active: true,
+            expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+            plan: 'premium' as const
+          }
+        };
+        console.log('👑 [UserContext] Admin user created:', { id: adminUser.id, email: adminUser.email });
+        setUser(adminUser);
+        localStorage.setItem('ai-chef-user', JSON.stringify(adminUser));
+      } else {
+        console.log('👤 [UserContext] Regular user set:', { id: completeUserData.id, email: completeUserData.email });
+        setUser(completeUserData);
+        localStorage.setItem('ai-chef-user', JSON.stringify(completeUserData));
+      }
+    } catch (error) {
+      console.error('❌ [UserContext] Error loading health profile:', error);
+
+      // Fallback: proceed without health profile
+      if (userData.role === 'admin') {
+        const adminUser = {
+          ...userData,
+          subscription: {
+            active: true,
+            expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+            plan: 'premium' as const
+          }
+        };
+        setUser(adminUser);
+        localStorage.setItem('ai-chef-user', JSON.stringify(adminUser));
+      } else {
+        setUser(userData);
+        localStorage.setItem('ai-chef-user', JSON.stringify(userData));
+      }
     }
   };
 
@@ -96,11 +137,36 @@ export const UserProvider = ({ children }: UserProviderProps) => {
     }
   };
 
-  const updateHealthProfile = (healthProfile: UserHealthProfile) => {
+  const updateHealthProfile = async (healthProfile: UserHealthProfile) => {
     if (user) {
-      const updatedUser = { ...user, healthProfile };
-      setUser(updatedUser);
-      localStorage.setItem('ai-chef-user', JSON.stringify(updatedUser));
+      try {
+        // Save to server
+        const response = await fetch(`/api/health-profile/${user.id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(healthProfile),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save health profile to server');
+        }
+
+        // Update local state
+        const updatedUser = { ...user, healthProfile };
+        setUser(updatedUser);
+
+        console.log('✅ [UserContext] Health profile saved to server for user:', user.id);
+      } catch (error) {
+        console.error('❌ [UserContext] Error saving health profile:', error);
+
+        // Fallback: save to localStorage if server fails
+        const updatedUser = { ...user, healthProfile };
+        setUser(updatedUser);
+        localStorage.setItem('ai-chef-user', JSON.stringify(updatedUser));
+        console.log('⚠️ [UserContext] Saved health profile to localStorage as fallback');
+      }
     }
   };
 

@@ -142,6 +142,19 @@ async function initializeDatabase() {
         FOREIGN KEY (user_id) REFERENCES users(id),
         FOREIGN KEY (recipe_id) REFERENCES recipes(id)
       );
+
+      // Add health_profile column to users table if it doesn't exist
+      try {
+        await db.run(`ALTER TABLE users ADD COLUMN health_profile TEXT DEFAULT NULL`);
+        console.log('✅ [Database] Added health_profile column to users table');
+      } catch (alterError) {
+        // Column might already exist, ignore error
+        if (alterError.message.includes('duplicate column name')) {
+          console.log('ℹ️ [Database] health_profile column already exists');
+        } else {
+          console.warn('⚠️ [Database] Error adding health_profile column:', alterError.message);
+        }
+      }
     `);
 
     console.log('✅ [Database] Tables initialized successfully');
@@ -576,6 +589,55 @@ app.post('/api/auth/register', async (req, res) => {
     }
     console.error('❌ [Database] Error registering user:', error);
     res.status(500).json({ error: 'Failed to register user' });
+  }
+});
+
+// Health profile endpoints
+app.get('/api/health-profile/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Get health profile from database
+    const profile = await db.get('SELECT health_profile FROM users WHERE id = ?', [userId]);
+
+    if (!profile || !profile.health_profile) {
+      return res.json({
+        conditions: [],
+        dietaryRestrictions: [],
+        allergies: [],
+        notes: ''
+      });
+    }
+
+    const healthProfile = JSON.parse(profile.health_profile);
+    res.json(healthProfile);
+  } catch (error) {
+    console.error('❌ [Health Profile API] Error getting profile:', error);
+    res.status(500).json({ error: 'Failed to get health profile' });
+  }
+});
+
+app.post('/api/health-profile/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const healthProfile = req.body;
+
+    // Validate health profile structure
+    if (!healthProfile || typeof healthProfile !== 'object') {
+      return res.status(400).json({ error: 'Invalid health profile data' });
+    }
+
+    // Save health profile to database
+    await db.run(
+      'UPDATE users SET health_profile = ?, updated_at = ? WHERE id = ?',
+      [JSON.stringify(healthProfile), new Date().toISOString(), userId]
+    );
+
+    console.log('✅ [Health Profile API] Profile saved for user:', userId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ [Health Profile API] Error saving profile:', error);
+    res.status(500).json({ error: 'Failed to save health profile' });
   }
 });
 

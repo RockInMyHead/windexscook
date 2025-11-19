@@ -766,13 +766,16 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
                           <div className="text-sm opacity-90 prose prose-sm max-w-none dark:prose-invert">
                             <ReactMarkdown
                               components={{
-                                p: ({children}) => <p className="mb-4 leading-relaxed">{children}</p>,
-                                h1: ({children}) => <h1 className="text-lg font-bold mb-3 mt-4">{children}</h1>,
-                                h2: ({children}) => <h2 className="text-base font-semibold mb-3 mt-4">{children}</h2>,
-                                h3: ({children}) => <h3 className="text-sm font-medium mb-2 mt-3">{children}</h3>,
+                                p: ({children}) => <p className="mb-4 leading-relaxed text-sm">{children}</p>,
+                                h1: ({children}) => <h1 className="text-xl font-bold mb-4 mt-6 text-primary">{children}</h1>,
+                                h2: ({children}) => <h2 className="text-lg font-semibold mb-3 mt-5 text-primary">{children}</h2>,
+                                h3: ({children}) => <h3 className="text-base font-medium mb-3 mt-4 text-primary/90">{children}</h3>,
+                                h4: ({children}) => <h4 className="text-sm font-medium mb-2 mt-3 text-primary/80">{children}</h4>,
                                 ul: ({children}) => <ul className="mb-4 ml-4 space-y-1">{children}</ul>,
                                 ol: ({children}) => <ol className="mb-4 ml-4 space-y-1">{children}</ol>,
-                                li: ({children}) => <li className="leading-relaxed">{children}</li>
+                                li: ({children}) => <li className="leading-relaxed text-sm">{children}</li>,
+                                strong: ({children}) => <strong className="font-semibold text-primary">{children}</strong>,
+                                em: ({children}) => <em className="italic text-primary/90">{children}</em>
                               }}
                             >{message.content}</ReactMarkdown>
                           </div>
@@ -784,13 +787,16 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
                           <ReactMarkdown
                             className="prose prose-sm max-w-none dark:prose-invert"
                             components={{
-                              p: ({children}) => <p className="mb-4 leading-relaxed">{children}</p>,
-                              h1: ({children}) => <h1 className="text-lg font-bold mb-3 mt-4">{children}</h1>,
-                              h2: ({children}) => <h2 className="text-base font-semibold mb-3 mt-4">{children}</h2>,
-                              h3: ({children}) => <h3 className="text-sm font-medium mb-2 mt-3">{children}</h3>,
+                              p: ({children}) => <p className="mb-4 leading-relaxed text-sm">{children}</p>,
+                              h1: ({children}) => <h1 className="text-xl font-bold mb-4 mt-6 text-primary">{children}</h1>,
+                              h2: ({children}) => <h2 className="text-lg font-semibold mb-3 mt-5 text-primary">{children}</h2>,
+                              h3: ({children}) => <h3 className="text-base font-medium mb-3 mt-4 text-primary/90">{children}</h3>,
+                              h4: ({children}) => <h4 className="text-sm font-medium mb-2 mt-3 text-primary/80">{children}</h4>,
                               ul: ({children}) => <ul className="mb-4 ml-4 space-y-1">{children}</ul>,
                               ol: ({children}) => <ol className="mb-4 ml-4 space-y-1">{children}</ol>,
-                              li: ({children}) => <li className="leading-relaxed">{children}</li>
+                              li: ({children}) => <li className="leading-relaxed text-sm">{children}</li>,
+                              strong: ({children}) => <strong className="font-semibold text-primary">{children}</strong>,
+                              em: ({children}) => <em className="italic text-primary/90">{children}</em>
                             }}
                           >{message.content}</ReactMarkdown>
                         </div>
@@ -804,13 +810,16 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
                       <div className="text-sm prose prose-sm max-w-none dark:prose-invert">
                         <ReactMarkdown
                           components={{
-                            p: ({children}) => <p className="mb-4 leading-relaxed">{children}</p>,
-                            h1: ({children}) => <h1 className="text-lg font-bold mb-3 mt-4">{children}</h1>,
-                            h2: ({children}) => <h2 className="text-base font-semibold mb-3 mt-4">{children}</h2>,
-                            h3: ({children}) => <h3 className="text-sm font-medium mb-2 mt-3">{children}</h3>,
+                            p: ({children}) => <p className="mb-4 leading-relaxed text-sm">{children}</p>,
+                            h1: ({children}) => <h1 className="text-xl font-bold mb-4 mt-6 text-primary">{children}</h1>,
+                            h2: ({children}) => <h2 className="text-lg font-semibold mb-3 mt-5 text-primary">{children}</h2>,
+                            h3: ({children}) => <h3 className="text-base font-medium mb-3 mt-4 text-primary/90">{children}</h3>,
+                            h4: ({children}) => <h4 className="text-sm font-medium mb-2 mt-3 text-primary/80">{children}</h4>,
                             ul: ({children}) => <ul className="mb-4 ml-4 space-y-1">{children}</ul>,
                             ol: ({children}) => <ol className="mb-4 ml-4 space-y-1">{children}</ol>,
-                            li: ({children}) => <li className="leading-relaxed">{children}</li>
+                            li: ({children}) => <li className="leading-relaxed text-sm">{children}</li>,
+                            strong: ({children}) => <strong className="font-semibold text-primary">{children}</strong>,
+                            em: ({children}) => <em className="italic text-primary/90">{children}</em>
                           }}
                         >{message.content}</ReactMarkdown>
                       </div>

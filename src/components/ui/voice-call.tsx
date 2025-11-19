@@ -624,7 +624,30 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
         console.log('🔄 [Voice Call] Останавливаем предыдущую запись перед началом новой');
         stopRecording();
         // Увеличиваем паузу для корректной остановки
-        await new Promise(resolve => setTimeout(resolve, 150));
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
+      // Дополнительная проверка состояния recognition
+      if (recognitionRef.current) {
+        try {
+          // Проверяем, можем ли мы начать новую сессию
+          console.log('🔍 [Voice Call] Состояние recognition перед запуском:', {
+            continuous: recognitionRef.current.continuous,
+            interimResults: recognitionRef.current.interimResults,
+            lang: recognitionRef.current.lang,
+            serviceURI: recognitionRef.current.serviceURI
+          });
+
+          // Пытаемся вызвать abort() сначала, чтобы сбросить состояние
+          if (typeof recognitionRef.current.abort === 'function') {
+            recognitionRef.current.abort();
+            console.log('🔄 [Voice Call] Вызван abort() для сброса состояния');
+            // Увеличиваем задержку после abort
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        } catch (abortError) {
+          console.log('⚠️ [Voice Call] Abort не удался (возможно, нормальное поведение):', abortError.message);
+        }
       }
 
       // Останавливаем текущее воспроизведение TTS если пользователь начинает говорить
@@ -650,21 +673,22 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
             grammars: recognitionRef.current.grammars
           });
 
-          // Проверяем, не находится ли recognition уже в процессе запуска
+          // Дополнительная задержка для полной инициализации
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+          // Финальная проверка состояния перед запуском
+          console.log('🔍 [Voice Call] Финальная проверка состояния перед запуском');
           try {
-            // Пытаемся вызвать abort() сначала, чтобы сбросить состояние
-            if (typeof recognitionRef.current.abort === 'function') {
-              recognitionRef.current.abort();
-              console.log('🔄 [Voice Call] Вызван abort() для сброса состояния');
+            recognitionRef.current.start();
+          } catch (startError) {
+            if (startError.name === 'InvalidStateError') {
+              console.log('⚠️ [Voice Call] InvalidStateError при запуске - ждем и повторяем');
+              await new Promise(resolve => setTimeout(resolve, 200));
+              recognitionRef.current.start();
+            } else {
+              throw startError;
             }
-          } catch (abortError) {
-            console.log('⚠️ [Voice Call] Abort не удался (возможно, нормальное поведение):', abortError.message);
           }
-
-          // Небольшая задержка после abort
-          await new Promise(resolve => setTimeout(resolve, 50));
-
-      recognitionRef.current.start();
       setCallState(prev => ({ ...prev, isRecording: true }));
           isStartingRecordingRef.current = false; // Сбрасываем флаг после успешного запуска
 

@@ -346,14 +346,29 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
     }
   };
 
-  const speakText = async (text: string) => {
+  const speakText = async (text: string | any) => {
     try {
+      // Убеждаемся, что text является строкой
+      let textToSpeak: string;
+      if (typeof text === 'string') {
+        textToSpeak = text;
+      } else if (typeof text === 'object' && text !== null) {
+        // Если передан объект, пытаемся извлечь текстовое содержимое
+        textToSpeak = text.content || text.description || text.text || String(text);
+      } else {
+        textToSpeak = String(text || '');
+      }
+
       console.log('🔊 [Voice Call] ===== НАЧАЛО СИНТЕЗА РЕЧИ =====');
       console.log('📝 [Voice Call] Текст для синтеза:', {
-        textLength: text.length,
-        textPreview: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
-        fullText: text
+        originalType: typeof text,
+        textLength: textToSpeak.length,
+        textPreview: textToSpeak.substring(0, 100) + (textToSpeak.length > 100 ? '...' : ''),
+        fullText: textToSpeak
       });
+
+      // Используем конвертированный текст
+      text = textToSpeak;
       
       setCallState(prev => ({ ...prev, isPlaying: true }));
       

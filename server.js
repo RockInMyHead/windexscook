@@ -1100,11 +1100,22 @@ app.all('/api/openai/v1/chat/completions', async (req, res) => {
     const apiKey = process.env.VITE_OPENAI_API_KEY;
 
     if (!apiKey) {
+      console.error('❌ [OpenAI Streaming] API key not configured!');
       logToFile('ERROR', 'OpenAI API key not configured for streaming');
       return res.status(500).json({
         error: 'OpenAI API key not configured'
       });
     }
+
+    // Проверяем формат API ключа (должен начинаться с sk-)
+    if (!apiKey.startsWith('sk-')) {
+      console.error('❌ [OpenAI Streaming] Invalid API key format (should start with sk-)');
+      return res.status(500).json({
+        error: 'Invalid OpenAI API key format'
+      });
+    }
+
+    console.log('✅ [OpenAI Streaming] API key configured (length:', apiKey.length + ')');
 
     const url = 'https://api.openai.com/v1/chat/completions';
 
@@ -1122,10 +1133,22 @@ app.all('/api/openai/v1/chat/completions', async (req, res) => {
       url,
       method: req.method,
       hasStream: req.body?.stream,
+      model: req.body?.model,
+      messageCount: req.body?.messages?.length,
       contentLength: req.headers['content-length'],
       userAgent: req.headers['user-agent']?.substring(0, 100),
       bodyPreview: JSON.stringify(req.body).substring(0, 200)
     });
+
+    // Проверяем содержимое messages
+    if (req.body?.messages) {
+      console.log('📨 [OpenAI Streaming] Messages preview:', req.body.messages.map((msg, i) => ({
+        index: i,
+        role: msg.role,
+        contentLength: msg.content?.length || 0,
+        contentPreview: msg.content?.substring(0, 100)
+      })));
+    }
 
     // Устанавливаем таймаут для стриминга (5 минут)
     const controller = new AbortController();
@@ -1156,9 +1179,31 @@ app.all('/api/openai/v1/chat/completions', async (req, res) => {
     }
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ [OpenAI Streaming] API Error:', response.status, errorText);
-      return res.status(response.status).send(errorText);
+      let errorText = '';
+      try {
+        errorText = await response.text();
+      } catch (e) {
+        errorText = 'Unable to read error response';
+      }
+
+      console.error('❌ [OpenAI Streaming] API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText: errorText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
+      // Пытаемся распарсить JSON ошибку для более понятного ответа
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.error) {
+          console.error('❌ [OpenAI Streaming] Parsed error:', errorData.error);
+        }
+      } catch (parseError) {
+        // Игнорируем ошибки парсинга
+      }
+
+      return res.status(response.status).send(errorText || `OpenAI API Error: ${response.status}`);
     }
 
     // Устанавливаем заголовки для стриминга
@@ -2290,8 +2335,19 @@ app.post('/api/chat', async (req, res) => {
 
     const apiKey = process.env.VITE_OPENAI_API_KEY;
     if (!apiKey) {
+      console.error('❌ [Chat Streaming] API key not configured!');
       return res.status(500).json({ error: 'OpenAI API key not configured' });
     }
+
+    // Проверяем формат API ключа (должен начинаться с sk-)
+    if (!apiKey.startsWith('sk-')) {
+      console.error('❌ [Chat Streaming] Invalid API key format (should start with sk-)');
+      return res.status(500).json({
+        error: 'Invalid OpenAI API key format'
+      });
+    }
+
+    console.log('✅ [Chat Streaming] API key configured (length:', apiKey.length + ')');
 
     const url = 'https://api.openai.com/v1/chat/completions';
     const requestBody = {
@@ -2317,9 +2373,21 @@ app.post('/api/chat', async (req, res) => {
       });
 
       if (!openaiResponse.ok) {
-        const errorText = await openaiResponse.text();
-        console.error('❌ [Chat Streaming] OpenAI API Error:', openaiResponse.status, errorText);
-        return res.status(openaiResponse.status).send(errorText);
+        let errorText = '';
+        try {
+          errorText = await openaiResponse.text();
+        } catch (e) {
+          errorText = 'Unable to read error response';
+        }
+
+        console.error('❌ [Chat Streaming] OpenAI API Error:', {
+          status: openaiResponse.status,
+          statusText: openaiResponse.statusText,
+          errorText: errorText,
+          headers: Object.fromEntries(openaiResponse.headers.entries())
+        });
+
+        return res.status(openaiResponse.status).send(errorText || `OpenAI API Error: ${openaiResponse.status}`);
       }
 
       // Отдаем чистые токены (не SSE)

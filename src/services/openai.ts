@@ -817,7 +817,7 @@ ${constraints.join('\n')}
   ): Promise<{content: string, usage: any}> {
     console.log('🔍 DEBUG: chatWithChefRegular called with message:', JSON.stringify(message));
     console.log('🔍 DEBUG: messageHistory length:', messageHistory?.length || 0);
-    
+
     // Проверяем, является ли сообщение простым приветствием (только если нет истории)
     if (!messageHistory || messageHistory.length === 0) {
       try {
@@ -906,7 +906,7 @@ ${constraints.join('\n')}
       console.log('🔍 DEBUG: Sending messages to OpenAI:', messages.length, 'messages');
 
       // Запускаем звук обработки во время генерации ответа
-      AudioUtils.startProcessingSound();
+      // AudioUtils.startProcessingSound(); // Отключено для текстового чата
 
       const response = await this.makeRequestWithUsage(messages);
 
@@ -914,7 +914,7 @@ ${constraints.join('\n')}
       const processedResponse = this.replaceNumbersWithWords(response.content);
 
       // Останавливаем звук обработки
-      AudioUtils.stopProcessingSound();
+      // AudioUtils.stopProcessingSound(); // Отключено для текстового чата
 
       return {
         content: processedResponse,
@@ -930,7 +930,7 @@ ${constraints.join('\n')}
         console.error('Error in chat with chef:', error);
       }
       // Останавливаем звук обработки при ошибке
-      AudioUtils.stopProcessingSound();
+      // AudioUtils.stopProcessingSound(); // Отключено для текстового чата
       throw new Error('Извините, произошла ошибка при обработке вашего сообщения. Попробуйте еще раз.');
     }
   }
@@ -1029,7 +1029,7 @@ ${constraints.join('\n')}
       console.log('🔍 DEBUG: Sending messages to OpenAI:', messages.length, 'messages');
 
       // Запускаем звук обработки во время генерации ответа
-      AudioUtils.startProcessingSound();
+      // AudioUtils.startProcessingSound(); // Отключено для текстового чата
 
       // Создаем callback для стриминга текста
       let streamedContent = '';
@@ -1044,7 +1044,7 @@ ${constraints.join('\n')}
       const processedResponse = this.replaceNumbersWithWords(response.content);
 
       // Останавливаем звук обработки
-      AudioUtils.stopProcessingSound();
+      // AudioUtils.stopProcessingSound(); // Отключено для текстового чата
 
       return {
         content: processedResponse,

@@ -702,8 +702,8 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       if (callState.isRecording) {
         console.log('🔄 [Voice Call] Останавливаем предыдущую запись перед началом новой');
         stopRecording();
-        // Увеличиваем паузу для корректной остановки
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // Увеличиваем паузу для корректной остановки (увеличена для надежности)
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
 
       // Дополнительная проверка состояния recognition
@@ -752,20 +752,54 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
             grammars: recognitionRef.current.grammars
           });
 
-          // Дополнительная задержка для полной инициализации
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Увеличиваем задержку для полной инициализации и сброса состояния
+          await new Promise(resolve => setTimeout(resolve, 200));
 
           // Финальная проверка состояния перед запуском
           console.log('🔍 [Voice Call] Финальная проверка состояния перед запуском');
-          try {
-            recognitionRef.current.start();
-          } catch (startError) {
-            if (startError.name === 'InvalidStateError') {
-              console.log('⚠️ [Voice Call] InvalidStateError при запуске - ждем и повторяем');
-              await new Promise(resolve => setTimeout(resolve, 200));
+          
+          // Пытаемся запустить с несколькими попытками
+          let startAttempts = 0;
+          const maxStartAttempts = 3;
+          
+          while (startAttempts < maxStartAttempts) {
+            try {
               recognitionRef.current.start();
-            } else {
-              throw startError;
+              console.log(`✅ [Voice Call] Recognition успешно запущен с попытки ${startAttempts + 1}`);
+              break; // Успешно запущено, выходим из цикла
+            } catch (startError: any) {
+              startAttempts++;
+              
+              if (startError.name === 'InvalidStateError') {
+                console.log(`⚠️ [Voice Call] InvalidStateError при запуске (попытка ${startAttempts}/${maxStartAttempts})`);
+                
+                if (startAttempts < maxStartAttempts) {
+                  // Пытаемся остановить и пересоздать объект
+                  try {
+                    if (recognitionRef.current && typeof recognitionRef.current.stop === 'function') {
+                      recognitionRef.current.stop();
+                    }
+                    if (recognitionRef.current && typeof recognitionRef.current.abort === 'function') {
+                      recognitionRef.current.abort();
+                    }
+                  } catch (stopError) {
+                    console.log('⚠️ [Voice Call] Не удалось остановить recognition:', stopError);
+                  }
+                  
+                  // Увеличиваем задержку с каждой попыткой
+                  await new Promise(resolve => setTimeout(resolve, 300 * startAttempts));
+                  
+                  // Если это последняя попытка, пересоздаем объект
+                  if (startAttempts === maxStartAttempts - 1) {
+                    console.log('🔄 [Voice Call] Пересоздаем объект recognition перед последней попыткой');
+                    throw new Error('Need to recreate recognition');
+                  }
+                } else {
+                  throw startError;
+                }
+              } else {
+                throw startError;
+              }
             }
           }
       setCallState(prev => ({ ...prev, isRecording: true }));
@@ -784,8 +818,8 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
         setCallState(prev => ({ ...prev, isRecording: false, error: recognitionError.message }));
         isStartingRecordingRef.current = false;
 
-        // Если это ошибка состояния, пересоздаем объект recognition
-        if (recognitionError.name === 'InvalidStateError') {
+        // Если это ошибка состояния или сигнал для пересоздания, пересоздаем объект recognition
+        if (recognitionError.name === 'InvalidStateError' || recognitionError.message === 'Need to recreate recognition') {
           console.log('🔄 [Voice Call] InvalidStateError - пересоздаем объект recognition');
 
           try {
@@ -800,7 +834,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
               }
             }
 
-            // Ждем полной очистки
+            // Ждем полной очистки (увеличена задержка для надежности)
             setTimeout(() => {
               try {
                 // Полностью пересоздаем объект распознавания речи
@@ -952,7 +986,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
                         isStartingRecordingRef.current = false;
                       }
                     }
-                  }, 300);
+                  }, 500); // Увеличена задержка для полной остановки старого объекта
                 } else {
                   console.error('❌ [Voice Call] SpeechRecognition API недоступен');
                   isStartingRecordingRef.current = false;

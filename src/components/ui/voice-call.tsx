@@ -290,8 +290,8 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
 
         console.log('🍳 [Voice Call] Сформирован текстовый рецепт для озвучивания');
 
-        // Сохраняем рецепт с изображениями для отображения в UI
-        setCallState(prev => ({ ...prev, generatedRecipe: recipe }));
+        // Для голосовых звонков не сохраняем рецепт в UI - только озвучиваем
+        // setCallState(prev => ({ ...prev, generatedRecipe: recipe }));
       } else {
         // Обычный текстовый ответ
         responseText = typeof response === 'string'

@@ -155,6 +155,12 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       };
 
       recognitionRef.current.onerror = (event: any) => {
+        // Игнорируем ошибку "aborted" - это нормальное поведение при сбросе состояния
+        if (event.error === 'aborted') {
+          console.log('ℹ️ [Voice Call] Recognition был прерван (aborted) - это нормально при сбросе состояния');
+          return;
+        }
+
         console.error('❌ [Voice Call] ===== ОШИБКА РАСПОЗНАВАНИЯ РЕЧИ =====');
         console.error('🔍 [Voice Call] Детали ошибки:', {
           error: event.error,
@@ -638,12 +644,12 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
             serviceURI: recognitionRef.current.serviceURI
           });
 
-          // Пытаемся вызвать abort() сначала, чтобы сбросить состояние
-          if (typeof recognitionRef.current.abort === 'function') {
+          // Вызываем abort() только если запись активна, чтобы сбросить состояние
+          if (callState.isRecording && typeof recognitionRef.current.abort === 'function') {
             recognitionRef.current.abort();
-            console.log('🔄 [Voice Call] Вызван abort() для сброса состояния');
-            // Увеличиваем задержку после abort
-            await new Promise(resolve => setTimeout(resolve, 100));
+            console.log('🔄 [Voice Call] Вызван abort() для сброса состояния активной записи');
+            // Увеличиваем задержку после abort для полного сброса
+            await new Promise(resolve => setTimeout(resolve, 150));
           }
         } catch (abortError) {
           console.log('⚠️ [Voice Call] Abort не удался (возможно, нормальное поведение):', abortError.message);
@@ -781,6 +787,12 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
                   };
 
                   newRecognition.onerror = (event: any) => {
+                    // Игнорируем ошибку "aborted" - это нормальное поведение при сбросе состояния
+                    if (event.error === 'aborted') {
+                      console.log('ℹ️ [Voice Call] Recognition был прерван (aborted) - это нормально при сбросе состояния');
+                      return;
+                    }
+
                     console.error('❌ [Voice Call] ===== ОШИБКА РАСПОЗНАВАНИЯ РЕЧИ =====');
                     console.error('🔍 [Voice Call] Детали ошибки:', {
                       error: event.error,

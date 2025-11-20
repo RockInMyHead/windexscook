@@ -38,8 +38,6 @@ PROXY_PORT=8000
 PROXY_USERNAME=FeCuvT
 PROXY_PASSWORD=aeUYh
 
-# ElevenLabs API Configuration
-ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
 
 # Server Configuration
 PORT=1031

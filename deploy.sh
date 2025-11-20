@@ -56,7 +56,7 @@ cd ~/cook
 
 # Create .env file with required variables
 cat > .env << EOF
-# ElevenLabs API для голосового синтеза
+# OpenAI TTS для голосового синтеза
 ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
 
 # OpenAI API для генерации рецептов и изображений

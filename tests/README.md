@@ -10,7 +10,7 @@ tests/
 ├── server.test.js           # Тесты основного сервера
 ├── services/                # Тесты сервисов
 │   ├── openai.test.js       # Тесты OpenAI сервиса
-│   ├── elevenlabs.test.js   # Тесты ElevenLabs сервиса
+│   ├── openai-tts.test.js    # Тесты OpenAI TTS сервиса
 │   └── recipe.test.js       # Тесты Recipe сервиса
 └── integration/             # Интеграционные тесты
     └── api.test.js          # Тесты API endpoints
@@ -60,7 +60,7 @@ npm run test:watch
 - Подсчет калорий
 - Обработка ошибок API
 
-### 3. ElevenLabs сервис (elevenlabs.test.js)
+### 3. OpenAI TTS сервис (openai-tts.test.js)
 - Синтез речи
 - Получение списка голосов
 - Настройки голоса

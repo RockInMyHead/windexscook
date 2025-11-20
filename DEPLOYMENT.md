@@ -74,7 +74,7 @@ pm2 startup
 Создайте файл `.env` в корне проекта:
 
 ```bash
-# ElevenLabs API для голосового синтеза
+# OpenAI TTS для голосового синтеза
 ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
 
 # OpenAI API для генерации рецептов

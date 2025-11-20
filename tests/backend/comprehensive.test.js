@@ -101,55 +101,6 @@ const createComprehensiveServer = () => {
     }
   });
   
-  // ElevenLabs API proxy endpoint
-  app.use('/api/elevenlabs', async (req, res) => {
-    try {
-      const apiKey = process.env.ELEVENLABS_API_KEY || 'test-key';
-      
-      if (!apiKey) {
-        return res.status(500).json({ 
-          error: 'ElevenLabs API key not configured' 
-        });
-      }
-
-      const path = req.path.replace('/api/elevenlabs', '/v1');
-      const url = `https://api.elevenlabs.io${path}`;
-
-      const headers = {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        ...req.headers
-      };
-
-      delete headers.host;
-
-      // Мокаем ответ ElevenLabs
-      if (req.path.includes('/text-to-speech/')) {
-        // Для TTS возвращаем аудио
-        const mockAudioBuffer = Buffer.from('fake audio data for testing');
-        res.set({
-          'Content-Type': 'audio/mpeg',
-          'Content-Length': mockAudioBuffer.length.toString()
-        });
-        res.send(mockAudioBuffer);
-      } else {
-        // Для других запросов возвращаем JSON
-        const mockResponse = {
-          voices: [
-            {
-              voice_id: 'test-voice-1',
-              name: 'Test Voice 1',
-              category: 'premade'
-            }
-          ]
-        };
-        res.json(mockResponse);
-      }
-    } catch (error) {
-      console.error('ElevenLabs Proxy Error:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
   
   // Static file serving (мок)
   app.use(express.static('dist'));
@@ -277,77 +228,6 @@ describe('Comprehensive Backend Tests', () => {
     });
   });
   
-  describe('ElevenLabs API Proxy', () => {
-    test('should proxy text-to-speech request', async () => {
-      const requestData = {
-        text: 'Привет! Это тестовый текст для синтеза речи.',
-        model_id: 'eleven_multilingual_v2',
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.75
-        }
-      };
-      
-      const response = await request(app)
-        .post('/api/elevenlabs/v1/text-to-speech/test-voice-id')
-        .send(requestData)
-        .expect(200);
-      
-      expect(response.headers['content-type']).toBe('audio/mpeg');
-      expect(response.headers['content-length']).toBeDefined();
-      expect(Buffer.isBuffer(response.body)).toBe(true);
-    });
-    
-    test('should proxy voices list request', async () => {
-      const response = await request(app)
-        .get('/api/elevenlabs/v1/voices')
-        .expect(200);
-      
-      expect(response.body).toMatchObject({
-        voices: expect.arrayContaining([
-          expect.objectContaining({
-            voice_id: expect.any(String),
-            name: expect.any(String),
-            category: expect.any(String)
-          })
-        ])
-      });
-    });
-    
-    test('should handle missing ElevenLabs API key', async () => {
-      // Временно удаляем API ключ
-      const originalKey = process.env.ELEVENLABS_API_KEY;
-      delete process.env.ELEVENLABS_API_KEY;
-      
-      const response = await request(app)
-        .post('/api/elevenlabs/v1/text-to-speech/test-voice-id')
-        .send({ text: 'test' })
-        .expect(500);
-      
-      expect(response.body.error).toBe('ElevenLabs API key not configured');
-      
-      // Восстанавливаем API ключ
-      if (originalKey) {
-        process.env.ELEVENLABS_API_KEY = originalKey;
-      }
-    });
-    
-    test('should handle different ElevenLabs endpoints', async () => {
-      const endpoints = [
-        '/api/elevenlabs/v1/voices',
-        '/api/elevenlabs/v1/voices/test-voice-id',
-        '/api/elevenlabs/v1/voices/test-voice-id/settings'
-      ];
-      
-      for (const endpoint of endpoints) {
-        const response = await request(app)
-          .get(endpoint)
-          .expect(200);
-        
-        expect(response.body).toBeDefined();
-      }
-    });
-  });
   
   describe('Error Handling', () => {
     test('should handle malformed JSON', async () => {

@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Copy, Volume2, ThumbsUp, Bot, Clock } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { ElevenLabsTTS } from '@/services/elevenlabs-tts';
+import { OpenAITTS } from '@/services/openai-tts';
 import { AudioUtils } from '@/lib/audio-utils';
 
 interface CalorieAnalysisResultProps {
@@ -66,18 +66,12 @@ export const CalorieAnalysisResult: React.FC<CalorieAnalysisResultProps> = ({
 
   const handleSpeakMessage = async (content: string) => {
     try {
-      // Запускаем непрерывный звук обработки
-      AudioUtils.startProcessingSound();
-      await ElevenLabsTTS.speak(content);
-      // Останавливаем звук обработки
-      AudioUtils.stopProcessingSound();
+      await OpenAITTS.speak(content);
       toast({
         title: "🔊 Воспроизведение",
         description: "Результат анализа озвучен",
       });
     } catch (error) {
-      // Останавливаем звук обработки при ошибке
-      AudioUtils.stopProcessingSound();
       console.error('Error speaking message:', error);
       toast({
         title: "❌ Ошибка воспроизведения",
@@ -101,7 +95,7 @@ export const CalorieAnalysisResult: React.FC<CalorieAnalysisResultProps> = ({
             <div className="w-6 h-6 bg-green-500/20 rounded-full flex items-center justify-center">
               <Clock className="w-3 h-3 text-green-500" />
             </div>
-            <p className="text-sm font-medium text-green-600 dark:text-green-400">
+            <p className="text-sm font-medium text-green-800 dark:text-green-600">
               📊 Анализ калорийности
             </p>
           </div>

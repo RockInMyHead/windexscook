@@ -290,12 +290,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Static serve files from dist with no-cache for HTML
+// Static serve files from dist with no-cache for all files to force fresh loading
 app.use(express.static('dist', {
   setHeaders: (res, path) => {
-    if (path.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    }
+    // No-cache for all files to ensure fresh loading
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
   }
 }));
 
@@ -709,84 +710,6 @@ app.get('/api/auth/user/:email', async (req, res) => {
 });
 
 // ===== ROUTES =====
-
-// ElevenLabs API роут - используем middleware для обработки всех запросов
-app.use('/api/elevenlabs', async (req, res) => {
-  try {
-    const apiKey = process.env.ELEVENLABS_API_KEY;
-    
-    if (!apiKey) {
-      logToFile('ERROR', 'ElevenLabs API key not configured');
-      return res.status(500).json({ 
-        error: 'ElevenLabs API key not configured' 
-      });
-    }
-
-    // Получаем путь после /api/elevenlabs и добавляем /v1
-    const path = req.path.replace('/api/elevenlabs', '/v1');
-    const url = `https://api.elevenlabs.io${path}`;
-
-    logToFile('INFO', `Proxying ElevenLabs ${req.method} request to: ${url}`, {
-      url,
-      method: req.method,
-      path: req.path,
-      body: req.body
-    });
-
-    // Создаем заголовки для запроса к ElevenLabs
-    const headers = {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      ...req.headers
-    };
-
-    // Удаляем host заголовок, чтобы избежать конфликтов
-    delete headers.host;
-
-    const axiosConfig = {
-      method: req.method,
-      url: url,
-      headers,
-      data: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-      proxy: false // Отключаем автоопределение прокси из env переменных
-    };
-    
-    // Добавляем прокси агент только если он настроен
-    if (proxyAgent) {
-      axiosConfig.httpsAgent = proxyAgent;
-      axiosConfig.httpAgent = proxyAgent;
-    }
-    
-    const response = await axios(axiosConfig);
-
-    const data = JSON.stringify(response.data);
-    
-    logToFile('INFO', `ElevenLabs response received: ${response.status}`, {
-      status: response.status,
-      responseSize: `${data.length} bytes`,
-      url
-    });
-
-    res.status(response.status).send(data);
-  } catch (error) {
-    logToFile('ERROR', 'ElevenLabs Proxy error', {
-      error: error.message,
-      stack: error.stack,
-      url: `https://api.elevenlabs.io${req.path.replace('/api/elevenlabs', '/v1')}`
-    });
-    
-    // Обрабатываем ошибки axios (включая 4xx/5xx статусы)
-    if (error.response) {
-      const data = JSON.stringify(error.response.data);
-      res.status(error.response.status).send(data);
-    } else {
-      res.status(500).json({ 
-        error: 'Internal server error',
-        details: error.message 
-      });
-    }
-  }
-});
 
 // OpenAI TTS endpoint - должен быть ПЕРЕД общим прокси
 app.post('/api/openai/tts', async (req, res) => {
@@ -2578,7 +2501,6 @@ async function startServer() {
         port: PORT,
         databaseConnected: !!db,
         databasePath: dbPath,
-        elevenlabsConfigured: !!process.env.ELEVENLABS_API_KEY,
         openaiConfigured: !!process.env.VITE_OPENAI_API_KEY,
         proxyConfigured: true,
         proxyHost: PROXY_HOST,
@@ -2590,7 +2512,6 @@ async function startServer() {
 
       console.log(`🚀 Pastel Chef AI API server running on port ${PORT}`);
       console.log(`🗄️ SQLite database: ${dbPath}`);
-      console.log(`🔑 ElevenLabs API key configured: ${process.env.ELEVENLABS_API_KEY ? 'Yes' : 'No'}`);
       console.log(`🔑 OpenAI API key configured: ${process.env.VITE_OPENAI_API_KEY ? 'Yes' : 'No'}`);
       console.log(`🌐 Proxy configured: ${PROXY_HOST}:${PROXY_PORT} (${PROXY_USERNAME})`);
       console.log(`📁 Logs directory: ${logsDir}`);

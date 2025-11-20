@@ -38,7 +38,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
     isRecording: false,
     isPlaying: false,
     isLoading: false,
-    isContinuousMode: true, // Постоянный режим включен по умолчанию
+    isContinuousMode: false, // Отключаем постоянный режим для voice call
     error: null,
     generatedRecipe: null
   });
@@ -54,6 +54,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
   const isPlayingRef = useRef<boolean>(false);
   const isConnectedRef = useRef<boolean>(false);
   const isStartingRecordingRef = useRef<boolean>(false);
+  const isAbortedRef = useRef<boolean>(false);
   const accumulatedTextRef = useRef<string>(''); // Накопленный текст пользователя
   const messageTimeoutRef = useRef<number | null>(null); // Таймер задержки перед отправкой сообщения
 
@@ -118,9 +119,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
           setCallState(prev => ({ ...prev, isPlaying: false }));
           console.log('✅ [Voice Call] TTS прерван автоматически');
 
-          // Автоматически начинаем слушать пользователя после прерывания TTS
-          console.log('🎧 [Voice Call] Автоматически начинаем слушать после прерывания TTS');
-          setTimeout(() => startRecording(), 300); // Увеличенная задержка для плавного перехода
+          // Voice call НЕ начинает запись автоматически после прерывания TTS
         } else {
           console.log('ℹ️ [Voice Call] TTS не воспроизводится, прерывание не требуется');
         }
@@ -184,13 +183,21 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       recognitionRef.current.onend = () => {
         console.log('🏁 [Voice Call] ===== РАСПОЗНАВАНИЕ РЕЧИ ЗАВЕРШЕНО =====');
         console.log('⏱️ [Voice Call] Время завершения:', new Date().toISOString());
+
+        // Проверяем, было ли завершение вызвано abort()
+        const wasAborted = isAbortedRef.current;
+        if (wasAborted) {
+          console.log('ℹ️ [Voice Call] Распознавание завершено из-за abort() - не перезапускаем');
+          isAbortedRef.current = false; // Сбрасываем флаг
+        }
+
         setCallState(prev => ({ ...prev, isRecording: false }));
         isStartingRecordingRef.current = false; // Сбрасываем флаг при завершении
 
         // Если есть накопленный текст, запускаем таймер задержки перед отправкой
         if (accumulatedTextRef.current.trim()) {
           console.log('⏳ [Voice Call] Запускаем таймер задержки (2 сек) перед отправкой накопленного текста');
-          
+
           // Отменяем предыдущий таймер, если он есть
           if (messageTimeoutRef.current) {
             clearTimeout(messageTimeoutRef.current);
@@ -200,7 +207,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
           messageTimeoutRef.current = window.setTimeout(() => {
             const textToSend = accumulatedTextRef.current.trim();
             console.log('📤 [Voice Call] Отправляем накопленный текст после паузы:', textToSend);
-            
+
             // Очищаем накопленный текст
             accumulatedTextRef.current = '';
             messageTimeoutRef.current = null;
@@ -211,18 +218,16 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
               // Прерываем текущее воспроизведение TTS перед отправкой нового сообщения
               OpenAITTS.stop();
               setCallState(prev => ({ ...prev, isPlaying: false }));
-              
+
               handleUserMessage(textToSend);
             } else {
               console.log('⚠️ [Voice Call] Пользователь начал говорить снова - отменяем отправку');
             }
           }, 2000); // 2 секунды задержки
         } else {
-          // Если текста нет, автоматически перезапускаем запись в постоянном режиме
-          if (callState.isContinuousMode && isConnectedRef.current) {
-            console.log('🔄 [Voice Call] Нет текста - перезапускаем запись в постоянном режиме');
-            setTimeout(() => startRecording(), 500);
-          }
+          // Voice call НЕ использует автоматический перезапуск записи
+          // Пользователь сам контролирует когда начинать и заканчивать запись
+          console.log('🔄 [Voice Call] Запись завершена - ждем команды пользователя');
         }
       };
 
@@ -493,11 +498,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
         timestamp: new Date().toISOString()
       });
       
-      // Если включен постоянный режим, автоматически начинаем слушать после ответа
-      if (callState.isContinuousMode) {
-        console.log('🔄 [Voice Call] Постоянный режим: автоматически начинаем слушать');
-        setTimeout(() => startRecording(), 300); // Минимальная пауза для плавного перехода
-      }
+      // Voice call НЕ использует постоянный режим - пользователь сам контролирует запись
 
     } catch (error) {
       console.error('❌ [Voice Call] ===== ОШИБКА СИНТЕЗА РЕЧИ =====');
@@ -563,11 +564,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       // Воспроизводим приветствие
       await speakText(welcomeText);
 
-      // Если включен постоянный режим, автоматически начинаем слушать после приветствия
-      if (callState.isContinuousMode) {
-        console.log('🔄 [Voice Call] Постоянный режим: начинаем слушать после приветствия');
-        setTimeout(() => startRecording(), 500); // Уменьшаем задержку для более быстрого старта
-      }
+      // Voice call НЕ использует постоянный режим - пользователь сам контролирует запись
       
       callStartRef.current = Date.now();
       // schedule 10-minute limit
@@ -629,7 +626,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       isRecording: false,
       isPlaying: false,
       isLoading: false,
-      isContinuousMode: true, // Постоянный режим всегда остается включенным
+      isContinuousMode: false, // Постоянный режим отключен для voice call
       error: null,
       generatedRecipe: null
     });
@@ -664,6 +661,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
     // Если это новая сессия записи (не продолжение), очищаем накопленный текст
     if (!callState.isRecording) {
       console.log('🆕 [Voice Call] Начинаем новую сессию записи - очищаем накопленный текст');
+      isAbortedRef.current = false; // Сбрасываем флаг abort для новой сессии
       accumulatedTextRef.current = '';
       // Отменяем таймер, если он был запущен
       if (messageTimeoutRef.current) {
@@ -719,6 +717,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
 
           // Вызываем abort() только если запись активна, чтобы сбросить состояние
           if (callState.isRecording && typeof recognitionRef.current.abort === 'function') {
+            isAbortedRef.current = true; // Устанавливаем флаг abort
             recognitionRef.current.abort();
             console.log('🔄 [Voice Call] Вызван abort() для сброса состояния активной записи');
             // Увеличиваем задержку после abort для полного сброса
@@ -780,6 +779,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
                       recognitionRef.current.stop();
                     }
                     if (recognitionRef.current && typeof recognitionRef.current.abort === 'function') {
+                      isAbortedRef.current = true; // Устанавливаем флаг abort
                       recognitionRef.current.abort();
                     }
                   } catch (stopError) {
@@ -853,15 +853,12 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
                     console.log('🚫 [Voice Call] Проверяем, нужно ли прервать TTS...');
 
                     if (isPlayingRef.current) {
-                      console.log('🚫 [Voice Call] Автоматически прерываем TTS при обнаружении речи пользователя');
+                      console.log('🚫 [Voice Call] Прерываем TTS при обнаружении речи пользователя');
                       OpenAITTS.stop();
                       setCallState(prev => ({ ...prev, isPlaying: false }));
-                      console.log('✅ [Voice Call] TTS прерван автоматически');
-
-                      console.log('🎧 [Voice Call] Автоматически начинаем слушать после прерывания TTS');
-                      setTimeout(() => startRecording(), 500); // Увеличенная задержка
+                      console.log('✅ [Voice Call] TTS прерван');
                     } else {
-                      console.log('ℹ️ [Voice Call] TTS не воспроизводится, прерывание не требуется');
+                      console.log('ℹ️ [Voice Call] TTS не воспроизводится');
                     }
                   };
 
@@ -956,11 +953,8 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
                         }
                       }, 2000); // 2 секунды задержки
                     } else {
-                      // Если текста нет, автоматически перезапускаем запись в постоянном режиме
-                      if (callState.isContinuousMode && isConnectedRef.current) {
-                        console.log('🔄 [Voice Call] Нет текста - перезапускаем запись в постоянном режиме');
-                        setTimeout(() => startRecording(), 500);
-                      }
+                      // Voice call НЕ использует автоматический перезапуск записи
+                      console.log('🔄 [Voice Call] Запись завершена - ждем команды пользователя');
                     }
                   };
 
@@ -975,12 +969,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
 
                       // Пытаемся запустить с дополнительными проверками
                       try {
-                        console.log('🚀 [Voice Call] Запускаем новый recognition через 1000ms...');
-                        setTimeout(() => {
-                          if (isConnectedRef.current && recognitionRef.current) {
-                            startRecording();
-                          }
-                        }, 1000);
+                        console.log('🚀 [Voice Call] Recognition пересоздан - ждем команды пользователя');
                       } catch (finalError) {
                         console.error('❌ [Voice Call] Ошибка при финальном запуске:', finalError);
                         isStartingRecordingRef.current = false;

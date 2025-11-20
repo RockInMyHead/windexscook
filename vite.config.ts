@@ -27,15 +27,24 @@ export default defineConfig({
           proxy.on('proxyReq', (proxyReq, req, _res) => {
             console.log('Sending API Request to the Target:', req.method, req.url);
           });
-          
+
           proxy.on('error', (err, _req, _res) => {
             console.log('API proxy error', err);
           });
-          
+
           proxy.on('proxyRes', (proxyRes, req, _res) => {
             console.log('Received API Response from the Target:', proxyRes.statusCode, req.url);
           });
         },
+      }
+    }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
       }
     }
   }

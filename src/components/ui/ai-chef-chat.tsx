@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { OpenAIService } from '@/services/openai';
-import { ElevenLabsTTS } from '@/services/elevenlabs-tts';
+import { OpenAITTS } from '@/services/openai-tts';
 import { useUser } from '@/contexts/UserContext';
 import { Recipe } from '@/types/recipe';
 import { RecipeDisplay } from './recipe-display';
@@ -43,6 +43,68 @@ interface Message {
 interface AiChefChatProps {
   className?: string;
 }
+
+
+// Функция для извлечения названия блюда из запроса
+const extractDishName = (text: string): string => {
+  // Удаляем лишние слова и оставляем только название блюда
+  let dishName = text.toLowerCase()
+    .replace(/хочу рецепт/i, '')
+    .replace(/дай рецепт/i, '')
+    .replace(/сделай рецепт/i, '')
+    .replace(/приготовь/i, '')
+    .replace(/покажи рецепт/i, '')
+    .replace(/рецепт/i, '')
+    .replace(/для/i, '')
+    .replace(/на/i, '')
+    .trim();
+
+  // Убираем предлоги и артикли
+  dishName = dishName.replace(/^(из|с|со|от|у|в|на|по|за|к|о)\s+/i, '');
+
+  return dishName || 'неизвестное блюдо';
+};
+
+// Функция для получения типичных ингредиентов для блюда
+const getDishIngredients = (dishName: string): string[] => {
+  const name = dishName.toLowerCase();
+
+  // База типичных ингредиентов для популярных блюд
+  const dishIngredients: Record<string, string[]> = {
+    'уха': ['рыба', 'картофель', 'морковь', 'лук', 'лавровый лист', 'перец горошком', 'соль', 'укроп'],
+    'борщ': ['свекла', 'картофель', 'морковь', 'лук', 'капуста', 'томатная паста', 'говядина', 'лавровый лист', 'перец', 'соль', 'укроп'],
+    'щи': ['капуста', 'картофель', 'морковь', 'лук', 'говядина', 'томатная паста', 'лавровый лист', 'перец', 'соль', 'сметана'],
+    'окрошка': ['квас', 'картофель', 'огурцы', 'зеленый лук', 'укроп', 'вареная колбаса', 'яйца', 'сметана', 'соль'],
+    'пельмени': ['мука', 'вода', 'соль', 'яйца', 'говяжий фарш', 'лук', 'перец', 'масло'],
+    'блины': ['мука', 'молоко', 'яйца', 'соль', 'сахар', 'масло', 'сода'],
+    'оладьи': ['мука', 'кефир', 'яйца', 'сахар', 'соль', 'сода', 'масло'],
+    'салат цезарь': ['куриная грудка', 'салат ромэн', 'пармезан', 'сухарики', 'соус цезарь', 'оливковое масло', 'лимон'],
+    'паста карбонара': ['спагетти', 'бекон', 'яйца', 'пармезан', 'чеснок', 'перец', 'соль'],
+    'ризотто': ['рис арборио', 'бульон', 'лук', 'белое вино', 'пармезан', 'масло', 'перец'],
+    'бургер': ['говяжья котлета', 'булочка', 'сыр', 'салат', 'помидор', 'лук', 'кетчуп', 'майонез'],
+    'пицца': ['тесто для пиццы', 'томатный соус', 'моцарелла', 'пепперони', 'оливки', 'перец', 'орегано'],
+    'суши': ['рис для суши', 'нори', 'рыба', 'огурец', 'авокадо', 'соевый соус', 'васаби', 'имбирь'],
+    'стейк': ['говядина', 'соль', 'перец', 'масло', 'чеснок', 'тимьян'],
+    'шашлык': ['мясо', 'лук', 'уксус', 'перец', 'соль', 'лавровый лист'],
+    'плов': ['рис', 'мясо', 'морковь', 'лук', 'чеснок', 'перец', 'соль', 'зира'],
+    'паэлья': ['рис', 'морепродукты', 'курица', 'перец', 'горошек', 'шафран', 'чеснок', 'лук']
+  };
+
+  // Ищем точное совпадение
+  if (dishIngredients[name]) {
+    return dishIngredients[name];
+  }
+
+  // Ищем частичное совпадение
+  for (const [key, ingredients] of Object.entries(dishIngredients)) {
+    if (name.includes(key) || key.includes(name)) {
+      return ingredients;
+    }
+  }
+
+  // Если блюдо не найдено, возвращаем базовые ингредиенты
+  return ['мясо или рыба', 'картофель', 'морковь', 'лук', 'соль', 'перец'];
+};
 
 export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   const { user } = useUser();
@@ -227,9 +289,17 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
         // Воспроизводим звук обработки во время генерации рецепта (уже вызывается в сервисе)
         // AudioUtils.playProcessingSound();
 
+        // Извлекаем название блюда из запроса
+        const dishName = extractDishName(messageText);
+        console.log('🍳 [AI Chef Chat] Извлечено название блюда:', dishName);
+
+        // Получаем типичные ингредиенты для этого блюда
+        const ingredients = getDishIngredients(dishName);
+        console.log('🍳 [AI Chef Chat] Типичные ингредиенты:', ingredients);
+
         // Генерируем рецепт с изображениями
         console.log('🍳 [AI Chef Chat] Обнаружен запрос рецепта - генерируем с изображениями');
-        response = await OpenAIService.generateRecipe([messageText], user?.healthProfile, undefined, false, true);
+        response = await OpenAIService.generateRecipe(ingredients, user?.healthProfile, undefined, false, true);
 
         if (response && response.instructions) {
           recipe = response;
@@ -511,16 +581,24 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
 
   const handleSpeakMessage = async (content: string) => {
     try {
-      await ElevenLabsTTS.speak(content);
+      await OpenAITTS.speak(content, 'nova');
       toast({
         title: "🔊 Воспроизведение",
         description: "Ответ AI озвучен",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error speaking message:', error);
+
+      let errorMessage = "Не удалось воспроизвести ответ";
+      if (error.message?.includes('TTS API error')) {
+        errorMessage = "Озвучка недоступна - настройте API ключ OpenAI";
+      } else if (error.message?.includes('401')) {
+        errorMessage = "API ключ OpenAI не настроен";
+      }
+
       toast({
         title: "❌ Ошибка воспроизведения",
-        description: "Не удалось воспроизвести ответ",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -784,21 +862,22 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
                     ) : message.isTyping || message.isStreaming ? (
                       <div className="flex items-center gap-2">
                         <div className="text-sm whitespace-pre-wrap">
-                          <ReactMarkdown
-                            className="prose prose-sm max-w-none dark:prose-invert"
-                            components={{
-                              p: ({children}) => <p className="mb-4 leading-relaxed text-sm">{children}</p>,
-                              h1: ({children}) => <h1 className="text-xl font-bold mb-4 mt-6 text-primary">{children}</h1>,
-                              h2: ({children}) => <h2 className="text-lg font-semibold mb-3 mt-5 text-primary">{children}</h2>,
-                              h3: ({children}) => <h3 className="text-base font-medium mb-3 mt-4 text-primary/90">{children}</h3>,
-                              h4: ({children}) => <h4 className="text-sm font-medium mb-2 mt-3 text-primary/80">{children}</h4>,
-                              ul: ({children}) => <ul className="mb-4 ml-4 space-y-1">{children}</ul>,
-                              ol: ({children}) => <ol className="mb-4 ml-4 space-y-1">{children}</ol>,
-                              li: ({children}) => <li className="leading-relaxed text-sm">{children}</li>,
-                              strong: ({children}) => <strong className="font-semibold text-primary">{children}</strong>,
-                              em: ({children}) => <em className="italic text-primary/90">{children}</em>
-                            }}
-                          >{message.content}</ReactMarkdown>
+                          <div className="prose prose-sm max-w-none dark:prose-invert">
+                            <ReactMarkdown
+                              components={{
+                                p: ({children}) => <p className="mb-4 leading-relaxed text-sm">{children}</p>,
+                                h1: ({children}) => <h1 className="text-xl font-bold mb-4 mt-6 text-primary">{children}</h1>,
+                                h2: ({children}) => <h2 className="text-lg font-semibold mb-3 mt-5 text-primary">{children}</h2>,
+                                h3: ({children}) => <h3 className="text-base font-medium mb-3 mt-4 text-primary/90">{children}</h3>,
+                                h4: ({children}) => <h4 className="text-sm font-medium mb-2 mt-3 text-primary/80">{children}</h4>,
+                                ul: ({children}) => <ul className="mb-4 ml-4 space-y-1">{children}</ul>,
+                                ol: ({children}) => <ol className="mb-4 ml-4 space-y-1">{children}</ol>,
+                                li: ({children}) => <li className="leading-relaxed text-sm">{children}</li>,
+                                strong: ({children}) => <strong className="font-semibold text-primary">{children}</strong>,
+                                em: ({children}) => <em className="italic text-primary/90">{children}</em>
+                              }}
+                            >{message.content}</ReactMarkdown>
+                          </div>
                         </div>
                         <div className="flex gap-1">
                           <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>

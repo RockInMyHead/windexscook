@@ -47,15 +47,6 @@ const createTestServer = () => {
     }
   });
   
-  app.post('/api/elevenlabs/v1/text-to-speech/:voice_id', async (req, res) => {
-    try {
-      // Мокаем ответ ElevenLabs
-      res.set('Content-Type', 'audio/mpeg');
-      res.send(Buffer.from('fake audio data'));
-    } catch (error) {
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
   
   return app;
 };
@@ -97,21 +88,6 @@ describe('Server Tests', () => {
     });
   });
   
-  describe('ElevenLabs Proxy', () => {
-    test('POST /api/elevenlabs/v1/text-to-speech/:voice_id should proxy request', async () => {
-      const testData = {
-        text: 'Test text for speech',
-        model_id: 'eleven_multilingual_v2'
-      };
-      
-      const response = await request(app)
-        .post('/api/elevenlabs/v1/text-to-speech/test-voice-id')
-        .send(testData)
-        .expect(200);
-      
-      expect(response.headers['content-type']).toContain('audio/mpeg');
-    });
-  });
   
   describe('Error Handling', () => {
     test('should handle missing API key gracefully', async () => {

@@ -68,30 +68,6 @@ const createIntegrationServer = () => {
     }
   });
   
-  // ElevenLabs proxy endpoint
-  app.post('/api/elevenlabs/v1/text-to-speech/:voice_id', async (req, res) => {
-    try {
-      const { voice_id } = req.params;
-      const { text, model_id } = req.body;
-      
-      if (!text) {
-        return res.status(400).json({ error: 'Text is required' });
-      }
-      
-      // Мокаем аудио ответ
-      const mockAudioBuffer = Buffer.from('fake audio data for testing');
-      
-      res.set({
-        'Content-Type': 'audio/mpeg',
-        'Content-Length': mockAudioBuffer.length.toString()
-      });
-      
-      res.send(mockAudioBuffer);
-    } catch (error) {
-      console.error('ElevenLabs Proxy Error:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
   
   // Error handling middleware
   app.use((error, req, res, next) => {
@@ -227,36 +203,6 @@ describe('API Integration Tests', () => {
     });
   });
   
-  describe('ElevenLabs Proxy Integration', () => {
-    test('should handle text-to-speech request', async () => {
-      const requestData = {
-        text: 'Привет! Это тестовый текст для синтеза речи.',
-        model_id: 'eleven_multilingual_v2',
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.75
-        }
-      };
-      
-      const response = await request(app)
-        .post('/api/elevenlabs/v1/text-to-speech/test-voice-id')
-        .send(requestData)
-        .expect(200);
-      
-      expect(response.headers['content-type']).toBe('audio/mpeg');
-      expect(response.headers['content-length']).toBeDefined();
-      expect(Buffer.isBuffer(response.body)).toBe(true);
-    });
-    
-    test('should handle missing text parameter', async () => {
-      const response = await request(app)
-        .post('/api/elevenlabs/v1/text-to-speech/test-voice-id')
-        .send({})
-        .expect(400);
-      
-      expect(response.body.error).toBe('Text is required');
-    });
-  });
   
   describe('CORS Integration', () => {
     test('should allow CORS requests', async () => {

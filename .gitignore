@@ -32,6 +32,9 @@ test2.mp3
 test-final.mp3
 test-fixed.mp3
 test-tts.mp3
+test_audio.wav
+*.wav
+*.mp3
 server.pid
 windexscook-deploy.tar.gz
 windexscook-updated.tar.gz

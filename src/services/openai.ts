@@ -62,23 +62,32 @@ export class OpenAIService {
     });
   }
 
-  private static async makeRequest(messages: any[], model: string = 'gpt-4o') {
+  private static async makeRequest(messages: any[], model: string = 'gpt-5.1', options?: { signal?: AbortSignal; temperature?: number; response_format?: any; max_completion_tokens?: number }) {
     let response;
     try {
       // Always use relative URLs to avoid mixed content issues
       // The server/nginx will proxy these to the correct backend
       const requestUrl = '/api/openai/v1/chat/completions';
+
+      const requestBody: any = {
+        model,
+        messages,
+        temperature: options?.temperature ?? 0.8,
+        max_completion_tokens: options?.max_completion_tokens ?? 12000,
+      };
+
+      // Добавляем response_format если указан
+      if (options?.response_format) {
+        requestBody.response_format = options.response_format;
+      }
+
       response = await fetch(requestUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: 0.8,
-          max_tokens: 12000,
-        }),
+        body: JSON.stringify(requestBody),
+        signal: options?.signal,
       });
     } catch (networkError) {
       console.error('Network error calling OpenAI:', networkError);
@@ -182,7 +191,7 @@ export class OpenAIService {
     }
   }
 
-  private static async makeRequestWithUsage(messages: any[], model: string = 'gpt-4o'): Promise<{content: string, usage: any}> {
+  private static async makeRequestWithUsage(messages: any[], model: string = 'gpt-5.1'): Promise<{content: string, usage: any}> {
     let response;
     try {
       // Always use relative URLs to avoid mixed content issues
@@ -197,7 +206,7 @@ export class OpenAIService {
           model,
           messages,
           temperature: 0.8,
-          max_tokens: 12000,
+          max_completion_tokens: 12000,
         }),
       });
     } catch (networkError) {
@@ -242,7 +251,7 @@ export class OpenAIService {
     }
   }
 
-  private static async makeStreamingRequest(messages: any[], model: string = 'gpt-4o', onChunk?: (chunk: string) => void): Promise<{content: string, usage: any}> {
+  private static async makeStreamingRequest(messages: any[], model: string = 'gpt-5.1', onChunk?: (chunk: string) => void): Promise<{content: string, usage: any}> {
     const requestUrl = '/api/chat';
     console.log('🚀 [Client] Starting streaming request to:', requestUrl);
 
@@ -733,7 +742,7 @@ ${constraints.join('\n')}
             }
           ]
         }
-      ], 'gpt-4o');
+      ], 'gpt-5.1');
 
       // Парсим ответ и извлекаем продукты
       const ingredients = response
@@ -787,7 +796,7 @@ ${constraints.join('\n')}
             { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } }
           ]
         }
-      ], 'gpt-4o');
+      ], 'gpt-5.1');
 
       // Останавливаем звук обработки
       AudioUtils.stopProcessingSound();
@@ -910,14 +919,14 @@ ${constraints.join('\n')}
 
       const response = await this.makeRequestWithUsage(messages);
 
-      // Заменяем цифры на слова для TTS
-      const processedResponse = this.replaceNumbersWithWords(response.content);
+      // Заменяем цифры на слова для отображения в чате
+      const contentWithWords = this.replaceNumbersWithWords(response.content);
 
       // Останавливаем звук обработки
       // AudioUtils.stopProcessingSound(); // Отключено для текстового чата
 
       return {
-        content: processedResponse,
+        content: contentWithWords, // Возвращаем с числами словами для чата
         usage: response.usage
       };
     } catch (error) {
@@ -1038,16 +1047,16 @@ ${constraints.join('\n')}
         onChunk(chunk);
       } : undefined;
 
-      const response = await this.makeStreamingRequest(messages, 'gpt-4o', onChunkCallback);
+      const response = await this.makeStreamingRequest(messages, 'gpt-5.1', onChunkCallback);
 
-      // Заменяем цифры на слова для TTS
-      const processedResponse = this.replaceNumbersWithWords(response.content);
+      // Заменяем цифры на слова для отображения в чате
+      const contentWithWords = this.replaceNumbersWithWords(response.content);
 
       // Останавливаем звук обработки
       // AudioUtils.stopProcessingSound(); // Отключено для текстового чата
 
       return {
-        content: processedResponse,
+        content: contentWithWords, // Возвращаем с числами словами для чата
         usage: response.usage
       };
     } catch (error) {
@@ -1061,7 +1070,7 @@ ${constraints.join('\n')}
   /**
    * Заменяет цифры на слова для лучшего TTS
    */
-  private static replaceNumbersWithWords(text: string): string {
+  static replaceNumbersWithWords(text: string): string {
     try {
       // Проверяем входные данные - для стриминга пустые строки нормальны
       if (!text || typeof text !== 'string') {
@@ -1182,6 +1191,26 @@ ${constraints.join('\n')}
         console.warn('⚠️ [OpenAI] Ошибка замены штук:', e);
       }
     
+    // Заменяем заглавные числительные на строчные (если AI вернул "ОДИН" вместо "один")
+    const uppercaseNumbers: { [key: string]: string } = {
+      'ОДИН': 'один', 'ДВА': 'два', 'ТРИ': 'три', 'ЧЕТЫРЕ': 'четыре', 'ПЯТЬ': 'пять',
+      'ШЕСТЬ': 'шесть', 'СЕМЬ': 'семь', 'ВОСЕМЬ': 'восемь', 'ДЕВЯТЬ': 'девять', 'ДЕСЯТЬ': 'десять',
+      'ОДИННАДЦАТЬ': 'одиннадцать', 'ДВЕНАДЦАТЬ': 'двенадцать', 'ТРИНАДЦАТЬ': 'тринадцать',
+      'ЧЕТЫРНАДЦАТЬ': 'четырнадцать', 'ПЯТНАДЦАТЬ': 'пятнадцать', 'ШЕСТНАДЦАТЬ': 'шестнадцать',
+      'СЕМНАДЦАТЬ': 'семнадцать', 'ВОСЕМНАДЦАТЬ': 'восемнадцать', 'ДЕВЯТНАДЦАТЬ': 'девятнадцать',
+      'ДВАДЦАТЬ': 'двадцать', 'ТРИДЦАТЬ': 'тридцать', 'СОРОК': 'сорок', 'ПЯТЬДЕСЯТ': 'пятьдесят',
+      'ШЕСТЬДЕСЯТ': 'шестьдесят', 'СЕМЬДЕСЯТ': 'семьдесят', 'ВОСЕМЬДЕСЯТ': 'восемьдесят',
+      'ДЕВЯНОСТО': 'девяносто', 'СТО': 'сто', 'ДВЕСТИ': 'двести', 'ТРИСТА': 'триста',
+      'ЧЕТЫРЕСТА': 'четыреста', 'ПЯТЬСОТ': 'пятьсот', 'ШЕСТЬСОТ': 'шестьсот',
+      'СЕМЬСОТ': 'семьсот', 'ВОСЕМЬСОТ': 'восемьсот', 'ДЕВЯТЬСОТ': 'девятьсот',
+      'ТЫСЯЧА': 'тысяча', 'ТЫСЯЧИ': 'тысячи', 'ТЫСЯЧ': 'тысяч'
+    };
+    
+    for (const [upper, lower] of Object.entries(uppercaseNumbers)) {
+      const regex = new RegExp(`\\b${upper}\\b`, 'g');
+      result = result.replace(regex, lower);
+    }
+    
     console.log('✅ [OpenAI] Замена цифр завершена');
     return result;
     } catch (error) {
@@ -1230,6 +1259,72 @@ ${constraints.join('\n')}
     } catch (error) {
       console.error('❌ [OpenAI] Ошибка в numberToWords:', error);
       return num?.toString() || 'ноль';
+    }
+  }
+
+  static async generateRecipeFromText(text: string, signal?: AbortSignal): Promise<Recipe | null> {
+    try {
+      console.log('🍳 [OpenAI] Генерируем рецепт из текста:', text);
+
+      const messages = [
+        {
+          role: "system",
+          content: `Ты - опытный шеф-повар. Создай подробный рецепт на основе голосового запроса пользователя.
+
+Требования к рецепту:
+- Определи основные ингредиенты из запроса
+- Создай пошаговый рецепт с детальными инструкциями
+- Укажи время приготовления и количество порций
+- Добавь полезные советы шеф-повара
+
+Ответ должен быть в формате JSON. Верни объект с полями: title, description, ingredients (массив), instructions (массив), cookTime, servings, tips.`
+        },
+        {
+          role: "user",
+          content: text
+        }
+      ];
+
+      const response = await this.makeRequest(messages, 'gpt-5.1', {
+        signal,
+        temperature: 0.7,
+        response_format: { type: "json_object" },
+        max_completion_tokens: 3000
+      });
+
+      console.log('✅ [OpenAI] Ответ от AI:', response);
+
+      // Парсим JSON ответ
+      const recipeData = JSON.parse(response);
+
+      // Валидируем и нормализуем структуру рецепта
+      const recipe: Recipe = {
+        id: Date.now().toString(),
+        title: recipeData.title || 'Рецепт блюда',
+        description: recipeData.description || 'Описание блюда',
+        ingredients: Array.isArray(recipeData.ingredients) ? recipeData.ingredients : [],
+        instructions: Array.isArray(recipeData.instructions) ? recipeData.instructions : [],
+        cookTime: recipeData.cookTime || recipeData.cookingTime || '30 минут',
+        servings: recipeData.servings || recipeData.portions || 2,
+        tips: recipeData.tips || recipeData.advice || 'Приятного аппетита!',
+        image: recipeData.image || null,
+        createdAt: new Date(),
+        healthInfo: recipeData.healthInfo || null,
+        cuisine: recipeData.cuisine || null,
+        difficulty: recipeData.difficulty || 'Средний'
+      };
+
+      console.log('✅ [OpenAI] Рецепт сгенерирован:', recipe.title);
+      return recipe;
+
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('⚠️ [OpenAI] Генерация рецепта прервана');
+        throw error; // Перебрасываем AbortError для корректной обработки
+      }
+
+      console.error('❌ [OpenAI] Ошибка генерации рецепта из текста:', error);
+      return null;
     }
   }
 }

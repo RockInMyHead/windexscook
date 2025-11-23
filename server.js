@@ -8,6 +8,7 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 import crypto from 'crypto';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
+import multer from 'multer';
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -268,6 +269,26 @@ const requestLogger = (req, res, next) => {
   
   next();
 };
+
+// Настройка multer для обработки аудио файлов
+const upload = multer({
+  limits: {
+    fileSize: 25 * 1024 * 1024, // 25MB максимум для аудио
+  },
+  fileFilter: (req, file, cb) => {
+    // Разрешаем только аудио форматы
+    const allowedMimes = [
+      'audio/wav', 'audio/mpeg', 'audio/mp3', 'audio/webm', 'audio/ogg',
+      'audio/flac', 'audio/aac', 'audio/m4a'
+    ];
+
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Неподдерживаемый формат аудио файла'));
+    }
+  }
+});
 
 const app = express();
 const PORT = process.env.PORT || 1041;
@@ -916,7 +937,108 @@ app.post('/api/openai/generate-image', async (req, res) => {
   }
 });
 
-// OpenAI API роут - проксирование для OpenAI
+// OpenAI Audio API роут - специальная обработка для файлов
+app.post('/api/openai/v1/audio/transcriptions', upload.single('file'), async (req, res) => {
+  try {
+    const apiKey = process.env.VITE_OPENAI_API_KEY;
+
+    if (!apiKey) {
+      logToFile('ERROR', 'OpenAI API key not configured for audio transcription');
+      return res.status(500).json({
+        error: 'OpenAI API key not configured'
+      });
+    }
+
+    // Проверяем формат API ключа
+    if (!apiKey.startsWith('sk-')) {
+      console.error('❌ [OpenAI Audio] Invalid API key format');
+      return res.status(500).json({
+        error: 'Invalid OpenAI API key format'
+      });
+    }
+
+    console.log('🎵 [OpenAI Audio] Starting transcription request');
+
+    // Создаем новый FormData для отправки в OpenAI
+    const formData = new FormData();
+
+    // Копируем все поля из оригинального запроса
+    for (const [key, value] of Object.entries(req.body)) {
+      if (key === 'file' && req.file) {
+        // Если есть файл, добавляем его
+        formData.append('file', req.file.buffer, {
+          filename: req.file.originalname,
+          contentType: req.file.mimetype
+        });
+      } else {
+        formData.append(key, value);
+      }
+    }
+
+    // Добавляем файл из multipart/form-data если он есть
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      formData.append('file', file.data, {
+        filename: file.name,
+        contentType: file.mimetype
+      });
+    }
+
+    // Устанавливаем язык на русский по умолчанию
+    if (!formData.has('language')) {
+      formData.append('language', 'ru');
+    }
+
+    const axiosConfig = {
+      method: 'POST',
+      url: 'https://api.openai.com/v1/audio/transcriptions',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        // Не устанавливаем Content-Type, axios сделает это автоматически для FormData
+      },
+      data: formData,
+      proxy: false,
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity
+    };
+
+    // Добавляем прокси агент если настроен
+    if (proxyAgent) {
+      axiosConfig.httpsAgent = proxyAgent;
+      axiosConfig.httpAgent = proxyAgent;
+    }
+
+    console.log('🎵 [OpenAI Audio] Sending transcription request to OpenAI');
+
+    const response = await axios(axiosConfig);
+
+    logToFile('INFO', 'Audio transcription successful', {
+      responseSize: JSON.stringify(response.data).length
+    });
+
+    // Возвращаем результат как есть
+    res.status(response.status).send(response.data);
+
+  } catch (error) {
+    console.error('❌ [OpenAI Audio] Transcription error:', error.message);
+
+    logToFile('ERROR', 'Audio transcription failed', {
+      error: error.message,
+      stack: error.stack
+    });
+
+    if (error.response) {
+      res.status(error.response.status).json(error.response.data);
+    } else {
+      res.status(500).json({
+        error: 'Audio transcription failed',
+        details: error.message
+      });
+    }
+  }
+});
+
+// OpenAI API роут - проксирование для остальных запросов OpenAI
 app.use('/api/openai', async (req, res) => {
   try {
     const apiKey = process.env.VITE_OPENAI_API_KEY;
@@ -1079,7 +1201,97 @@ app.get('/api/openai/v1/models', async (req, res) => {
   }
 });
 
-// Специальный роут для стриминга OpenAI (потоковая передача)
+// Роут для стриминга OpenAI chat completions
+app.all('/api/openai/v1/chat/completions', async (req, res) => {
+  try {
+    const apiKey = process.env.VITE_OPENAI_API_KEY;
+
+    if (!apiKey) {
+      console.error('❌ [OpenAI Streaming] API key not configured!');
+      logToFile('ERROR', 'OpenAI API key not configured for streaming');
+      return res.status(500).json({
+        error: 'OpenAI API key not configured'
+      });
+    }
+
+    // Проверяем формат API ключа (должен начинаться с sk-)
+    if (!apiKey.startsWith('sk-')) {
+      console.error('❌ [OpenAI Streaming] Invalid API key format (should start with sk-)');
+      return res.status(500).json({
+        error: 'Invalid OpenAI API key format'
+      });
+    }
+
+    console.log('✅ [OpenAI Streaming] API key configured (length:', apiKey.length + ')');
+
+    const url = 'https://api.openai.com/v1/chat/completions';
+
+    // Создаем заголовки для запроса к OpenAI
+    const headers = {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      ...req.headers
+    };
+
+    // Удаляем host заголовок
+    delete headers.host;
+
+    console.log('🎯 [OpenAI Streaming] Request:', {
+      url,
+      method: req.method,
+      model: req.body?.model,
+      messagesCount: req.body?.messages?.length,
+      contentLength: req.headers['content-length'],
+      bodyPreview: JSON.stringify(req.body).substring(0, 200)
+    });
+
+    // Устанавливаем таймаут (5 минут)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+
+    let response;
+    try {
+      response = await fetch(url, {
+        method: req.method,
+        headers,
+        body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+        signal: controller.signal,
+        ...(proxyAgent && {
+          agent: proxyAgent
+        })
+      });
+      clearTimeout(timeoutId);
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        console.error('❌ [OpenAI Streaming] Request timed out');
+        return res.status(504).json({ error: 'Request timed out' });
+      }
+      throw fetchError;
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [OpenAI Streaming] API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText: errorText
+      });
+      return res.status(response.status).json(JSON.parse(errorText) || { error: errorText });
+    }
+
+    const data = await response.json();
+    return res.json(data);
+  } catch (error) {
+    console.error('❌ [OpenAI Streaming] Error:', error);
+    logToFile('ERROR', `OpenAI Streaming error: ${error.message}`);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
 app.all('/api/openai/v1/chat/completions', async (req, res) => {
   try {
     const apiKey = process.env.VITE_OPENAI_API_KEY;
@@ -2312,7 +2524,7 @@ app.post('/api/chat', async (req, res) => {
   });
 
   try {
-    const { messages, model = 'gpt-4o', stream = true } = req.body;
+    const { messages, model = 'gpt-5.1', stream = true } = req.body;
 
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: 'Messages array is required' });
@@ -2334,12 +2546,13 @@ app.post('/api/chat', async (req, res) => {
 
     console.log('✅ [Chat Streaming] API key configured (length:', apiKey.length + ')');
 
+    // Use standard chat/completions endpoint with GPT-5.1 model
     const url = 'https://api.openai.com/v1/chat/completions';
     const requestBody = {
       model,
       messages,
       temperature: 0.8,
-      max_tokens: 16000,
+      max_completion_tokens: 16000,
       ...(stream && { stream: true })
     };
 
@@ -2496,7 +2709,7 @@ async function startServer() {
     // Инициализируем SQLite базу данных
     await initializeDatabase();
 
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       logToFile('INFO', `Pastel Chef AI API server started`, {
         port: PORT,
         databaseConnected: !!db,

@@ -24,9 +24,8 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { OpenAIService } from '@/services/openai';
 import { OpenAITTS } from '@/services/openai-tts';
+import { OpenAISTT } from '@/services/openai-stt';
 import { useUser } from '@/contexts/UserContext';
-import { Recipe } from '@/types/recipe';
-import { RecipeDisplay } from './recipe-display';
 import { AudioUtils } from '@/lib/audio-utils';
 import { BrowserCompatibility } from '@/lib/browser-compatibility';
 
@@ -46,66 +45,6 @@ interface AiChefChatProps {
 
 
 // Функция для извлечения названия блюда из запроса
-const extractDishName = (text: string): string => {
-  // Удаляем лишние слова и оставляем только название блюда
-  let dishName = text.toLowerCase()
-    .replace(/хочу рецепт/i, '')
-    .replace(/дай рецепт/i, '')
-    .replace(/сделай рецепт/i, '')
-    .replace(/приготовь/i, '')
-    .replace(/покажи рецепт/i, '')
-    .replace(/рецепт/i, '')
-    .replace(/для/i, '')
-    .replace(/на/i, '')
-    .trim();
-
-  // Убираем предлоги и артикли
-  dishName = dishName.replace(/^(из|с|со|от|у|в|на|по|за|к|о)\s+/i, '');
-
-  return dishName || 'неизвестное блюдо';
-};
-
-// Функция для получения типичных ингредиентов для блюда
-const getDishIngredients = (dishName: string): string[] => {
-  const name = dishName.toLowerCase();
-
-  // База типичных ингредиентов для популярных блюд
-  const dishIngredients: Record<string, string[]> = {
-    'уха': ['рыба', 'картофель', 'морковь', 'лук', 'лавровый лист', 'перец горошком', 'соль', 'укроп'],
-    'борщ': ['свекла', 'картофель', 'морковь', 'лук', 'капуста', 'томатная паста', 'говядина', 'лавровый лист', 'перец', 'соль', 'укроп'],
-    'щи': ['капуста', 'картофель', 'морковь', 'лук', 'говядина', 'томатная паста', 'лавровый лист', 'перец', 'соль', 'сметана'],
-    'окрошка': ['квас', 'картофель', 'огурцы', 'зеленый лук', 'укроп', 'вареная колбаса', 'яйца', 'сметана', 'соль'],
-    'пельмени': ['мука', 'вода', 'соль', 'яйца', 'говяжий фарш', 'лук', 'перец', 'масло'],
-    'блины': ['мука', 'молоко', 'яйца', 'соль', 'сахар', 'масло', 'сода'],
-    'оладьи': ['мука', 'кефир', 'яйца', 'сахар', 'соль', 'сода', 'масло'],
-    'салат цезарь': ['куриная грудка', 'салат ромэн', 'пармезан', 'сухарики', 'соус цезарь', 'оливковое масло', 'лимон'],
-    'паста карбонара': ['спагетти', 'бекон', 'яйца', 'пармезан', 'чеснок', 'перец', 'соль'],
-    'ризотто': ['рис арборио', 'бульон', 'лук', 'белое вино', 'пармезан', 'масло', 'перец'],
-    'бургер': ['говяжья котлета', 'булочка', 'сыр', 'салат', 'помидор', 'лук', 'кетчуп', 'майонез'],
-    'пицца': ['тесто для пиццы', 'томатный соус', 'моцарелла', 'пепперони', 'оливки', 'перец', 'орегано'],
-    'суши': ['рис для суши', 'нори', 'рыба', 'огурец', 'авокадо', 'соевый соус', 'васаби', 'имбирь'],
-    'стейк': ['говядина', 'соль', 'перец', 'масло', 'чеснок', 'тимьян'],
-    'шашлык': ['мясо', 'лук', 'уксус', 'перец', 'соль', 'лавровый лист'],
-    'плов': ['рис', 'мясо', 'морковь', 'лук', 'чеснок', 'перец', 'соль', 'зира'],
-    'паэлья': ['рис', 'морепродукты', 'курица', 'перец', 'горошек', 'шафран', 'чеснок', 'лук']
-  };
-
-  // Ищем точное совпадение
-  if (dishIngredients[name]) {
-    return dishIngredients[name];
-  }
-
-  // Ищем частичное совпадение
-  for (const [key, ingredients] of Object.entries(dishIngredients)) {
-    if (name.includes(key) || key.includes(name)) {
-      return ingredients;
-    }
-  }
-
-  // Если блюдо не найдено, возвращаем базовые ингредиенты
-  return ['мясо или рыба', 'картофель', 'морковь', 'лук', 'соль', 'перец'];
-};
-
 export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   const { user } = useUser();
   const [messages, setMessages] = useState<Message[]>([
@@ -122,29 +61,9 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   const [audioSupported, setAudioSupported] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(0);
-  const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Проверяем, является ли запрос запросом рецепта
-  const isRecipeRequest = (text: string): boolean => {
-    const lowerText = text.toLowerCase();
-
-    // Исключаем разговорные фразы типа "хочу рецепт картошки" - это не явный запрос рецепта
-    if (lowerText.includes('хочу рецепт') || lowerText.includes('дай рецепт')) {
-      return false;
-    }
-
-    const recipeKeywords = [
-      'приготовить', 'сварить', 'пожарить', 'запечь', 'сделать',
-      'как приготовить', 'как сделать', 'как сварить', 'рецепт на',
-      'рецепт приготовления', 'готовим', 'приготовление',
-      'покажи рецепт', 'дайте рецепт', 'нужен рецепт'
-    ];
-
-    return recipeKeywords.some(keyword => lowerText.includes(keyword));
-  };
 
   // Проверяем, является ли запрос запросом на показ фото блюда
   const isImageRequest = (text: string): boolean => {
@@ -196,7 +115,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
     }
 
     // По умолчанию
-    return 'Спасибо за ваш вопрос! Сейчас приложение работает в демо-режиме. Попробуйте:\n• 📸 Анализ фото продуктов\n• 🎤 Голосовое управление\n• 📊 Калькулятор калорий\n\nДля полноценного AI чата настройте API ключи OpenAI.';
+    return 'Спасибо за ваш вопрос! Сейчас приложение работает в демо-режиме, так как не настроен API ключ OpenAI.\n\nДоступные функции:\n• 📸 Анализ фото продуктов\n• 🎤 Голосовое управление\n• 📊 Калькулятор калорий\n\nДля полноценного AI чата настройте API ключ OpenAI в переменных окружения.';
   };
 
   // Автоскролл к последнему сообщению
@@ -250,15 +169,15 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   useEffect(() => {
     const checkAudioSupport = () => {
       const caps = BrowserCompatibility.getCapabilities();
-      const hasSpeechRecognitionSupport = caps.speechRecognition || caps.webkitSpeechRecognition;
-      
-      console.log('Speech Recognition Support Check:');
+      const hasRecordingSupport = caps.mediaRecorder && caps.getUserMedia;
+
+      console.log('Audio Recording Support Check:');
       console.log('- Capabilities:', caps);
-      console.log('- Final support:', hasSpeechRecognitionSupport);
-      
-      setAudioSupported(hasSpeechRecognitionSupport);
+      console.log('- Recording support:', hasRecordingSupport);
+
+      setAudioSupported(hasRecordingSupport);
     };
-    
+
     checkAudioSupport();
   }, []);
 
@@ -271,58 +190,18 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
     let didStreamResponse = false;
 
     try {
-      // Проверяем, является ли запрос запросом рецепта или изображения
-      const shouldGenerateRecipe = isRecipeRequest(messageText);
+      // Проверяем, является ли запрос запросом изображения
       const shouldGenerateImage = isImageRequest(messageText);
 
       console.log('🔍 [AI Chef Chat] Анализ запроса:', {
-        isRecipeRequest: shouldGenerateRecipe,
         isImageRequest: shouldGenerateImage,
         message: messageText
       });
 
       let response: any;
       let responseText: string;
-      let recipe: Recipe | null = null;
 
-      if (shouldGenerateRecipe) {
-        // Воспроизводим звук обработки во время генерации рецепта (уже вызывается в сервисе)
-        // AudioUtils.playProcessingSound();
-
-        // Извлекаем название блюда из запроса
-        const dishName = extractDishName(messageText);
-        console.log('🍳 [AI Chef Chat] Извлечено название блюда:', dishName);
-
-        // Получаем типичные ингредиенты для этого блюда
-        const ingredients = getDishIngredients(dishName);
-        console.log('🍳 [AI Chef Chat] Типичные ингредиенты:', ingredients);
-
-        // Генерируем рецепт с изображениями
-        console.log('🍳 [AI Chef Chat] Обнаружен запрос рецепта - генерируем с изображениями');
-        response = await OpenAIService.generateRecipe(ingredients, user?.healthProfile, undefined, false, true);
-
-        if (response && response.instructions) {
-          recipe = response;
-          // Формируем текстовое описание рецепта с изображениями в тексте
-          responseText = `Отлично! Я подготовил рецепт "${response.title}". ${response.description}\n\n`;
-
-          response.instructions.forEach((instruction: string, index: number) => {
-            // Вставляем изображение перед каждым шагом, если оно есть
-            if (response.instructionImages && response.instructionImages[index]) {
-              responseText += `![Шаг ${index + 1}](${response.instructionImages[index]})\n\n`;
-            }
-            responseText += `**Шаг ${index + 1}:** ${instruction}\n\n`;
-          });
-
-          if (response.tips) {
-            responseText += `**Полезные советы:** ${response.tips}`;
-          }
-
-          console.log('🍳 [AI Chef Chat] Сформирован текстовый рецепт с изображениями в тексте');
-        } else {
-          responseText = response.content || response.description || 'Не удалось сгенерировать рецепт.';
-        }
-      } else if (shouldGenerateImage) {
+      if (shouldGenerateImage) {
         // Генерируем изображение блюда
         console.log('🎨 [AI Chef Chat] Обнаружен запрос изображения блюда');
 
@@ -487,11 +366,6 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
         }
       }
 
-      // Сохраняем рецепт если он был сгенерирован
-      if (recipe) {
-        setGeneratedRecipe(recipe);
-      }
-
         // Добавляем ответ только если он не пустой
         if (responseText && responseText.trim()) {
         if (!didStreamResponse) {
@@ -508,7 +382,7 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
 
       // Определяем тип ошибки
       let useDemoMode = false;
-      let errorMessage = 'Извините, я временно недоступен. Попробуйте позже или обратитесь к другим функциям приложения.';
+      let errorMessage = 'Произошла ошибка при обработке запроса. Попробуйте еще раз или обратитесь к другим функциям приложения.';
 
       if (error instanceof Error) {
         const errorText = error.message.toLowerCase();
@@ -581,7 +455,9 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
 
   const handleSpeakMessage = async (content: string) => {
     try {
-      await OpenAITTS.speak(content, 'nova');
+      // Преобразуем цифры в слова для TTS
+      const contentForTTS = OpenAIService.replaceNumbersWithWords(content);
+      await OpenAITTS.speak(contentForTTS, 'alloy');
       toast({
         title: "🔊 Воспроизведение",
         description: "Ответ AI озвучен",
@@ -613,7 +489,6 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
         timestamp: new Date()
       }
     ]);
-    setGeneratedRecipe(null);
     toast({
       title: "Чат очищен",
       description: "История разговора удалена. Начинаем новый диалог!",
@@ -647,42 +522,21 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   // Функции для работы с аудио
   const startRecording = async () => {
     try {
-      // Проверяем поддержку Web Speech API
-      const caps = BrowserCompatibility.getCapabilities();
-      if (!caps.speechRecognition && !caps.webkitSpeechRecognition) {
-        throw new Error('Браузер не поддерживает распознавание речи');
+      // Проверяем поддержку записи аудио
+      if (!OpenAISTT.isSupported()) {
+        throw new Error('Браузер не поддерживает запись аудио');
       }
 
       setIsRecording(true);
-      
+
       toast({
         title: "🎤 Запись началась",
-        description: "Говорите в микрофон...",
+        description: "Говорите в микрофон... Нажмите кнопку еще раз, чтобы остановить.",
       });
 
-      // Запускаем распознавание речи напрямую
-      const text = await speechToText();
-      
-      if (text) {
-        // Добавляем голосовое сообщение в чат
-        const audioMessage: Message = {
-          id: Date.now().toString(),
-          content: text,
-          role: 'user',
-          timestamp: new Date(),
-          isAudio: true
-        };
-        
-        setMessages(prev => [...prev, audioMessage]);
-        
-        // Небольшая задержка, чтобы пользователь увидел распознанный текст
-        setTimeout(async () => {
-          await sendMessageToAI(text);
-        }, 1000);
-      }
-      
-      setIsRecording(false);
-      
+      // Запускаем запись аудио
+      await OpenAISTT.startRecording();
+
     } catch (error) {
       console.error('Error starting recording:', error);
       const errorMessage = error instanceof Error ? error.message : 'Не удалось получить доступ к микрофону';
@@ -695,91 +549,64 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
     }
   };
 
-  const stopRecording = () => {
-    // Для прямого распознавания речи остановка не нужна
-    // Функция оставлена для совместимости с UI
-    setIsRecording(false);
-  };
+  const stopRecording = async () => {
+    if (!OpenAISTT.isCurrentlyRecording()) {
+      return;
+    }
 
+    try {
+      toast({
+        title: "⏳ Обрабатываем запись",
+        description: "Распознаем вашу речь...",
+      });
 
-  const speechToText = (): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      // Проверяем поддержку Web Speech API
-      const caps = BrowserCompatibility.getCapabilities();
-      if (!caps.speechRecognition && !caps.webkitSpeechRecognition) {
-        reject(new Error('Браузер не поддерживает распознавание речи'));
-        return;
-      }
+      // Останавливаем запись и получаем транскрибацию
+      const text = await OpenAISTT.stopRecording();
 
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-      const recognition = new SpeechRecognition();
-      
-      recognition.lang = 'ru-RU';
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
+      if (text && text.trim()) {
+        // Добавляем голосовое сообщение в чат
+        const audioMessage: Message = {
+          id: Date.now().toString(),
+          content: text.trim(),
+          role: 'user',
+          timestamp: new Date(),
+          isAudio: true
+        };
 
-      let hasResult = false;
+        setMessages(prev => [...prev, audioMessage]);
 
-      recognition.onstart = () => {
-        console.log('Speech recognition started');
-        toast({
-          title: "🎤 Распознавание речи",
-          description: "Слушаем... Говорите четко и громко.",
-        });
-      };
-
-      recognition.onresult = (event: any) => {
-        hasResult = true;
-        const result = event.results[0][0].transcript;
-        console.log('Speech recognition result:', result);
-        
-        // Показываем уведомление об успешном распознавании
+        // Показываем успешное распознавание
         toast({
           title: "✅ Речь распознана",
-          description: `"${result}"`,
+          description: `"${text.trim()}"`,
         });
-        
-        resolve(result);
-      };
 
-      recognition.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
-        hasResult = true;
-        
-        let errorMessage = 'Ошибка распознавания речи';
-        switch (event.error) {
-          case 'no-speech':
-            errorMessage = 'Речь не обнаружена. Попробуйте говорить громче.';
-            break;
-          case 'audio-capture':
-            errorMessage = 'Не удалось получить доступ к микрофону.';
-            break;
-          case 'not-allowed':
-            errorMessage = 'Доступ к микрофону запрещен. Разрешите доступ в настройках браузера.';
-            break;
-          case 'network':
-            errorMessage = 'Ошибка сети. Проверьте подключение к интернету.';
-            break;
-        }
-        
-        reject(new Error(errorMessage));
-      };
-
-      recognition.onend = () => {
-        if (!hasResult) {
-          reject(new Error('Речь не распознана. Попробуйте еще раз.'));
-        }
-      };
-
-      // Запускаем распознавание
-      try {
-        recognition.start();
-      } catch (error) {
-        reject(new Error('Не удалось запустить распознавание речи'));
+        // Небольшая задержка, чтобы пользователь увидел распознанный текст
+        setTimeout(async () => {
+          await sendMessageToAI(text.trim());
+        }, 1000);
+      } else {
+        toast({
+          title: "⚠️ Речь не распознана",
+          description: "Попробуйте говорить четче или проверьте микрофон",
+          variant: "destructive",
+        });
       }
-    });
+
+    } catch (error) {
+      console.error('Error stopping recording:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка при обработке записи';
+      toast({
+        title: "Ошибка распознавания",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRecording(false);
+    }
   };
+
+
 
 
   return (
@@ -796,13 +623,6 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
         )}
 
         <CardContent className="flex-1 flex flex-col p-0 min-h-0">
-          {/* Generated Recipe Display */}
-          {generatedRecipe && (
-            <div className="w-full max-w-4xl mx-auto mb-4">
-              <RecipeDisplay recipe={generatedRecipe} />
-            </div>
-          )}
-
         <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 sm:px-6 lg:px-[10%] min-h-0">
           <div className="space-y-4 pb-4">
             {messages.map((message) => (
@@ -1017,9 +837,9 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
           <p className="text-xs text-muted-foreground mt-2 hidden sm:block">
             💡 Спросите о рецептах, техниках готовки, ингредиентах или любых кулинарных вопросах. 
             {audioSupported ? (
-              <span className="text-blue-500">🎤 Используйте микрофон для голосового ввода (Chrome, Edge, Safari)</span>
+              <span className="text-blue-500">🎤 Используйте микрофон для голосового ввода (все современные браузеры)</span>
             ) : (
-              <span className="text-gray-500">🎤 Голосовой ввод недоступен в вашем браузере. Используйте Chrome, Edge или Safari.</span>
+              <span className="text-gray-500">🎤 Голосовой ввод недоступен в вашем браузере. Используйте современный браузер с поддержкой Web Audio API.</span>
             )}
           </p>
         </div>

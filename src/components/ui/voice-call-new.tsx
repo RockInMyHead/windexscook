@@ -53,8 +53,6 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
   const isStartingRecordingRef = useRef(false);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const accumulatedTextRef = useRef('');
-  const currentGenerationRef = useRef<AbortController | null>(null);
-  const pendingMessageRef = useRef<string>('');
 
   // Проверка поддержки OpenAI STT
   useEffect(() => {
@@ -74,35 +72,19 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
   }, []);
 
   // Функция для обработки голосовых сообщений
-  const processVoiceMessage = async (message: string, appendToPending: boolean = false) => {
+  const processVoiceMessage = async (message: string) => {
     if (!message || !message.trim()) {
       console.log('⚠️ [Voice Call] Пустое сообщение - пропускаем');
       return;
     }
 
-    // Объединяем с накопленным сообщением, если нужно
-    const finalMessage = appendToPending && pendingMessageRef.current
-      ? `${pendingMessageRef.current} ${message.trim()}`
-      : message.trim();
-
-    console.log('🎤 [Voice Call] Обрабатываем голосовое сообщение:', finalMessage, appendToPending ? '(добавлено к предыдущему)' : '');
-
-    // Прерываем предыдущую генерацию, если она активна
-    if (currentGenerationRef.current) {
-      console.log('🚫 [Voice Call] Прерываем предыдущую генерацию');
-      currentGenerationRef.current.abort();
-      currentGenerationRef.current = null;
-    }
-
-    // Создаем новый AbortController для этой генерации
-    const abortController = new AbortController();
-    currentGenerationRef.current = abortController;
+    console.log('🎤 [Voice Call] Обрабатываем голосовое сообщение:', message);
 
     try {
       setCallState(prev => ({ ...prev, isLoading: true }));
 
       // Создаем промпт для генерации рецепта
-      const recipePrompt = `Создай подробный рецепт на основе этого голосового запроса: "${finalMessage}"
+      const recipePrompt = `Создай подробный рецепт на основе этого голосового запроса: "${message}"
 
 Требования:
 - Определи основные ингредиенты из запроса
@@ -121,15 +103,8 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
   "tips": "советы"
 }`;
 
-      // Отправляем запрос к OpenAI с возможностью прерывания
-      const response = await OpenAIService.generateRecipeFromText(recipePrompt, abortController.signal);
-
-      // Проверяем, не было ли прерывание
-      if (abortController.signal.aborted) {
-        console.log('⚠️ [Voice Call] Генерация была прервана новым сообщением');
-        setCallState(prev => ({ ...prev, isLoading: false }));
-          return;
-        }
+      // Отправляем запрос к OpenAI
+      const response = await OpenAIService.generateRecipeFromText(recipePrompt);
 
       if (response) {
         console.log('✅ [Voice Call] Рецепт сгенерирован:', response.title);
@@ -139,23 +114,14 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
           isLoading: false
         }));
 
-        // Очищаем накопленное сообщение после успешной генерации
-        pendingMessageRef.current = '';
-
         // Озвучиваем результат
         const speechText = `Отлично! Я приготовил для вас рецепт "${response.title}". ${response.description}. Хотите, чтобы я озвучил подробный рецепт?`;
-        await OpenAITTS.speak(speechText, 'alloy');
+        await OpenAITTS.speak(speechText, 'nova');
         setCallState(prev => ({ ...prev, isPlaying: true }));
         isPlayingRef.current = true;
       }
 
-    } catch (error: any) {
-      // Игнорируем ошибку прерывания (AbortError)
-      if (error.name === 'AbortError') {
-        console.log('ℹ️ [Voice Call] Генерация была прервана - это нормально');
-        return;
-      }
-
+    } catch (error) {
       console.error('❌ [Voice Call] Ошибка обработки голосового сообщения:', error);
       setCallState(prev => ({
         ...prev,
@@ -168,11 +134,6 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
         description: "Не удалось обработать ваш запрос",
         variant: "destructive",
       });
-    } finally {
-      // Очищаем AbortController
-      if (currentGenerationRef.current === abortController) {
-        currentGenerationRef.current = null;
-      }
     }
   };
 
@@ -201,23 +162,15 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       }
 
       // Останавливаем текущее воспроизведение TTS если пользователь начинает говорить
-    if (callState.isPlaying) {
+      if (callState.isPlaying) {
         console.log('🚫 [Voice Call] Прерываем TTS при начале записи');
-      OpenAITTS.stop();
-      setCallState(prev => ({ ...prev, isPlaying: false }));
+        OpenAITTS.stop();
+        setCallState(prev => ({ ...prev, isPlaying: false }));
         isPlayingRef.current = false;
         toast({
           title: "🎤 Речь прервана",
           description: "Ваша речь важнее! Говорите...",
         });
-      }
-
-      // Прерываем текущую генерацию рецепта, если она активна
-      if (currentGenerationRef.current && !currentGenerationRef.current.signal.aborted) {
-        console.log('🚫 [Voice Call] Прерываем текущую генерацию рецепта');
-        currentGenerationRef.current.abort();
-        currentGenerationRef.current = null;
-        setCallState(prev => ({ ...prev, isLoading: false }));
       }
 
       // Запускаем запись с OpenAI STT
@@ -238,14 +191,14 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
     } catch (error: any) {
       console.error('❌ [Voice Call] Ошибка начала записи:', error);
       setCallState(prev => ({ ...prev, isRecording: false, error: error.message }));
-        isStartingRecordingRef.current = false;
+      isStartingRecordingRef.current = false;
 
-        toast({
+      toast({
         title: "❌ Ошибка записи",
         description: error.message || "Не удалось начать запись",
-          variant: "destructive",
-        });
-      }
+        variant: "destructive",
+      });
+    }
   }, [callState.isRecording, callState.isPlaying]);
 
   // Функция остановки записи
@@ -254,8 +207,8 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
 
     if (!OpenAISTT.isCurrentlyRecording()) {
       console.log('⚠️ [Voice Call] Запись не активна');
-                      return;
-                    }
+      return;
+    }
 
     try {
       console.log('⏳ [Voice Call] Останавливаем запись и обрабатываем...');
@@ -278,19 +231,8 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
           description: `"${text.trim()}"`,
         });
 
-        // Определяем, нужно ли добавить к предыдущему сообщению
-        const shouldAppend = currentGenerationRef.current !== null || callState.isLoading;
-
-        if (shouldAppend) {
-          // Добавляем к накопленному сообщению
-          pendingMessageRef.current = pendingMessageRef.current
-            ? `${pendingMessageRef.current} ${text.trim()}`
-            : text.trim();
-          console.log('🔗 [Voice Call] Добавляем к предыдущему сообщению:', pendingMessageRef.current);
-        }
-
         // Обрабатываем голосовое сообщение
-        await processVoiceMessage(text.trim(), shouldAppend);
+        await processVoiceMessage(text.trim());
       } else {
         console.log('⚠️ [Voice Call] Текст не распознан');
         toast({
@@ -309,8 +251,8 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       });
     } finally {
       setCallState(prev => ({ ...prev, isRecording: false }));
-                        isStartingRecordingRef.current = false;
-                      }
+      isStartingRecordingRef.current = false;
+    }
   }, []);
 
   // Функция начала звонка
@@ -322,11 +264,11 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
 
       // Инициализируем приветствие
       const greeting = "Привет! Я ваш AI шеф-повар. Расскажите, что вы хотели бы приготовить, и я помогу с рецептом!";
-      await OpenAITTS.speak(greeting, 'alloy');
-      
-      setCallState(prev => ({ 
-        ...prev, 
-        isConnected: true, 
+      await OpenAITTS.speak(greeting, 'nova');
+
+      setCallState(prev => ({
+        ...prev,
+        isConnected: true,
         isPlaying: true,
         isLoading: false
       }));
@@ -334,11 +276,11 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       isPlayingRef.current = true;
 
       console.log('✅ [Voice Call] Звонок начат');
-      
+
     } catch (error) {
       console.error('❌ [Voice Call] Ошибка начала звонка:', error);
-      setCallState(prev => ({ 
-        ...prev, 
+      setCallState(prev => ({
+        ...prev,
         error: 'Ошибка подключения',
         isLoading: false
       }));
@@ -360,13 +302,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       clearTimeout(callTimerRef.current);
       callTimerRef.current = null;
     }
-    
-    // Прерываем активную генерацию
-    if (currentGenerationRef.current) {
-      currentGenerationRef.current.abort();
-      currentGenerationRef.current = null;
-    }
-    
+
     setCallState({
       isConnected: false,
       isRecording: false,
@@ -376,12 +312,11 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
       error: null,
       generatedRecipe: null
     });
-    
+
     isConnectedRef.current = false;
     isPlayingRef.current = false;
     isStartingRecordingRef.current = false;
-      accumulatedTextRef.current = '';
-    pendingMessageRef.current = '';
+    accumulatedTextRef.current = '';
 
     console.log('✅ [Voice Call] Звонок завершен');
   }, []);
@@ -389,7 +324,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
   // Обработчик окончания TTS
   useEffect(() => {
     const handleTTSEnd = () => {
-        setCallState(prev => ({ ...prev, isPlaying: false }));
+      setCallState(prev => ({ ...prev, isPlaying: false }));
       isPlayingRef.current = false;
     };
 
@@ -401,12 +336,8 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
   useEffect(() => {
     return () => {
       console.log('🛑 [Voice Call] Component unmounted, stopping TTS and timer');
-                          OpenAITTS.stop();
+      OpenAITTS.stop();
       if (callTimerRef.current) clearTimeout(callTimerRef.current);
-      if (currentGenerationRef.current) {
-        currentGenerationRef.current.abort();
-        currentGenerationRef.current = null;
-      }
     };
   }, []);
 
@@ -466,7 +397,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             {callState.isConnected && (
               <Badge variant={callState.isRecording ? "destructive" : "default"}>
@@ -488,21 +419,21 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
         {/* Call Controls */}
         <div className="p-4 border-b border-border/50">
           <div className="flex justify-center gap-4">
-          {!callState.isConnected ? (
-            <Button
-              onClick={startCall}
-              disabled={callState.isLoading}
+            {!callState.isConnected ? (
+              <Button
+                onClick={startCall}
+                disabled={callState.isLoading}
                 className="bg-green-500 hover:bg-green-600 text-white"
-              size="lg"
-            >
-              {callState.isLoading ? (
+                size="lg"
+              >
+                {callState.isLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin mr-2" />
-              ) : (
+                ) : (
                   <Phone className="w-5 h-5 mr-2" />
-              )}
+                )}
                 Позвонить AI Повару
-            </Button>
-          ) : (
+              </Button>
+            ) : (
               <div className="flex gap-2">
                 <Button
                   onClick={callState.isRecording ? stopRecording : startRecording}
@@ -518,16 +449,16 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
                   {callState.isRecording ? "Остановить" : "Говорить"}
                 </Button>
 
-            <Button
-              onClick={endCall}
+                <Button
+                  onClick={endCall}
                   variant="outline"
-              size="lg"
-            >
-              <PhoneOff className="w-5 h-5 mr-2" />
+                  size="lg"
+                >
+                  <PhoneOff className="w-5 h-5 mr-2" />
                   Завершить
-            </Button>
+                </Button>
               </div>
-          )}
+            )}
           </div>
         </div>
 

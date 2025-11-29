@@ -42,12 +42,28 @@ export class BrowserCompatibility {
 
     const win = window as any;
 
+    // Более глубокая проверка MediaRecorder для Safari
+    let mediaRecorderSupported = !!win.MediaRecorder;
+    if (mediaRecorderSupported && this.isSafari()) {
+      // Safari поддерживает MediaRecorder, но может иметь ограничения
+      try {
+        // Проверяем, можем ли мы создать MediaRecorder с поддерживаемыми кодеками
+        const testMimeTypes = ['audio/webm', 'audio/mp4', 'audio/wav'];
+        mediaRecorderSupported = testMimeTypes.some(mimeType =>
+          win.MediaRecorder.isTypeSupported(mimeType)
+        );
+      } catch (e) {
+        console.warn('⚠️ Ошибка проверки MediaRecorder в Safari:', e);
+        mediaRecorderSupported = false;
+      }
+    }
+
     this.capabilities = {
       // Аудио API
       webAudio: !!(win.AudioContext || win.webkitAudioContext),
       mediaDevices: !!navigator.mediaDevices,
       getUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
-      mediaRecorder: !!win.MediaRecorder,
+      mediaRecorder: mediaRecorderSupported,
 
       // Распознавание речи
       speechRecognition: !!win.SpeechRecognition,
@@ -102,6 +118,14 @@ export class BrowserCompatibility {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Проверить, является ли браузер Safari
+   */
+  private static isSafari(): boolean {
+    const ua = navigator.userAgent;
+    return /Safari/.test(ua) && !/Chrome/.test(ua) && !/Chromium/.test(ua);
   }
 
   /**

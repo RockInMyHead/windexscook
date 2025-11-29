@@ -830,14 +830,23 @@ export const VoiceCallNew: React.FC<VoiceCallProps> = ({ className = '' }) => {
   // Load user profile on mount
   useEffect(() => {
     const caps = BrowserCompatibility.getCapabilities();
+    const browserInfo = BrowserCompatibility.getBrowserInfo();
     const hasRecordingSupport = caps.mediaRecorder && caps.getUserMedia;
+    const hasSpeechRecognition = caps.speechRecognition || caps.webkitSpeechRecognition;
 
-    if (!hasRecordingSupport) {
-      console.warn('🎤 [Voice Call] OpenAI STT не поддерживается в этом браузере');
+    // Для Safari используем Web Speech API как приоритетный вариант
+    const isSafari = browserInfo.isSafari;
+    const shouldUseFallback = !hasRecordingSupport || isSafari;
+
+    if (shouldUseFallback && !hasSpeechRecognition) {
+      console.warn('🎤 [Voice Call] Ни MediaRecorder, ни Web Speech API не поддерживаются в этом браузере');
       setBrowserSupported(false);
       setBrowserCapabilities(caps);
+    } else if (shouldUseFallback && hasSpeechRecognition) {
+      console.log('✅ [Voice Call] Используется Web Speech API (Safari или браузер без MediaRecorder)');
+      setUseFallbackTranscription(true);
     } else {
-      console.log('✅ [Voice Call] OpenAI STT поддерживается в этом браузере');
+      console.log('✅ [Voice Call] MediaRecorder API поддерживается в этом браузере');
     }
   }, []);
 
@@ -906,10 +915,10 @@ export const VoiceCallNew: React.FC<VoiceCallProps> = ({ className = '' }) => {
             <CardContent className="text-center space-y-4">
               <p className="text-sm text-muted-foreground">
                 Ваш браузер не полностью поддерживает голосовые функции.
-                  Отсутствует поддержка: запись аудио.
+                  Отсутствует поддержка: запись аудио и распознавание речи.
               </p>
               <p className="text-sm text-muted-foreground">
-                Рекомендуется использовать современный браузер с поддержкой MediaRecorder API.
+                Для голосового общения используйте Chrome, Firefox или Edge.
               </p>
               <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
                 <strong>Информация о браузере:</strong><br/>

@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './card';
 import { Button } from './button';
 import { Badge } from './badge';
@@ -7,10 +8,13 @@ import {
   PhoneOff,
   Mic,
   MicOff,
+  Volume2,
+  VolumeX,
   Loader2,
   ChefHat
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useUser } from '@/contexts/UserContext';
 import { OpenAIService } from '@/services/openai';
 import { OpenAITTS } from '@/services/openai-tts';
 import { OpenAISTT } from '@/services/openai-stt';
@@ -18,341 +22,883 @@ import { Recipe } from '@/types/recipe';
 import { RecipeDisplay } from './recipe-display';
 import { AudioUtils } from '@/lib/audio-utils';
 import { BrowserCompatibility } from '@/lib/browser-compatibility';
+import AssistantOrb from './assistant-orb';
+
+// API URL from environment
+const API_URL = import.meta.env.VITE_API_URL || 'https://cook.windexs.ru';
+
+// Web Speech API types
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+  message?: string;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onstart: ((event: Event) => void) | null;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: ((event: Event) => void) | null;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition?: new () => SpeechRecognition;
+    webkitSpeechRecognition?: new () => SpeechRecognition;
+    mozSpeechRecognition?: new () => SpeechRecognition;
+  }
+}
+
+// Функция определения Safari
+const isSafari = () => {
+  const ua = navigator.userAgent.toLowerCase();
+  const result = ua.includes('safari') && !ua.includes('chrome') && !ua.includes('chromium');
+  console.log('🌐 Определение браузера:', {
+    userAgent: ua,
+    isSafari: result,
+    hasChrome: ua.includes('chrome'),
+    hasSafari: ua.includes('safari')
+  });
+  return result;
+};
 
 interface VoiceCallProps {
   className?: string;
 }
 
-interface CallState {
-  isConnected: boolean;
-  isRecording: boolean;
-  isPlaying: boolean;
-  isLoading: boolean;
-  isContinuousMode: boolean;
-  error: string | null;
-  generatedRecipe: Recipe | null;
-}
+export const VoiceCallNew: React.FC<VoiceCallProps> = ({ className = '' }) => {
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useUser();
 
-export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
-  const [callState, setCallState] = useState<CallState>({
-    isConnected: false,
-    isRecording: false,
-    isPlaying: false,
-    isLoading: false,
-    isContinuousMode: false, // Отключаем постоянный режим для voice call
-    error: null,
-    generatedRecipe: null
-  });
-
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isMicEnabled, setIsMicEnabled] = useState(true);
+  const [isSoundEnabled, setIsSoundEnabled] = useState(true);
+  const [transcriptDisplay, setTranscriptDisplay] = useState<string>("");
   const [browserSupported, setBrowserSupported] = useState<boolean>(true);
   const [browserCapabilities, setBrowserCapabilities] = useState<any>(null);
+  const [useFallbackTranscription, setUseFallbackTranscription] = useState(false);
 
-  // Refs для управления состоянием
-  const isConnectedRef = useRef(false);
-  const isPlayingRef = useRef(false);
-  const isStartingRecordingRef = useRef(false);
-  const callTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const accumulatedTextRef = useRef('');
+  // Refs
+  const speechRecognitionRef = useRef<SpeechRecognition | null>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastTranscriptRef = useRef<string>('');
+  const generationIdRef = useRef<number>(0);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioAnalyserRef = useRef<AnalyserNode | null>(null);
+  const microphoneSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const volumeMonitorRef = useRef<number | null>(null);
+  const isPlayingAudioRef = useRef<boolean>(false);
+  const audioQueueRef = useRef<ArrayBuffer[]>([]);
+  const ttsProgressRef = useRef<{
+    startTime: number;
+    text: string;
+    duration: number;
+    words: string[];
+    currentWordIndex: number;
+  } | null>(null);
 
-  // Проверка поддержки OpenAI STT
+  // Fallback recording refs
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  // Инициализация аудио контекста
+  const initializeAudioContext = useCallback(async (): Promise<AudioContext> => {
+    if (audioContextRef.current) {
+      return audioContextRef.current;
+    }
+
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    audioContextRef.current = new AudioContextClass();
+
+    if (audioContextRef.current.state === 'suspended') {
+      await audioContextRef.current.resume();
+    }
+
+    return audioContextRef.current;
+  }, []);
+
+  // Основная функция прерывания речи ассистента
+  const stopAssistantSpeech = useCallback(() => {
+    console.log('🛑 Прерываем речь ассистента');
+    generationIdRef.current += 1;
+    audioQueueRef.current = [];
+
+    if (currentAudioRef.current) {
+      try {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+        currentAudioRef.current.volume = 0;
+        currentAudioRef.current.muted = true;
+        currentAudioRef.current.src = '';
+        currentAudioRef.current.load();
+      } catch (error) {
+        console.warn('⚠️ Ошибка при остановке аудио:', error);
+      }
+      currentAudioRef.current = null;
+    }
+
+    isPlayingAudioRef.current = false;
+    setIsSpeaking(false);
+    ttsProgressRef.current = null;
+  }, []);
+
+  // Check if Web Speech API is available
+  const isWebSpeechAvailable = useCallback(() => {
+    const SpeechRecognition = window.SpeechRecognition ||
+      (window as any).webkitSpeechRecognition ||
+      (window as any).mozSpeechRecognition;
+    return !!SpeechRecognition;
+  }, []);
+
+  // Transcribe audio using OpenAI Whisper API (fallback)
+  const transcribeWithOpenAI = useCallback(async (audioBlob: Blob): Promise<string | null> => {
+    try {
+      console.log('🎤 Отправка аудио на транскрибацию через OpenAI Whisper...');
+      setIsTranscribing(true);
+
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.webm');
+
+      const response = await fetch('/api/openai/v1/audio/transcriptions', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || 'Transcription failed');
+      }
+
+      const data = await response.json();
+      console.log('✅ Транскрибация завершена:', data.text);
+      return data.text || null;
+    } catch (error) {
+      console.error('❌ Ошибка транскрибации:', error);
+      toast({
+        title: "Ошибка распознавания",
+        description: "Не удалось распознать речь. Попробуйте еще раз.",
+        variant: "destructive"
+      });
+      return null;
+    } finally {
+      setIsTranscribing(false);
+    }
+  }, [toast]);
+
+  // Start fallback recording
+  const startFallbackRecording = useCallback(async () => {
+    try {
+      console.log('🎤 Запуск fallback записи (MediaRecorder)...');
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast({
+          title: "Микрофон недоступен",
+          description: "Ваш браузер не поддерживает запись аудио.",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      audioChunksRef.current = [];
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.start(100);
+      console.log('✅ Fallback запись начата');
+      return true;
+    } catch (error) {
+      console.error('❌ Ошибка запуска fallback записи:', error);
+      toast({
+        title: "Ошибка микрофона",
+        description: "Не удалось получить доступ к микрофону.",
+        variant: "destructive"
+      });
+      return false;
+    }
+  }, [toast]);
+
+  // Stop fallback recording and transcribe
+  const stopFallbackRecording = useCallback(async () => {
+    return new Promise<string | null>((resolve) => {
+      if (!mediaRecorderRef.current) {
+        resolve(null);
+      return;
+    }
+
+      mediaRecorderRef.current.onstop = async () => {
+        console.log('🛑 Fallback запись остановлена, chunks:', audioChunksRef.current.length);
+
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach(track => track.stop());
+          mediaStreamRef.current = null;
+        }
+
+        if (audioChunksRef.current.length === 0) {
+          resolve(null);
+      return;
+    }
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        audioChunksRef.current = [];
+
+        const text = await transcribeWithOpenAI(audioBlob);
+        resolve(text);
+      };
+
+      mediaRecorderRef.current.stop();
+    });
+  }, [transcribeWithOpenAI]);
+
+  // Initialize Web Speech API
+  const initializeSpeechRecognition = useCallback(() => {
+    const SpeechRecognition = window.SpeechRecognition ||
+      (window as any).webkitSpeechRecognition ||
+      (window as any).mozSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      console.log('⚠️ Web Speech API не поддерживается, будет использоваться OpenAI Whisper');
+      setUseFallbackTranscription(true);
+      return null;
+    }
+
+    console.log('🎤 Инициализация Web Speech API...');
+    const recognition = new SpeechRecognition();
+
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'ru-RU';
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      console.log('🎙️ Speech recognition started');
+      setIsTranscribing(true);
+    };
+
+    recognition.onresult = async (event) => {
+      if (!isMicEnabled) {
+        return;
+      }
+
+      const result = event.results[event.results.length - 1];
+
+      if (!result.isFinal) {
+        const interimTranscript = result[0].transcript.trim();
+        setTranscriptDisplay(interimTranscript);
+        console.log('👤 Interim распознанный текст:', interimTranscript);
+      }
+
+      if (result.isFinal) {
+        const transcript = result[0].transcript.trim();
+        setTranscriptDisplay(transcript);
+        console.log('👤 Финальный распознанный текст:', transcript);
+
+        if (transcript) {
+          if (isSpeaking) {
+            stopAssistantSpeech();
+          }
+
+          lastTranscriptRef.current = transcript;
+
+          const llmResponse = await sendToLLM(transcript);
+          if (llmResponse && llmResponse.trim()) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            await speakText(llmResponse);
+          }
+        }
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.error('❌ Speech recognition error:', event.error);
+      setIsTranscribing(false);
+    };
+
+    recognition.onend = () => {
+      console.log('🎙️ Speech recognition ended');
+      setIsTranscribing(false);
+
+      if (isRecording) {
+        console.log('🔄 Перезапуск после неожиданной остановки...');
+        setTimeout(() => {
+          if (speechRecognitionRef.current && isRecording) {
+            try {
+              speechRecognitionRef.current.start();
+              console.log('✅ Перезапуск успешен');
+            } catch (e: any) {
+              if (e.name !== 'InvalidStateError') {
+                console.error('❌ Ошибка перезапуска:', e);
+              }
+            }
+          }
+        }, 1000);
+      }
+    };
+
+    speechRecognitionRef.current = recognition;
+    console.log('✅ Web Speech API инициализирован');
+    return recognition;
+  }, [isRecording, isMicEnabled]);
+
+  // Start speech recognition
+  const startSpeechRecognition = useCallback(() => {
+    if (!speechRecognitionRef.current) {
+      console.log('❌ Speech recognition не инициализирован');
+      return;
+    }
+
+    console.log('🎙️ Попытка запуска распознавания речи...', {
+      isRecording,
+      isTranscribing,
+      recognitionState: speechRecognitionRef.current ? 'exists' : 'null'
+    });
+
+    try {
+      console.log('🎙️ Запуск распознавания речи...');
+      speechRecognitionRef.current.start();
+      console.log('✅ start() вызван успешно');
+    } catch (error: any) {
+      if (error.name === 'InvalidStateError') {
+        console.log('ℹ️ Распознавание речи уже запущено, продолжаем');
+        return;
+      }
+      console.error('❌ Ошибка запуска speech recognition:', error);
+      console.error('❌ Детали ошибки:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      setIsTranscribing(false);
+    }
+  }, [isRecording, isTranscribing]);
+
+  // Start/stop recording
+  const handleStartStopRecording = useCallback(async () => {
+    if (isRecording) {
+      console.log('🛑 Остановка записи...');
+      setIsRecording(false);
+      setIsTranscribing(false);
+
+      if (useFallbackTranscription || !isWebSpeechAvailable()) {
+        const transcript = await stopFallbackRecording();
+        if (transcript && transcript.trim()) {
+          console.log('🎯 Fallback транскрипция:', transcript);
+          setTranscriptDisplay(transcript);
+
+          stopAssistantSpeech();
+
+          try {
+            const llmResponse = await sendToLLM(transcript);
+            if (llmResponse && llmResponse.trim()) {
+              await speakText(llmResponse);
+            }
+          } catch (error) {
+            console.error('❌ Ошибка обработки ответа:', error);
+          }
+        }
+      } else {
+        if (speechRecognitionRef.current) {
+          try {
+            speechRecognitionRef.current.stop();
+          } catch (error) {
+            console.log('Speech recognition already stopped');
+          }
+        }
+      }
+    } else {
+      if (!isMicEnabled) {
+        toast({
+          title: "Микрофон отключен",
+          description: "Включите микрофон для начала записи",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log('🎤 Запуск записи...');
+      setTranscriptDisplay("");
+
+      if (!isWebSpeechAvailable()) {
+        console.log('🔄 Используется fallback режим (OpenAI Whisper)');
+        setUseFallbackTranscription(true);
+
+        const started = await startFallbackRecording();
+        if (started) {
+          setIsRecording(true);
+        }
+        return;
+      }
+
+      try {
+        if (!speechRecognitionRef.current) {
+          const recognition = initializeSpeechRecognition();
+          if (!recognition) {
+            setUseFallbackTranscription(true);
+            const started = await startFallbackRecording();
+            if (started) {
+              setIsRecording(true);
+            }
+            return;
+          }
+        }
+
+        setIsRecording(true);
+        startSpeechRecognition();
+
+      } catch (error) {
+        console.error('❌ Ошибка запуска записи:', error);
+        setUseFallbackTranscription(true);
+
+        const started = await startFallbackRecording();
+        if (started) {
+          setIsRecording(true);
+        }
+      }
+    }
+  }, [isRecording, isMicEnabled, toast]);
+
+  // Toggle microphone
+  const handleToggleMic = useCallback(() => {
+    if (isMicEnabled) {
+      console.log('🎤 Отключение микрофона...');
+      setIsMicEnabled(false);
+      if (isRecording) {
+        setIsRecording(false);
+        setIsTranscribing(false);
+
+        if (speechRecognitionRef.current) {
+          try {
+            speechRecognitionRef.current.stop();
+          } catch (error) {
+            console.log('Speech recognition already stopped');
+          }
+        }
+
+        if (mediaRecorderRef.current) {
+          try {
+            mediaRecorderRef.current.stop();
+          } catch (error) {
+            console.log('MediaRecorder already stopped');
+          }
+        }
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach(track => track.stop());
+          mediaStreamRef.current = null;
+        }
+      }
+      toast({
+        title: "Микрофон отключен",
+        description: "Распознавание речи приостановлено"
+      });
+    } else {
+      console.log('🎤 Включение микрофона...');
+      setIsMicEnabled(true);
+      toast({
+        title: "Микрофон включен",
+        description: "Распознавание речи активно"
+      });
+    }
+  }, [isMicEnabled, isRecording, toast]);
+
+  // Toggle sound
+  const handleToggleSound = useCallback(() => {
+    if (isSoundEnabled) {
+      console.log('🔊 Отключение звука...');
+      setIsSoundEnabled(false);
+      toast({
+        title: "Звук отключен",
+        description: "Ответы не будут озвучиваться"
+      });
+    } else {
+      console.log('🔊 Включение звука...');
+      setIsSoundEnabled(true);
+        toast({
+        title: "Звук включен",
+        description: "Ответы будут озвучиваться"
+      });
+    }
+  }, [isSoundEnabled, toast]);
+
+  // Send transcribed text to LLM
+  const sendToLLM = useCallback(async (userMessage: string, retryCount: number = 0): Promise<string> => {
+    const MAX_RETRIES = 3;
+    const originalMessage = userMessage;
+
+    console.log('🚀 sendToLLM вызвана с сообщением:', `"${userMessage}"`, retryCount > 0 ? `(попытка ${retryCount + 1}/${MAX_RETRIES + 1})` : '');
+
+    setIsGeneratingResponse(true);
+    const startGenId = generationIdRef.current;
+
+    try {
+      console.log('🤖 Отправка сообщения в LLM...');
+
+      let response;
+      try {
+        response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messages: [
+              {
+                role: 'system',
+                content: `Ты - шеф-повар мирового уровня с 25-летним опытом работы в ресторанах с мишленовскими звездами. Ты владеешь всеми секретами кулинарии, техниками приготовления и тонкостями работы с продуктами.
+
+Твои знания включают:
+- Французскую, итальянскую, японскую, русскую и другие кухни мира
+- Молекулярную гастрономию и современные техники
+- Секреты ферментации, выдержки и маринования
+- Правильную работу с ножами и оборудованием
+- Подбор идеальных сочетаний вкусов и текстур
+- Техники сохранения питательной ценности продуктов
+
+Правила общения:
+- Отвечай только текстом, без эмодзи и специальных символов
+- Используй правильные склонения и падежи русского языка
+- Говори спокойно и уверенно, как маэстро кулинарии
+- Объясняй каждый шаг доходчиво, как будто учишь ученика
+- Давай не только рецепты, но и объясняй ПОЧЕМУ так нужно делать
+- Рассказывай о секретах, которые отличают профессионала от любителя
+- Упоминай альтернативные варианты и почему один лучше другого
+- Всегда будь вежливым, терпеливым и готовым ответить на уточняющие вопросы
+
+Когда объясняешь рецепт:
+1. Описывай подготовку ингредиентов детально (температура продуктов, размер нарезки)
+2. Объясняй температурные режимы и их влияние на результат
+3. Рассказывай о последовательности действий и почему она важна
+4. Давай советы по исправлению возможных ошибок
+5. Предлагай вариации для разных предпочтений
+
+Твоя роль: быть главным кулинарным гуру, который делится мастерством и помогает людям становиться лучше в приготовлении еды.`
+              },
+              {
+                role: 'user',
+                content: userMessage
+              }
+            ],
+            stream: true
+          })
+        });
+      } catch (fetchError) {
+        console.error('❌ Fetch error:', fetchError);
+        throw fetchError;
+      }
+
+      if (generationIdRef.current !== startGenId) {
+        console.log('🛑 Генерация была прервана пользователем во время запроса к LLM');
+        return '';
+      }
+
+      if (!response.ok) {
+        console.error('❌ Server returned error:', response.status, response.statusText);
+        if (response.status === 401) {
+        toast({
+            title: "Ошибка авторизации",
+            description: "Сессия истекла. Пожалуйста, обновите страницу.",
+            variant: "destructive"
+          });
+        }
+        throw new Error(`Failed to get response from LLM: ${response.status}`);
+      }
+
+      // Обработка streaming ответа (чистый текст, не SSE)
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Response body is not readable');
+      }
+
+      const decoder = new TextDecoder();
+      let fullMessage = '';
+      let lastChunkTime = Date.now();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        if (chunk.trim()) { // Игнорируем пустые чанки
+          fullMessage += chunk;
+          lastChunkTime = Date.now();
+          console.log('📥 [Stream] Received chunk, total length:', fullMessage.length);
+        }
+
+        // Проверяем прерывание
+        if (generationIdRef.current !== startGenId) {
+          console.log('🛑 Генерация была прервана во время стриминга');
+          return '';
+        }
+
+        // Проверяем таймаут (если нет данных более 5 секунд, завершаем)
+        if (Date.now() - lastChunkTime > 5000) {
+          console.log('⏰ [Stream] Timeout reached, ending stream');
+          break;
+        }
+      }
+
+      // Ждем еще немного на случай задержки последнего чанка
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      console.log('🤖 Ответ от LLM получен (длина):', fullMessage.length);
+
+      if (!fullMessage || fullMessage.trim().length === 0) {
+        console.warn('⚠️ Получен пустой ответ от LLM');
+
+        if (retryCount < MAX_RETRIES) {
+          console.log(`🔄 Запуск повторной попытки ${retryCount + 1}...`);
+          const delay = Math.pow(2, retryCount) * 500;
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return sendToLLM(originalMessage, retryCount + 1);
+        } else {
+          console.error('❌ Все попытки получения ответа исчерпаны');
+          return "Извините, я не расслышала. Повторите, пожалуйста.";
+        }
+      }
+
+      return fullMessage;
+    } catch (error) {
+      console.error('❌ Ошибка общения с LLM:', error);
+
+      if (retryCount < MAX_RETRIES) {
+        console.log(`🔄 Ошибка сети, повторная попытка ${retryCount + 1}...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return sendToLLM(originalMessage, retryCount + 1);
+      }
+
+      toast({
+        title: "Ошибка",
+        description: "Не удалось получить ответ от ассистента",
+        variant: "destructive"
+      });
+      return "Извините, произошла ошибка связи. Попробуйте еще раз.";
+    } finally {
+      if (generationIdRef.current === startGenId) {
+        setIsGeneratingResponse(false);
+      }
+    }
+  }, [toast]);
+
+  // Speak text using OpenAI TTS
+  const speakText = useCallback(async (text: string) => {
+    if (!text || !isSoundEnabled) return;
+
+    const startGenId = generationIdRef.current;
+
+    try {
+      console.log('🔊 Генерация озвучки для:', text);
+      isPlayingAudioRef.current = true;
+
+      ttsProgressRef.current = {
+        startTime: Date.now(),
+        text: text,
+        duration: text.length * 60,
+        words: text.split(' '),
+        currentWordIndex: 0
+      };
+
+      const response = await fetch('/api/openai/tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text,
+          voice: 'nova',
+          model: 'tts-1-hd',
+          speed: 0.95
+        })
+      });
+
+      if (generationIdRef.current !== startGenId) {
+        console.log('🛑 Озвучка прервана до начала воспроизведения');
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to generate speech');
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      currentAudioRef.current = audio;
+
+      audio.onplay = () => {
+        console.log('🔊 Озвучка начата');
+        setIsSpeaking(true);
+
+        const shouldStop = !isSafari() && speechRecognitionRef.current;
+        if (shouldStop) {
+          try {
+            console.log('⏸️ Останавливаем распознавание на время TTS (не Safari)');
+            speechRecognitionRef.current.stop();
+          } catch (e) {
+            console.warn('⚠️ Ошибка остановки распознавания:', e);
+          }
+        }
+      };
+
+      audio.onended = () => {
+        console.log('✅ Озвучка завершена');
+        URL.revokeObjectURL(audioUrl);
+        currentAudioRef.current = null;
+        isPlayingAudioRef.current = false;
+        setIsSpeaking(false);
+        ttsProgressRef.current = null;
+
+        if (!isSafari() && speechRecognitionRef.current) {
+          setTimeout(() => {
+            try {
+              console.log('▶️ Перезапускаем распознавание после TTS (не Safari)');
+              speechRecognitionRef.current?.start();
+            } catch (e: any) {
+              if (e.name !== 'InvalidStateError') {
+                console.warn('⚠️ Ошибка перезапуска распознавания:', e);
+              }
+            }
+          }, 300);
+        }
+      };
+
+      audio.onerror = (event) => {
+        console.error('❌ Ошибка воспроизведения аудио:', event);
+        URL.revokeObjectURL(audioUrl);
+        currentAudioRef.current = null;
+        isPlayingAudioRef.current = false;
+        setIsSpeaking(false);
+        ttsProgressRef.current = null;
+
+        if (!isSafari() && speechRecognitionRef.current) {
+          setTimeout(() => {
+            try {
+              console.log('▶️ Перезапускаем распознавание после ошибки (не Safari)');
+              speechRecognitionRef.current?.start();
+            } catch (e: any) {
+              if (e.name !== 'InvalidStateError') {
+                console.warn('⚠️ Ошибка перезапуска:', e);
+              }
+            }
+          }, 300);
+        }
+
+        toast({
+          title: "Ошибка озвучки",
+          description: "Не удалось воспроизвести аудио",
+          variant: "destructive"
+        });
+      };
+
+      if (generationIdRef.current !== startGenId) {
+        console.log('🛑 Озвучка прервана перед play()');
+        return;
+      }
+
+      await audio.play();
+
+    } catch (error) {
+      console.error('❌ Ошибка TTS:', error);
+      setIsSpeaking(false);
+      isPlayingAudioRef.current = false;
+      ttsProgressRef.current = null;
+    }
+  }, [isSoundEnabled, toast]);
+
+  // Load user profile on mount
   useEffect(() => {
     const caps = BrowserCompatibility.getCapabilities();
-
-    // Проверяем поддержку OpenAI STT (MediaRecorder + getUserMedia)
     const hasRecordingSupport = caps.mediaRecorder && caps.getUserMedia;
 
     if (!hasRecordingSupport) {
       console.warn('🎤 [Voice Call] OpenAI STT не поддерживается в этом браузере');
       setBrowserSupported(false);
       setBrowserCapabilities(caps);
-      return;
-    }
-
-    console.log('✅ [Voice Call] OpenAI STT поддерживается в этом браузере');
-  }, []);
-
-  // Функция для обработки голосовых сообщений
-  const processVoiceMessage = async (message: string) => {
-    if (!message || !message.trim()) {
-      console.log('⚠️ [Voice Call] Пустое сообщение - пропускаем');
-      return;
-    }
-
-    console.log('🎤 [Voice Call] Обрабатываем голосовое сообщение:', message);
-
-    try {
-      setCallState(prev => ({ ...prev, isLoading: true }));
-
-      // Создаем промпт для генерации рецепта
-      const recipePrompt = `Создай подробный рецепт на основе этого голосового запроса: "${message}"
-
-Требования:
-- Определи основные ингредиенты из запроса
-- Создай пошаговый рецепт
-- Укажи время приготовления
-- Добавь советы шеф-повара
-
-Ответ в формате JSON:
-{
-  "title": "Название блюда",
-  "description": "Описание",
-  "ingredients": ["ингредиент 1", "ингредиент 2"],
-  "instructions": ["шаг 1", "шаг 2"],
-  "cookTime": "время",
-  "servings": количество,
-  "tips": "советы"
-}`;
-
-      // Отправляем запрос к OpenAI
-      const response = await OpenAIService.generateRecipeFromText(recipePrompt);
-
-      if (response) {
-        console.log('✅ [Voice Call] Рецепт сгенерирован:', response.title);
-        setCallState(prev => ({
-          ...prev,
-          generatedRecipe: response,
-          isLoading: false
-        }));
-
-        // Озвучиваем результат
-        const speechText = `Отлично! Я приготовил для вас рецепт "${response.title}". ${response.description}. Хотите, чтобы я озвучил подробный рецепт?`;
-        await OpenAITTS.speak(speechText, 'nova');
-        setCallState(prev => ({ ...prev, isPlaying: true }));
-        isPlayingRef.current = true;
-      }
-
-    } catch (error) {
-      console.error('❌ [Voice Call] Ошибка обработки голосового сообщения:', error);
-      setCallState(prev => ({
-        ...prev,
-        error: 'Ошибка обработки запроса',
-        isLoading: false
-      }));
-
-      toast({
-        title: "❌ Ошибка",
-        description: "Не удалось обработать ваш запрос",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Функция начала записи
-  const startRecording = useCallback(async () => {
-    console.log('🎤 [Voice Call] startRecording вызвана');
-
-    if (!isConnectedRef.current) {
-      console.log('⚠️ [Voice Call] Попытка записи без подключения - отменяем');
-      return;
-    }
-
-    if (isStartingRecordingRef.current) {
-      console.log('⚠️ [Voice Call] Запись уже запускается - пропускаем');
-      return;
-    }
-
-    isStartingRecordingRef.current = true;
-
-    try {
-      // Останавливаем предыдущую запись если она активна
-      if (callState.isRecording) {
-        console.log('🔄 [Voice Call] Останавливаем предыдущую запись');
-        stopRecording();
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-
-      // Останавливаем текущее воспроизведение TTS если пользователь начинает говорить
-      if (callState.isPlaying) {
-        console.log('🚫 [Voice Call] Прерываем TTS при начале записи');
-        OpenAITTS.stop();
-        setCallState(prev => ({ ...prev, isPlaying: false }));
-        isPlayingRef.current = false;
-        toast({
-          title: "🎤 Речь прервана",
-          description: "Ваша речь важнее! Говорите...",
-        });
-      }
-
-      // Запускаем запись с OpenAI STT
-      console.log('🎬 [Voice Call] Запускаем OpenAI STT запись');
-      await OpenAISTT.startRecording();
-
-      setCallState(prev => ({ ...prev, isRecording: true }));
-      isStartingRecordingRef.current = false;
-
-      console.log('✅ [Voice Call] Запись речи начата');
-      console.log('⏱️ [Voice Call] Время начала записи:', new Date().toISOString());
-
-      toast({
-        title: "🎤 Запись начата",
-        description: "Говорите в микрофон. Нажмите кнопку еще раз, чтобы остановить.",
-      });
-
-    } catch (error: any) {
-      console.error('❌ [Voice Call] Ошибка начала записи:', error);
-      setCallState(prev => ({ ...prev, isRecording: false, error: error.message }));
-      isStartingRecordingRef.current = false;
-
-      toast({
-        title: "❌ Ошибка записи",
-        description: error.message || "Не удалось начать запись",
-        variant: "destructive",
-      });
-    }
-  }, [callState.isRecording, callState.isPlaying]);
-
-  // Функция остановки записи
-  const stopRecording = useCallback(async () => {
-    console.log('🛑 [Voice Call] stopRecording вызвана');
-
-    if (!OpenAISTT.isCurrentlyRecording()) {
-      console.log('⚠️ [Voice Call] Запись не активна');
-      return;
-    }
-
-    try {
-      console.log('⏳ [Voice Call] Останавливаем запись и обрабатываем...');
-
-      // Показываем уведомление о обработке
-      toast({
-        title: "⏳ Обработка речи",
-        description: "Распознаем вашу речь...",
-      });
-
-      // Останавливаем запись и получаем транскрибацию
-      const text = await OpenAISTT.stopRecording();
-
-      if (text && text.trim()) {
-        console.log('✅ [Voice Call] Текст распознан:', text.trim());
-
-        // Показываем успешное распознавание
-        toast({
-          title: "✅ Речь распознана",
-          description: `"${text.trim()}"`,
-        });
-
-        // Обрабатываем голосовое сообщение
-        await processVoiceMessage(text.trim());
-      } else {
-        console.log('⚠️ [Voice Call] Текст не распознан');
-        toast({
-          title: "⚠️ Речь не распознана",
-          description: "Попробуйте говорить четче или проверьте микрофон",
-          variant: "destructive",
-        });
-      }
-
-    } catch (error: any) {
-      console.error('❌ [Voice Call] Ошибка остановки записи:', error);
-      toast({
-        title: "❌ Ошибка распознавания",
-        description: error.message || "Не удалось обработать запись",
-        variant: "destructive",
-      });
-    } finally {
-      setCallState(prev => ({ ...prev, isRecording: false }));
-      isStartingRecordingRef.current = false;
+    } else {
+      console.log('✅ [Voice Call] OpenAI STT поддерживается в этом браузере');
     }
   }, []);
 
-  // Функция начала звонка
-  const startCall = useCallback(async () => {
-    console.log('📞 [Voice Call] Начинаем звонок');
-
-    try {
-      setCallState(prev => ({ ...prev, isLoading: true }));
-
-      // Инициализируем приветствие
-      const greeting = "Привет! Я ваш AI шеф-повар. Расскажите, что вы хотели бы приготовить, и я помогу с рецептом!";
-      await OpenAITTS.speak(greeting, 'nova');
-
-      setCallState(prev => ({
-        ...prev,
-        isConnected: true,
-        isPlaying: true,
-        isLoading: false
-      }));
-      isConnectedRef.current = true;
-      isPlayingRef.current = true;
-
-      console.log('✅ [Voice Call] Звонок начат');
-
-    } catch (error) {
-      console.error('❌ [Voice Call] Ошибка начала звонка:', error);
-      setCallState(prev => ({
-        ...prev,
-        error: 'Ошибка подключения',
-        isLoading: false
-      }));
-    }
-  }, []);
-
-  // Функция окончания звонка
-  const endCall = useCallback(() => {
-    console.log('📞 [Voice Call] Завершаем звонок');
-
-    // Останавливаем все активные процессы
-    OpenAITTS.stop();
-    if (OpenAISTT.isCurrentlyRecording()) {
-      OpenAISTT.cancelRecording();
-    }
-
-    // Очищаем таймеры
-    if (callTimerRef.current) {
-      clearTimeout(callTimerRef.current);
-      callTimerRef.current = null;
-    }
-
-    setCallState({
-      isConnected: false,
-      isRecording: false,
-      isPlaying: false,
-      isLoading: false,
-      isContinuousMode: false,
-      error: null,
-      generatedRecipe: null
-    });
-
-    isConnectedRef.current = false;
-    isPlayingRef.current = false;
-    isStartingRecordingRef.current = false;
-    accumulatedTextRef.current = '';
-
-    console.log('✅ [Voice Call] Звонок завершен');
-  }, []);
-
-  // Обработчик окончания TTS
-  useEffect(() => {
-    const handleTTSEnd = () => {
-      setCallState(prev => ({ ...prev, isPlaying: false }));
-      isPlayingRef.current = false;
-    };
-
-    // Здесь можно добавить слушатель событий TTS окончания
-    // Пока просто оставим заглушку
-  }, []);
-
-  // Stop TTS and clear timer on unmount
+  // Clean up on unmount
   useEffect(() => {
     return () => {
-      console.log('🛑 [Voice Call] Component unmounted, stopping TTS and timer');
-      OpenAITTS.stop();
-      if (callTimerRef.current) clearTimeout(callTimerRef.current);
+      if (speechRecognitionRef.current) {
+        try {
+          speechRecognitionRef.current.stop();
+        } catch (e) { }
+      }
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      }
+      if (mediaRecorderRef.current) {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (e) { }
+      }
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      }
     };
   }, []);
 
-  // Показываем предупреждение если браузер не поддерживается
-  if (!browserSupported && browserCapabilities) {
-    const caps = browserCapabilities;
-    const missingFeatures = [];
+  // Determine Orb state
+  const orbState = useMemo(() => {
+    if (isSpeaking) return 'speaking';
+    if (isGeneratingResponse) return 'processing';
+    if (isRecording && isTranscribing) return 'listening';
+    if (isRecording) return 'listening';
+    return 'idle';
+  }, [isSpeaking, isGeneratingResponse, isRecording, isTranscribing]);
 
-    if (!caps.getUserMedia) missingFeatures.push('микрофон');
-    if (!caps.mediaRecorder) missingFeatures.push('запись аудио');
-    if (!caps.webAudio) missingFeatures.push('аудио');
+  // Determine status text
+  const statusText = useMemo(() => {
+    if (isSpeaking) return 'Говорю...';
+    if (isGeneratingResponse) return 'Думаю...';
+    if (isRecording) return 'Слушаю...';
+    return 'Нажмите на микрофон, чтобы начать';
+  }, [isSpeaking, isGeneratingResponse, isRecording]);
+
+  const showInterruptButton = isSpeaking && !isSafari();
 
     return (
-      <div className={`h-full flex flex-col ${className}`}>
-        <div className="flex-1 flex items-center justify-center p-6">
+    <div className={`relative w-full h-screen bg-background overflow-hidden flex flex-col font-sans ${className}`}>
+      {/* Header */}
+      <div className="absolute top-4 left-0 right-0 z-40 flex justify-center px-4">
+        <div className="bg-background/80 backdrop-blur-sm px-6 py-2 rounded-full border border-border/50 shadow-sm">
+          <span className="text-foreground/70 text-sm md:text-base font-medium">
+            Windexs Cook AI
+          </span>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-4 pt-16 pb-32 md:pb-24">
+        {/* Show browser compatibility warning */}
+        {!browserSupported && browserCapabilities && (
+          <div className="absolute top-20 left-0 right-0 z-40 flex justify-center px-4">
           <Card className="max-w-md w-full">
             <CardHeader>
               <CardTitle className="text-center text-orange-600">⚠️ Ограниченная совместимость</CardTitle>
@@ -360,154 +906,112 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
             <CardContent className="text-center space-y-4">
               <p className="text-sm text-muted-foreground">
                 Ваш браузер не полностью поддерживает голосовые функции.
-                {missingFeatures.length > 0 && ` Отсутствует поддержка: ${missingFeatures.join(', ')}.`}
+                  Отсутствует поддержка: запись аудио.
               </p>
               <p className="text-sm text-muted-foreground">
                 Рекомендуется использовать современный браузер с поддержкой MediaRecorder API.
               </p>
               <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
                 <strong>Информация о браузере:</strong><br/>
-                {BrowserCompatibility.getBrowserInfo().isChrome && 'Chrome'}
-                {BrowserCompatibility.getBrowserInfo().isFirefox && 'Firefox'}
-                {BrowserCompatibility.getBrowserInfo().isSafari && 'Safari'}
-                {BrowserCompatibility.getBrowserInfo().isEdge && 'Edge'}
-                {BrowserCompatibility.getBrowserInfo().isOpera && 'Opera'}
-                {' '}v{BrowserCompatibility.getBrowserInfo().version}
+                  {BrowserCompatibility.getBrowserInfo().isChrome && `Chrome v${BrowserCompatibility.getBrowserInfo().version}`}
+                  {BrowserCompatibility.getBrowserInfo().isFirefox && `Firefox v${BrowserCompatibility.getBrowserInfo().version}`}
+                  {BrowserCompatibility.getBrowserInfo().isSafari && `Safari v${BrowserCompatibility.getBrowserInfo().version}`}
+                  {BrowserCompatibility.getBrowserInfo().isEdge && `Edge v${BrowserCompatibility.getBrowserInfo().version}`}
+                  {BrowserCompatibility.getBrowserInfo().isOpera && `Opera v${BrowserCompatibility.getBrowserInfo().version}`}
+                  {!BrowserCompatibility.getBrowserInfo().isChrome &&
+                   !BrowserCompatibility.getBrowserInfo().isFirefox &&
+                   !BrowserCompatibility.getBrowserInfo().isSafari &&
+                   !BrowserCompatibility.getBrowserInfo().isEdge &&
+                   !BrowserCompatibility.getBrowserInfo().isOpera &&
+                   `Unknown browser v${BrowserCompatibility.getBrowserInfo().version}`}
               </div>
             </CardContent>
           </Card>
         </div>
+        )}
+
+        {/* Assistant Orb */}
+        <div className="relative flex items-center justify-center mb-12 md:mb-16 scale-90 md:scale-100 transition-transform duration-500">
+          <AssistantOrb state={orbState} />
       </div>
-    );
-  }
 
-  return (
-    <div className={`h-full flex flex-col ${className}`}>
-      {/* Header */}
-      <div className="p-4 bg-gradient-to-r from-primary/10 to-secondary/10 border-b border-border/50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-primary rounded-full flex items-center justify-center">
-              <ChefHat className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">AI Повар</h2>
-              <p className="text-sm text-muted-foreground">
-                {callState.isConnected ? 'В сети' : 'Не в сети'}
-              </p>
-            </div>
+        {/* Status */}
+        <div className="flex flex-col items-center space-y-6 text-center max-w-2xl px-4">
+          <div className="text-foreground/80 text-xl md:text-2xl font-light tracking-widest uppercase transition-colors duration-300">
+            {statusText}
           </div>
 
-          <div className="flex items-center gap-2">
-            {callState.isConnected && (
-              <Badge variant={callState.isRecording ? "destructive" : "default"}>
-                {callState.isRecording ? "🎤 Слушаю..." : "🎙️ Готов слушать"}
-              </Badge>
-            )}
-            {callState.isPlaying && (
-              <Badge variant="default">
-                <Mic className="w-3 h-3 mr-1" />
-                Говорит
-              </Badge>
-            )}
-          </div>
+          {/* Interrupt Button */}
+          {showInterruptButton && (
+            <Button
+              variant="outline"
+              size="lg"
+              className="bg-green-500 hover:bg-green-600 text-white border-green-600 hover:border-green-700 shadow-lg animate-in fade-in-0 zoom-in-95 duration-300"
+              onClick={() => {
+                console.log('🛑 Пользователь нажал кнопку прерывания');
+                stopAssistantSpeech();
+
+                if (speechRecognitionRef.current) {
+                  setTimeout(() => {
+                    try {
+                      console.log('▶️ Перезапуск распознавания после прерывания кнопкой');
+                      speechRecognitionRef.current?.start();
+                    } catch (e: any) {
+                      if (e.name !== 'InvalidStateError') {
+                        console.warn('⚠️ Ошибка перезапуска:', e);
+                      }
+                    }
+                  }, 100);
+                }
+              }}
+            >
+              <span className="font-medium">Прервать</span>
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Call Controls */}
-        <div className="p-4 border-b border-border/50">
-          <div className="flex justify-center gap-4">
-            {!callState.isConnected ? (
+      {/* Controls */}
+      <div className="absolute bottom-8 left-0 right-0 z-50 flex items-center justify-center space-x-6 md:space-x-12 px-4 pb-safe">
+        {/* Sound Toggle */}
               <Button
-                onClick={startCall}
-                disabled={callState.isLoading}
-                className="bg-green-500 hover:bg-green-600 text-white"
-                size="lg"
-              >
-                {callState.isLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                ) : (
-                  <Phone className="w-5 h-5 mr-2" />
-                )}
-                Позвонить AI Повару
+          variant="ghost"
+          size="icon"
+          className={`w-12 h-12 md:w-14 md:h-14 rounded-full transition-all duration-300 border ${isSoundEnabled ? 'bg-background border-border text-foreground hover:bg-accent' : 'bg-destructive/10 border-destructive/20 text-destructive hover:bg-destructive/20'}`}
+          onClick={handleToggleSound}
+        >
+          {isSoundEnabled ? <Volume2 className="w-5 h-5 md:w-6 md:h-6" /> : <VolumeX className="w-5 h-5 md:w-6 md:h-6" />}
               </Button>
-            ) : (
-              <div className="flex gap-2">
+
+        {/* Mic Toggle (Main Action) */}
                 <Button
-                  onClick={callState.isRecording ? stopRecording : startRecording}
-                  disabled={callState.isLoading}
-                  variant={callState.isRecording ? "destructive" : "default"}
-                  size="lg"
-                >
-                  {callState.isRecording ? (
-                    <MicOff className="w-5 h-5 mr-2" />
-                  ) : (
-                    <Mic className="w-5 h-5 mr-2" />
-                  )}
-                  {callState.isRecording ? "Остановить" : "Говорить"}
+          variant="default"
+          size="icon"
+          className={`w-16 h-16 md:w-20 md:h-20 rounded-full shadow-lg transition-all duration-500 transform hover:scale-105 ${isRecording
+            ? 'bg-destructive hover:bg-destructive/90 shadow-destructive/20'
+            : 'bg-primary text-primary-foreground hover:bg-primary/90'
+            }`}
+          onClick={handleStartStopRecording}
+        >
+          {isRecording ? (
+            <MicOff className="w-6 h-6 md:w-8 md:h-8" />
+          ) : (
+            <Mic className="w-6 h-6 md:w-8 md:h-8" />
+          )}
                 </Button>
 
+        {/* End Call (Exit) */}
                 <Button
-                  onClick={endCall}
-                  variant="outline"
-                  size="lg"
-                >
-                  <PhoneOff className="w-5 h-5 mr-2" />
-                  Завершить
+          variant="ghost"
+          size="icon"
+          className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 hover:text-destructive transition-all duration-300"
+          onClick={() => navigate('/')}
+        >
+          <PhoneOff className="w-5 h-5 md:w-6 md:h-6" />
                 </Button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Recipe Display */}
-        {callState.generatedRecipe && (
-          <div className="flex-1 p-4">
-            <RecipeDisplay recipe={callState.generatedRecipe} />
-          </div>
-        )}
-
-        {/* Loading State */}
-        {callState.isLoading && (
-          <div className="flex-1 flex items-center justify-center p-6">
-            <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-              <p className="text-muted-foreground">Обрабатываю ваш запрос...</p>
-            </div>
-          </div>
-        )}
-
-        {/* Error Display */}
-        {callState.error && (
-          <div className="p-4">
-            <Card className="border-red-200 bg-red-50">
-              <CardContent className="pt-4">
-                <p className="text-red-600 text-sm">{callState.error}</p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Instructions */}
-        {!callState.isConnected && !callState.error && (
-          <div className="flex-1 flex items-center justify-center p-6">
-            <div className="text-center max-w-md">
-              <ChefHat className="w-16 h-16 mx-auto mb-4 text-primary/60" />
-              <h3 className="text-lg font-semibold mb-2">AI Шеф-повар</h3>
-              <p className="text-muted-foreground text-sm mb-4">
-                Позвоните AI повару и расскажите голосом, что вы хотели бы приготовить.
-                Он создаст персональный рецепт специально для вас!
-              </p>
-              <div className="text-xs text-muted-foreground">
-                🎤 Работает во всех современных браузерах<br/>
-                🔒 Ваша речь обрабатывается через OpenAI Whisper
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
 };
+
+export default VoiceCallNew;

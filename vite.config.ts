@@ -21,7 +21,7 @@ export default defineConfig({
     // Прокси для разработки и продакшена
     proxy: {
       '/api': {
-        target: 'http://localhost:4000',
+        target: 'https://cook.windexs.ru',
         changeOrigin: true,
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, _res) => {

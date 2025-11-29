@@ -2524,7 +2524,7 @@ app.post('/api/chat', async (req, res) => {
   });
 
   try {
-    const { messages, model = 'gpt-5.1', stream = true } = req.body;
+    const { messages, model = 'gpt-4-turbo', stream = true } = req.body;
 
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: 'Messages array is required' });
@@ -2552,7 +2552,7 @@ app.post('/api/chat', async (req, res) => {
       model,
       messages,
       temperature: 0.8,
-      max_completion_tokens: 16000,
+      max_completion_tokens: 4000,
       ...(stream && { stream: true })
     };
 

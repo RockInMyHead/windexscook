@@ -62,7 +62,7 @@ export class OpenAIService {
     });
   }
 
-  private static async makeRequest(messages: any[], model: string = 'gpt-5.1', options?: { signal?: AbortSignal; temperature?: number; response_format?: any; max_completion_tokens?: number }) {
+  private static async makeRequest(messages: any[], model: string = 'gpt-4-turbo', options?: { signal?: AbortSignal; temperature?: number; response_format?: any; max_completion_tokens?: number }) {
     let response;
     try {
       // Always use relative URLs to avoid mixed content issues
@@ -73,7 +73,7 @@ export class OpenAIService {
         model,
         messages,
         temperature: options?.temperature ?? 0.8,
-        max_completion_tokens: options?.max_completion_tokens ?? 12000,
+        max_completion_tokens: options?.max_completion_tokens ?? 4000,
       };
 
       // Добавляем response_format если указан
@@ -191,7 +191,7 @@ export class OpenAIService {
     }
   }
 
-  private static async makeRequestWithUsage(messages: any[], model: string = 'gpt-5.1'): Promise<{content: string, usage: any}> {
+  private static async makeRequestWithUsage(messages: any[], model: string = 'gpt-4-turbo'): Promise<{content: string, usage: any}> {
     let response;
     try {
       // Always use relative URLs to avoid mixed content issues
@@ -206,7 +206,7 @@ export class OpenAIService {
           model,
           messages,
           temperature: 0.8,
-          max_completion_tokens: 12000,
+          max_completion_tokens: 4000,
         }),
       });
     } catch (networkError) {
@@ -251,7 +251,7 @@ export class OpenAIService {
     }
   }
 
-  private static async makeStreamingRequest(messages: any[], model: string = 'gpt-5.1', onChunk?: (chunk: string) => void): Promise<{content: string, usage: any}> {
+  private static async makeStreamingRequest(messages: any[], model: string = 'gpt-4-turbo', onChunk?: (chunk: string) => void): Promise<{content: string, usage: any}> {
     const requestUrl = '/api/chat';
     console.log('🚀 [Client] Starting streaming request to:', requestUrl);
 
@@ -742,7 +742,7 @@ ${constraints.join('\n')}
             }
           ]
         }
-      ], 'gpt-5.1');
+      ], 'gpt-4-turbo');
 
       // Парсим ответ и извлекаем продукты
       const ingredients = response
@@ -796,7 +796,7 @@ ${constraints.join('\n')}
             { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } }
           ]
         }
-      ], 'gpt-5.1');
+      ], 'gpt-4-turbo');
 
       // Останавливаем звук обработки
       AudioUtils.stopProcessingSound();
@@ -1047,7 +1047,7 @@ ${constraints.join('\n')}
         onChunk(chunk);
       } : undefined;
 
-      const response = await this.makeStreamingRequest(messages, 'gpt-5.1', onChunkCallback);
+      const response = await this.makeStreamingRequest(messages, 'gpt-4-turbo', onChunkCallback);
 
       // Заменяем цифры на слова для отображения в чате
       const contentWithWords = this.replaceNumbersWithWords(response.content);
@@ -1285,7 +1285,7 @@ ${constraints.join('\n')}
         }
       ];
 
-      const response = await this.makeRequest(messages, 'gpt-5.1', {
+      const response = await this.makeRequest(messages, 'gpt-4-turbo', {
         signal,
         temperature: 0.7,
         response_format: { type: "json_object" },

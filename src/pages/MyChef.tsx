@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Header } from '@/components/header';
 import { AiChefChat } from '@/components/ui/ai-chef-chat';
-import { VoiceCall } from '@/components/ui/voice-call';
+import VoiceCallNew from '@/components/ui/voice-call-new';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Phone, MessageCircle } from 'lucide-react';
@@ -56,7 +56,7 @@ export const MyChef = () => {
       {/* Content area */}
       <div className="flex-1 flex flex-col">
         {isVoiceCall ? (
-          <VoiceCall className="h-full" />
+          <VoiceCallNew className="h-full" />
         ) : (
           <AiChefChat className="h-full" />
         )}

@@ -89,7 +89,7 @@ export class CustomEmailService {
       console.log('📧 [CustomEmailService] Отправляем письмо восстановления пароля на:', email);
       
       const transporter = await this.initTransporter();
-      const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+      const resetUrl = `${process.env.FRONTEND_URL || 'https://cook.windexs.ru'}/reset-password?token=${resetToken}`;
       
       const mailOptions = {
         from: {
@@ -390,7 +390,7 @@ ${resetUrl}
             </div>
 
             <div style="text-align: center;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}" class="button">Начать готовить с AI</a>
+              <a href="${process.env.FRONTEND_URL || 'https://cook.windexs.ru'}" class="button">Начать готовить с AI</a>
             </div>
           </div>
           <div class="footer">
@@ -420,7 +420,7 @@ ${resetUrl}
 📚 Сохранение рецептов - создавайте коллекции любимых блюд
 ⭐ Премиум-функции - расширенные возможности для гурманов
 
-Начните готовить с AI: ${process.env.FRONTEND_URL || 'http://localhost:5173'}
+Начните готовить с AI: ${process.env.FRONTEND_URL || 'https://cook.windexs.ru'}
 
 © 2025 WindexsCook. Все права защищены.
 Поддержка: support@windexscook.ru
@@ -478,7 +478,7 @@ ${resetUrl}
             </div>
 
             <div style="text-align: center;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/my-chef" class="button">Попробовать премиум-функции</a>
+              <a href="${process.env.FRONTEND_URL || 'https://cook.windexs.ru'}/my-chef" class="button">Попробовать премиум-функции</a>
             </div>
           </div>
           <div class="footer">
@@ -508,7 +508,7 @@ ${resetUrl}
 📊 Детальная аналитика
 🚀 Приоритетная поддержка
 
-Попробовать премиум-функции: ${process.env.FRONTEND_URL || 'http://localhost:5173'}/my-chef
+Попробовать премиум-функции: ${process.env.FRONTEND_URL || 'https://cook.windexs.ru'}/my-chef
 
 © 2025 WindexsCook. Все права защищены.
 Поддержка: support@windexscook.ru

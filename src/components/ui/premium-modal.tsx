@@ -89,7 +89,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
     console.log('💰 PremiumModal: handleSubscribe called at:', new Date().toISOString());
     console.log('💰 PremiumModal: Current hostname:', window.location.hostname);
     console.log('💰 PremiumModal: Current URL:', window.location.href);
-    console.log('💰 PremiumModal: Is localhost?', window.location.hostname === 'localhost');
+    console.log('💰 PremiumModal: Current domain:', window.location.hostname);
     console.log('💰 PremiumModal: window.location object:', {
       hostname: window.location.hostname,
       host: window.location.host,
@@ -133,9 +133,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
       console.log('💰 PremiumModal: Starting payment creation for user:', user.id, user.email);
 
       // Создаем платеж через API
-      const backendUrl = window.location.hostname === 'localhost'
-        ? 'http://localhost:3002'
-        : window.location.origin;
+      const backendUrl = window.location.origin;
       const response = await fetch(`${backendUrl}/api/payments/create`, {
         method: 'POST',
         headers: {

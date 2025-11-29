@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './card';
 import { Button } from './button';
 import { Badge } from './badge';
@@ -7,10 +8,13 @@ import {
   PhoneOff,
   Mic,
   MicOff,
+  Volume2,
+  VolumeX,
   Loader2,
   ChefHat
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useUser } from '@/contexts/UserContext';
 import { OpenAIService } from '@/services/openai';
 import { OpenAITTS } from '@/services/openai-tts';
 import { OpenAISTT } from '@/services/openai-stt';
@@ -18,34 +22,74 @@ import { Recipe } from '@/types/recipe';
 import { RecipeDisplay } from './recipe-display';
 import { AudioUtils } from '@/lib/audio-utils';
 import { BrowserCompatibility } from '@/lib/browser-compatibility';
+import AssistantOrb from './assistant-orb';
+
+// API URL from environment
+const API_URL = import.meta.env.VITE_API_URL || 'https://cook.windexs.ru';
+
+// Web Speech API types
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+  message?: string;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onstart: ((event: Event) => void) | null;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: ((event: Event) => void) | null;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition?: new () => SpeechRecognition;
+    webkitSpeechRecognition?: new () => SpeechRecognition;
+    mozSpeechRecognition?: new () => SpeechRecognition;
+  }
+}
+
+// Функция определения Safari
+const isSafari = () => {
+  const ua = navigator.userAgent.toLowerCase();
+  const result = ua.includes('safari') && !ua.includes('chrome') && !ua.includes('chromium');
+  console.log('🌐 Определение браузера:', {
+    userAgent: ua,
+    isSafari: result,
+    hasChrome: ua.includes('chrome'),
+    hasSafari: ua.includes('safari')
+  });
+  return result;
+};
 
 interface VoiceCallProps {
   className?: string;
 }
 
-interface CallState {
-  isConnected: boolean;
-  isRecording: boolean;
-  isPlaying: boolean;
-  isLoading: boolean;
-  isContinuousMode: boolean;
-  error: string | null;
-  generatedRecipe: Recipe | null;
-}
-
 export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
-  const [callState, setCallState] = useState<CallState>({
-    isConnected: false,
-    isRecording: false,
-    isPlaying: false,
-    isLoading: false,
-    isContinuousMode: false, // Отключаем постоянный режим для voice call
-    error: null,
-    generatedRecipe: null
-  });
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useUser();
 
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isMicEnabled, setIsMicEnabled] = useState(true);
+  const [isSoundEnabled, setIsSoundEnabled] = useState(true);
+  const [transcriptDisplay, setTranscriptDisplay] = useState<string>("");
   const [browserSupported, setBrowserSupported] = useState<boolean>(true);
   const [browserCapabilities, setBrowserCapabilities] = useState<any>(null);
+  const [useFallbackTranscription, setUseFallbackTranscription] = useState(false);
 
   // Refs для управления состоянием
   const isConnectedRef = useRef(false);
@@ -436,12 +480,17 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({ className = '' }) => {
               </p>
               <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
                 <strong>Информация о браузере:</strong><br/>
-                {BrowserCompatibility.getBrowserInfo().isChrome && 'Chrome'}
-                {BrowserCompatibility.getBrowserInfo().isFirefox && 'Firefox'}
-                {BrowserCompatibility.getBrowserInfo().isSafari && 'Safari'}
-                {BrowserCompatibility.getBrowserInfo().isEdge && 'Edge'}
-                {BrowserCompatibility.getBrowserInfo().isOpera && 'Opera'}
-                {' '}v{BrowserCompatibility.getBrowserInfo().version}
+                {BrowserCompatibility.getBrowserInfo().isChrome && `Chrome v${BrowserCompatibility.getBrowserInfo().version}`}
+                {BrowserCompatibility.getBrowserInfo().isFirefox && `Firefox v${BrowserCompatibility.getBrowserInfo().version}`}
+                {BrowserCompatibility.getBrowserInfo().isSafari && `Safari v${BrowserCompatibility.getBrowserInfo().version}`}
+                {BrowserCompatibility.getBrowserInfo().isEdge && `Edge v${BrowserCompatibility.getBrowserInfo().version}`}
+                {BrowserCompatibility.getBrowserInfo().isOpera && `Opera v${BrowserCompatibility.getBrowserInfo().version}`}
+                {!BrowserCompatibility.getBrowserInfo().isChrome &&
+                 !BrowserCompatibility.getBrowserInfo().isFirefox &&
+                 !BrowserCompatibility.getBrowserInfo().isSafari &&
+                 !BrowserCompatibility.getBrowserInfo().isEdge &&
+                 !BrowserCompatibility.getBrowserInfo().isOpera &&
+                 `Unknown browser v${BrowserCompatibility.getBrowserInfo().version}`}
               </div>
             </CardContent>
           </Card>

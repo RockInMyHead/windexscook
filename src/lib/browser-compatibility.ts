@@ -5,6 +5,7 @@ export interface BrowserCapabilities {
   webAudio: boolean;
   mediaDevices: boolean;
   getUserMedia: boolean;
+  mediaRecorder: boolean;
 
   // Распознавание речи
   speechRecognition: boolean;
@@ -46,6 +47,7 @@ export class BrowserCompatibility {
       webAudio: !!(win.AudioContext || win.webkitAudioContext),
       mediaDevices: !!navigator.mediaDevices,
       getUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+      mediaRecorder: !!win.MediaRecorder,
 
       // Распознавание речи
       speechRecognition: !!win.SpeechRecognition,

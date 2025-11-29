@@ -35,7 +35,7 @@ const PaymentSuccess: React.FC = () => {
         console.log('🔍 PaymentSuccess: React Router state:', location.state);
         console.log('🔍 PaymentSuccess: ===== INITIALIZING PAYMENT SEARCH =====');
 
-        // Сначала проверяем React Router state (самый надежный способ для localhost)
+        // Сначала проверяем React Router state (самый надежный способ)
         let paymentId = null;
         let userId = null;
 
@@ -185,8 +185,8 @@ const PaymentSuccess: React.FC = () => {
           }
         }
 
-        // Для локального тестирования проверяем testPaymentId (резервный вариант)
-        if (!paymentId && window.location.hostname === 'localhost') {
+        // Для тестирования проверяем testPaymentId (резервный вариант)
+        if (!paymentId) {
           console.log('🔍 PaymentSuccess: Checking localhost data sources...');
 
           // Сначала проверяем window данные (самый надежный способ)
@@ -260,7 +260,7 @@ const PaymentSuccess: React.FC = () => {
           console.log('🔍 PaymentSuccess: Checked URL hash for userId, found:', userId);
         }
 
-        if (!userId && window.location.hostname === 'localhost') {
+        if (!userId) {
           // Сначала проверяем window данные
           const windowData = (window as any).__testPaymentData;
           if (windowData && windowData.userId) {
@@ -309,9 +309,7 @@ const PaymentSuccess: React.FC = () => {
           if (userId) {
             console.log('🔍 PaymentSuccess: Trying to find recent payment for userId:', userId);
             try {
-              const backendUrl = window.location.hostname === 'localhost'
-                ? 'http://localhost:3002'
-                : window.location.origin;
+              const backendUrl = window.location.origin;
               console.log('🔍 PaymentSuccess: Calling API:', `${backendUrl}/api/payments/user/${userId}/recent`);
               const recentPaymentsResponse = await fetch(`${backendUrl}/api/payments/user/${userId}/recent`);
               console.log('🔍 PaymentSuccess: API response status:', recentPaymentsResponse.status);
@@ -346,9 +344,8 @@ const PaymentSuccess: React.FC = () => {
         // Проверяем статус платежа (используем backend сервер)
         console.log('🔍 PaymentSuccess: Checking payment status for:', paymentId);
 
-        // ВРЕМЕННОЕ РЕШЕНИЕ ДЛЯ ТЕСТИРОВАНИЯ: для localhost всегда возвращаем успешный статус
+        // Проверяем статус платежа через API
         let data;
-        if (window.location.hostname === 'localhost') {
           console.log('🔍 PaymentSuccess: LOCALHOST MODE - Simulating successful payment');
           data = {
             success: true,
@@ -362,11 +359,9 @@ const PaymentSuccess: React.FC = () => {
           console.log('🔍 PaymentSuccess: Mock payment data:', data);
           setPaymentData(data);
         } else {
-          // Продакшн код - проверяем статус платежа через API
-          console.log('🔍 PaymentSuccess: PRODUCTION MODE - Checking real payment status');
-          const backendUrl = window.location.hostname === 'localhost'
-            ? 'http://localhost:3002'
-            : window.location.origin;
+          // Проверяем статус платежа через API
+          console.log('🔍 PaymentSuccess: Checking real payment status');
+          const backendUrl = window.location.origin;
 
           try {
             // Сначала пытаемся получить статус платежа

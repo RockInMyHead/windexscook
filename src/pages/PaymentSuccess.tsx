@@ -345,23 +345,10 @@ const PaymentSuccess: React.FC = () => {
         console.log('🔍 PaymentSuccess: Checking payment status for:', paymentId);
 
         // Проверяем статус платежа через API
+        console.log('🔍 PaymentSuccess: Checking real payment status');
+        const backendUrl = window.location.origin;
+
         let data;
-          console.log('🔍 PaymentSuccess: LOCALHOST MODE - Simulating successful payment');
-          data = {
-            success: true,
-            paymentId: paymentId,
-            status: 'succeeded',
-            paid: true,
-            amount: '1.00',
-            currency: 'RUB',
-            metadata: { userId: userId || 'test-user', userEmail: 'test@example.com' }
-          };
-          console.log('🔍 PaymentSuccess: Mock payment data:', data);
-          setPaymentData(data);
-        } else {
-          // Проверяем статус платежа через API
-          console.log('🔍 PaymentSuccess: Checking real payment status');
-          const backendUrl = window.location.origin;
 
           try {
             // Сначала пытаемся получить статус платежа
@@ -444,7 +431,6 @@ const PaymentSuccess: React.FC = () => {
               error: apiError.message
             };
             setPaymentData(data);
-          }
         }
 
         if (data.success && data.paid && data.status === 'succeeded') {

@@ -1,30 +1,85 @@
 export default {
-  testEnvironment: 'node',
   preset: 'ts-jest/presets/default-esm',
-  extensionsToTreatAsEsm: ['.ts'],
+  extensionsToTreatAsEsm: ['.ts', '.tsx'],
   globals: {
     'ts-jest': {
-      useESM: true
+      useESM: true,
+      tsconfig: {
+        module: 'ESNext',
+        target: 'ES2020',
+        jsx: 'react-jsx',
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true,
+        skipLibCheck: true,
+        moduleResolution: 'node'
+      }
     }
   },
+  testEnvironment: 'jsdom',
+  testEnvironmentOptions: {
+    html: '<html lang="zh-cmn-Hant"></html>',
+    url: 'https://jestjs.io/',
+    userAgent: 'Agent/007'
+  },
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
-      useESM: true
+      useESM: true,
+      tsconfig: {
+        module: 'ESNext',
+        target: 'ES2020',
+        jsx: 'react-jsx',
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true,
+        skipLibCheck: true,
+        moduleResolution: 'node'
+      }
     }],
     '^.+\\.(js|jsx)$': ['babel-jest', {
       presets: [
         ['@babel/preset-env', {
           targets: { node: 'current' },
           modules: 'auto'
+        }],
+        ['@babel/preset-react', {
+          runtime: 'automatic'
         }]
+      ],
+      plugins: [
+        ['@babel/plugin-transform-modules-commonjs']
       ]
     }]
   },
+  transformIgnorePatterns: [
+    'node_modules/(?!(sucrase|@babel|react-router-dom|@radix-ui)/)'
+  ],
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@/components/(.*)$': '<rootDir>/src/components/$1',
+    '^@/lib/(.*)$': '<rootDir>/src/lib/$1',
+    '^@/services/(.*)$': '<rootDir>/src/services/$1',
+    '^@/types/(.*)$': '<rootDir>/src/types/$1',
+    '^@/contexts/(.*)$': '<rootDir>/src/contexts/$1',
+    '^@/hooks/(.*)$': '<rootDir>/src/hooks/$1',
+    '^@/data/(.*)$': '<rootDir>/src/data/$1',
+    '^@/pages/(.*)$': '<rootDir>/src/pages/$1',
+    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
+    '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$': '<rootDir>/tests/__mocks__/fileMock.js'
+  },
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+  testMatch: [
+    '**/__tests__/**/*.test.(ts|tsx|js)',
+    '**/*.(test|spec).(ts|tsx|js)',
+    '**/__tests__/**/*.test.(ts|tsx|js)',
+    '**/smoke/**/*.test.js'
+  ],
   testMatch: [
     '**/__tests__/**/*.test.js',
     '**/__tests__/**/*.test.ts',
     '**/?(*.)+(spec|test).js',
-    '**/?(*.)+(spec|test).ts'
+    '**/?(*.)+(spec|test).ts',
+    '**/smoke/**/*.test.js'
   ],
   collectCoverageFrom: [
     'server.js',

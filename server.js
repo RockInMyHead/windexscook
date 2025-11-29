@@ -13,6 +13,47 @@ import multer from 'multer';
 // Загружаем переменные окружения
 dotenv.config();
 
+// ===== MONITORING SETUP =====
+let monitoring;
+try {
+  // Dynamic import for monitoring (only in production)
+  if (process.env.NODE_ENV === 'production') {
+    const { MonitoringService } = await import('./dist/monitoring/monitoring.js');
+    monitoring = MonitoringService.getInstance();
+    console.log('✅ Monitoring initialized');
+  }
+} catch (error) {
+  console.warn('⚠️ Monitoring not available:', error.message);
+}
+
+// Monitoring middleware
+const monitoringMiddleware = (req, res, next) => {
+  const startTime = Date.now();
+
+  res.on('finish', () => {
+    const duration = Date.now() - startTime;
+    const route = `${req.method} ${req.route?.path || req.path}`;
+
+    if (monitoring) {
+      monitoring.recordMetric(`api.response_time`, duration, {
+        route,
+        status: res.statusCode,
+        method: req.method
+      });
+
+      if (res.statusCode >= 400) {
+        monitoring.incrementCounter('api.errors', 1, {
+          route,
+          status: res.statusCode,
+          method: req.method
+        });
+      }
+    }
+  });
+
+  next();
+};
+
 // ===== UTILITY FUNCTIONS =====
 
 // Функция для верификации подписи YooKassa webhook

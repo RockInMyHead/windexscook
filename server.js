@@ -1286,10 +1286,15 @@ app.all('/api/openai/v1/chat/completions', async (req, res) => {
       bodyPreview: JSON.stringify(req.body).substring(0, 200)
     });
 
-    // Устанавливаем таймаут (5 минут)
+    // Устанавливаем таймаут (10 минут для генерации рецептов)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+    const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000);
 
+    // Пробуем сначала без прокси, если с прокси не работает
+    let proxyAttempt = proxyAgent;
+    let retryWithoutProxy = false;
+
+    console.log('📤 [OpenAI] Sending request to OpenAI API...');
     let response;
     try {
       response = await fetch(url, {
@@ -1310,6 +1315,8 @@ app.all('/api/openai/v1/chat/completions', async (req, res) => {
       }
       throw fetchError;
     }
+
+    console.log('📥 [OpenAI] Received response from OpenAI API:', response.status, response.statusText);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -1333,7 +1340,7 @@ app.all('/api/openai/v1/chat/completions', async (req, res) => {
   }
 });
 
-app.all('/api/openai/v1/chat/completions', async (req, res) => {
+app.all('/api/openai/v1/chat/completions-stream', async (req, res) => {
   try {
     const apiKey = process.env.VITE_OPENAI_API_KEY;
 
@@ -1375,7 +1382,9 @@ app.all('/api/openai/v1/chat/completions', async (req, res) => {
       messageCount: req.body?.messages?.length,
       contentLength: req.headers['content-length'],
       userAgent: req.headers['user-agent']?.substring(0, 100),
-      bodyPreview: JSON.stringify(req.body).substring(0, 200)
+      bodyPreview: JSON.stringify(req.body).substring(0, 200),
+      proxyEnabled: !!proxyAgent,
+      proxyUrl: proxyUrl ? proxyUrl.replace(/:[^@]*@/, ':***@') : 'none'
     });
 
     // Проверяем содержимое messages
@@ -1878,6 +1887,12 @@ app.post('/api/payments/create', async (req, res) => {
 
     // Импортируем YooKassaService
     const { YooKassaService } = await import('./src/services/yookassa.js');
+
+    console.log('💰 [Payment] Creating payment for user:', { userId, userEmail, returnUrl });
+    console.log('💰 [Payment] YooKassa config check:', {
+      shopId: process.env.YOOKASSA_SHOP_ID ? 'SET' : 'NOT SET',
+      secretKey: process.env.YOOKASSA_SECRET_KEY ? 'SET (length: ' + process.env.YOOKASSA_SECRET_KEY.length + ')' : 'NOT SET'
+    });
 
     const payment = await YooKassaService.createPremiumPayment(
       userId,

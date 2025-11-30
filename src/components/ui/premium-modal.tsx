@@ -6,6 +6,7 @@ import { Check, Crown, Sparkles, Loader2 } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface PremiumModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = React.useState(false);
   const [isActivatingTrial, setIsActivatingTrial] = React.useState(false);
+  const isMobile = useIsMobile();
 
   // Активация пробного периода
   const handleActivateTrial = useCallback(async () => {
@@ -230,21 +232,21 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className={isMobile ? "w-[95vw] max-w-[95vw] p-4" : "sm:max-w-md"}>
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <Crown className="w-6 h-6 text-amber-500" />
-            <DialogTitle>Premium подписка</DialogTitle>
+            <Crown className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-amber-500`} />
+            <DialogTitle className={isMobile ? "text-lg" : ""}>Premium подписка</DialogTitle>
           </div>
           <DialogDescription>
             Для использования {featureDescription} требуется Premium подписка
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className={isMobile ? "space-y-3" : "space-y-4"}>
           {/* Ценовая карточка */}
-          <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950 rounded-lg border border-amber-200 dark:border-amber-800">
-            <div className="text-3xl font-bold text-amber-600 dark:text-amber-400 mb-1">
+          <div className={`${isMobile ? 'p-3' : 'p-4'} bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950 rounded-lg border border-amber-200 dark:border-amber-800`}>
+            <div className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold text-amber-600 dark:text-amber-400 mb-1`}>
               1 ₽ <span className="text-base font-normal text-muted-foreground">/тест</span>
             </div>
             <p className="text-sm text-muted-foreground">
@@ -256,19 +258,19 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
           </div>
 
           {/* Список преимуществ */}
-          <div className="space-y-3">
+          <div className={isMobile ? "space-y-2" : "space-y-3"}>
             {premiumFeatures.map((feature, index) => {
               const IconComponent = feature.icon;
               return (
-                <div 
+                <div
                   key={index}
-                  className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
-                    feature.highlight 
-                      ? 'bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800' 
+                  className={`flex items-start gap-3 ${isMobile ? 'p-2' : 'p-3'} rounded-lg transition-colors ${
+                    feature.highlight
+                      ? 'bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800'
                       : 'hover:bg-muted/50'
                   }`}
                 >
-                  <IconComponent className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                  <IconComponent className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} flex-shrink-0 mt-0.5 ${
                     feature.highlight ? 'text-amber-500' : 'text-green-500'
                   }`} />
                   <div className="flex-1">
@@ -291,7 +293,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 
           {/* Кнопка пробного периода */}
           {!hasActiveTrial && !hasActiveSubscription && (
-            <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+            <div className={`${isMobile ? 'p-2' : 'p-3'} bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800`}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-green-800 dark:text-green-200">🎁 Бесплатный пробный период</p>
@@ -318,7 +320,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 
           {/* Статус пробного периода */}
           {hasActiveTrial && (
-            <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className={`${isMobile ? 'p-2' : 'p-3'} bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800`}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-blue-800 dark:text-blue-200">✅ Пробный период активен</p>
@@ -334,30 +336,31 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
           )}
 
           {/* Кнопки действий */}
-          <div className="flex gap-2">
+          <div className={isMobile ? "flex flex-col gap-3" : "flex gap-2"}>
             <Button
               onClick={handleSubscribe}
-              className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg"
-              size="lg"
+              className={`bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg ${isMobile ? 'w-full' : 'flex-1'}`}
+              size={isMobile ? "default" : "lg"}
               disabled={isLoading || isActivatingTrial}
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} mr-2 animate-spin`} />
                   Активируем...
                 </>
               ) : (
                 <>
-                  <Crown className="w-4 h-4 mr-2" />
-                  Подключить Premium
+                  <Crown className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} mr-2`} />
+                  {isMobile ? "Подключить Premium" : "Подключить Premium"}
                 </>
               )}
             </Button>
             <Button
               variant="outline"
               onClick={handleClose}
-              size="lg"
+              size={isMobile ? "default" : "lg"}
               disabled={isLoading || isActivatingTrial}
+              className={isMobile ? "w-full" : ""}
             >
               Позже
             </Button>

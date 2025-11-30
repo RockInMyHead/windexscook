@@ -9,6 +9,11 @@ const YOOKASSA_CONFIG = {
   planId: process.env.YOOKASSA_PLAN_ID || '1183996'
 };
 
+// Проверяем, что секретный ключ корректный
+if (YOOKASSA_CONFIG.secretKey === 'live_OTmJmdMHX6ysyUcUpBz5kt-dmSq1pT-Y5gLgmpT1jXg') {
+  console.warn('⚠️ [YooKassa] Using default test key - replace with real key in production');
+}
+
 // Создаем axios instance для YooKassa API
 const yooKassaApi = axios.create({
   baseURL: 'https://api.yookassa.ru/v3',
@@ -72,6 +77,24 @@ export class YooKassaService {
         metadata: {
           userId: paymentData.userId,
           userEmail: paymentData.userEmail,
+        },
+        receipt: {
+          customer: {
+            email: paymentData.userEmail,
+          },
+          items: [
+            {
+              description: paymentData.description,
+              quantity: '1.00',
+              amount: {
+                value: paymentData.amount.toFixed(2),
+                currency: paymentData.currency,
+              },
+              vat_code: 1, // Без НДС
+              payment_subject: 'service', // Предмет расчета
+              payment_mode: 'full_prepayment', // Признак способа расчета
+            },
+          ],
         },
       };
 

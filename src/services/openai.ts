@@ -73,12 +73,24 @@ export class OpenAIService {
         model,
         messages,
         temperature: options?.temperature ?? 0.8,
-        max_completion_tokens: options?.max_completion_tokens ?? 4000,
+        max_completion_tokens: options?.max_completion_tokens ?? 3000, // Уменьшаем для избежания таймаутов
       };
 
       // Добавляем response_format если указан
       if (options?.response_format) {
         requestBody.response_format = options.response_format;
+      }
+
+      // Создаем AbortController для таймаута (15 минут)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15 * 60 * 1000); // 15 минут
+
+      // Объединяем сигналы если есть внешний
+      if (options?.signal) {
+        options.signal.addEventListener('abort', () => {
+          controller.abort();
+          clearTimeout(timeoutId);
+        });
       }
 
       response = await fetch(requestUrl, {
@@ -87,8 +99,10 @@ export class OpenAIService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
-        signal: options?.signal,
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
     } catch (networkError) {
       console.error('Network error calling OpenAI:', networkError);
       throw new Error('Не удалось подключиться к серверу генерации рецептов. Проверьте соединение.');

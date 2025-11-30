@@ -792,42 +792,46 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
               disabled={isLoading || isRecording}
               className="flex-1 text-sm sm:text-base"
             />
-            {inputMessage.trim() ? (
-              // Показываем кнопку отправки, если есть текст
-              <Button
-                onClick={handleSendMessage}
-                disabled={!inputMessage.trim() || isLoading || isRecording}
-                size="icon"
-                className="shrink-0 h-10 w-10"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-              </Button>
-            ) : (
-              // Показываем кнопку записи аудио, если поле пустое
-              <Button
-                onClick={isRecording ? stopRecording : startRecording}
-                disabled={isLoading || !audioSupported}
-                size="icon"
-                className={`shrink-0 h-10 w-10 ${
-                  isRecording
-                    ? 'bg-red-500 hover:bg-red-600 text-white'
-                    : audioSupported
-                      ? 'bg-blue-500 hover:bg-blue-600 text-white'
-                      : 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                }`}
-                title={audioSupported ? (isRecording ? 'Остановить запись' : 'Начать запись') : 'Запись аудио не поддерживается'}
-              >
-                {isRecording ? (
-                  <Square className="w-4 h-4" />
-                ) : (
-                  <Mic className="w-4 h-4" />
-                )}
-              </Button>
-            )}
+            {/* Кнопка отправки/записи с плавной анимацией */}
+            <div className="relative shrink-0">
+              {inputMessage.trim() ? (
+                // Кнопка отправки - показывается когда есть текст
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!inputMessage.trim() || isLoading || isRecording}
+                  size="icon"
+                  className="h-10 w-10 transition-all duration-200 ease-in-out transform hover:scale-105"
+                  title="Отправить сообщение"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </Button>
+              ) : (
+                // Кнопка микрофона - показывается когда поле пустое
+                <Button
+                  onClick={isRecording ? stopRecording : startRecording}
+                  disabled={isLoading || !audioSupported}
+                  size="icon"
+                  className={`h-10 w-10 transition-all duration-200 ease-in-out transform hover:scale-105 ${
+                    isRecording
+                      ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
+                      : audioSupported
+                        ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                        : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                  }`}
+                  title={audioSupported ? (isRecording ? 'Остановить запись' : 'Начать голосовой ввод') : 'Запись аудио не поддерживается'}
+                >
+                  {isRecording ? (
+                    <Square className="w-4 h-4" />
+                  ) : (
+                    <Mic className="w-4 h-4" />
+                  )}
+                </Button>
+              )}
+            </div>
             <Button
               onClick={handleClearChat}
               disabled={isLoading || isRecording}
@@ -842,12 +846,12 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
           <p className="text-xs text-muted-foreground mt-2 hidden sm:block">
             💡 Спросите о рецептах, техниках готовки, ингредиентах или любых кулинарных вопросах.
             {inputMessage.trim() ? (
-              <span className="text-green-600"> 📤 Нажмите кнопку отправки для отправки сообщения</span>
+              <span className="text-green-600"> 📤 Кнопка отправки активна - нажмите для отправки сообщения</span>
             ) : (
               audioSupported ? (
-                <span className="text-blue-500">🎤 Нажмите на микрофон для голосового ввода</span>
+                <span className="text-blue-500">🎤 Начните писать или нажмите микрофон для голосового ввода</span>
               ) : (
-                <span className="text-gray-500">🎤 Голосовой ввод недоступен в вашем браузере. Используйте современный браузер с поддержкой Web Audio API.</span>
+                <span className="text-gray-500">🎤 Голосовой ввод недоступен. Начните писать сообщение в поле выше.</span>
               )
             )}
           </p>

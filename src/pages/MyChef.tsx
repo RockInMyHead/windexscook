@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Header } from '@/components/header';
 import { AiChefChat } from '@/components/ui/ai-chef-chat';
-import VoiceCallNew from '@/components/ui/voice-call-new';
+import ChefVoiceCall from '@/components/ui/chef-voice-call';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Phone, MessageCircle } from 'lucide-react';
@@ -11,7 +11,10 @@ export const MyChef = () => {
   const { user, isAuthenticated } = useUser();
   const [isVoiceCall, setIsVoiceCall] = useState(false);
 
-  if (!isAuthenticated) {
+  // TEMP: Для демонстрации - временно отключаем проверку авторизации
+  const isDemoMode = true;
+
+  if (!isAuthenticated && !isDemoMode) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="w-full max-w-md text-center">
@@ -56,7 +59,7 @@ export const MyChef = () => {
       {/* Content area */}
       <div className="flex-1 flex flex-col">
         {isVoiceCall ? (
-          <VoiceCallNew className="h-full" />
+          <ChefVoiceCall />
         ) : (
           <AiChefChat className="h-full" />
         )}

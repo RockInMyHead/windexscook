@@ -313,20 +313,32 @@ const requestLogger = (req, res, next) => {
 
 // Настройка multer для обработки аудио файлов
 const upload = multer({
+  storage: multer.memoryStorage(), // Сохраняем в память для доступа к buffer
   limits: {
     fileSize: 25 * 1024 * 1024, // 25MB максимум для аудио
   },
   fileFilter: (req, file, cb) => {
-    // Разрешаем только аудио форматы
+    // Разрешаем только аудио форматы (включая кодеки)
     const allowedMimes = [
-      'audio/wav', 'audio/mpeg', 'audio/mp3', 'audio/webm', 'audio/ogg',
-      'audio/flac', 'audio/aac', 'audio/m4a'
+      'audio/wav', 'audio/wave', 'audio/x-wav',
+      'audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a',
+      'audio/webm', 'audio/webm;codecs=opus', 'audio/webm; codecs=opus',
+      'audio/ogg', 'audio/ogg;codecs=opus', 'audio/ogg; codecs=opus',
+      'audio/flac', 'audio/x-flac',
+      'audio/aac', 'audio/m4a'
     ];
 
-    if (allowedMimes.includes(file.mimetype)) {
+    console.log(`[Multer] Проверяем файл: ${file.originalname}, MIME: ${file.mimetype}, size: ${file.size}`);
+
+    // Проверяем базовый MIME тип (без кодеков)
+    const baseMime = file.mimetype.split(';')[0].trim();
+
+    if (allowedMimes.includes(file.mimetype) || allowedMimes.includes(baseMime)) {
+      console.log(`[Multer] ✅ Файл принят: ${file.mimetype}`);
       cb(null, true);
     } else {
-      cb(new Error('Неподдерживаемый формат аудио файла'));
+      console.log(`[Multer] ❌ Отклонён MIME тип: ${file.mimetype}, base: ${baseMime}`);
+      cb(new Error(`Неподдерживаемый формат аудио файла: ${file.mimetype}`));
     }
   }
 });
@@ -892,6 +904,306 @@ app.post('/api/openai/tts', async (req, res) => {
   }
 });
 
+// ===== AUDIO ENDPOINTS =====
+
+// Speech synthesis endpoint (/api/audio/speech) - основной для TTS
+app.post('/api/audio/speech', async (req, res) => {
+  try {
+    const { text, voice = 'onyx', model = 'tts-1', response_format = 'mp3', speed = 1.0 } = req.body;
+
+    console.log('🎯 [Speech API] Получен запрос синтеза речи:', {
+      textLength: text?.length || 0,
+      textPreview: text?.substring(0, 100) || 'undefined',
+      voice,
+      model,
+      response_format,
+      speed,
+      body: req.body
+    });
+
+    if (!text || typeof text !== 'string') {
+      console.error('❌ [Speech API] Текст не является строкой:', text);
+      return res.status(400).json({ error: 'Text must be a non-empty string' });
+    }
+
+    if (!text.trim()) {
+      console.error('❌ [Speech API] Получена пустая строка');
+      return res.status(400).json({ error: 'Text cannot be empty' });
+    }
+
+    // Валидация параметров
+    const validVoices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+    if (!validVoices.includes(voice)) {
+      console.error('❌ [Speech API] Неверный голос:', voice);
+      return res.status(400).json({ error: `Invalid voice. Supported voices: ${validVoices.join(', ')}` });
+    }
+
+    const validModels = ['tts-1', 'tts-1-hd'];
+    if (!validModels.includes(model)) {
+      console.error('❌ [Speech API] Неверная модель:', model);
+      return res.status(400).json({ error: `Invalid model. Supported models: ${validModels.join(', ')}` });
+    }
+
+    const validFormats = ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'];
+    if (!validFormats.includes(response_format)) {
+      console.error('❌ [Speech API] Неверный формат:', response_format);
+      return res.status(400).json({ error: `Invalid response format. Supported formats: ${validFormats.join(', ')}` });
+    }
+
+    const apiKey = process.env.VITE_OPENAI_API_KEY;
+
+    if (!apiKey) {
+      logToFile('ERROR', 'OpenAI API key not configured for speech synthesis');
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
+    }
+
+    // Проверяем формат API ключа
+    if (!apiKey.startsWith('sk-')) {
+      console.error('❌ [Speech API] Invalid API key format');
+      return res.status(500).json({ error: 'Invalid OpenAI API key format' });
+    }
+
+    const headers = {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    };
+
+    const requestData = {
+      model,
+      input: text,
+      voice,
+      response_format,
+      speed: Math.max(0.25, Math.min(4.0, speed)) // Ограничиваем скорость
+    };
+
+    const axiosConfig = {
+      method: 'POST',
+      url: 'https://api.openai.com/v1/audio/speech',
+      headers,
+      data: JSON.stringify(requestData),
+      responseType: 'arraybuffer',
+      proxy: false,
+      timeout: 30000, // 30 секунд таймаут для синтеза
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity
+    };
+
+    // Добавляем прокси агент только если он настроен
+    if (proxyAgent) {
+      axiosConfig.httpsAgent = proxyAgent;
+      axiosConfig.httpAgent = proxyAgent;
+    }
+
+    console.log('🚀 [Speech API] Отправка запроса в OpenAI TTS API...');
+    const response = await axios(axiosConfig);
+
+    // Определяем MIME тип на основе формата ответа
+    const mimeTypes = {
+      'mp3': 'audio/mpeg',
+      'opus': 'audio/opus',
+      'aac': 'audio/aac',
+      'flac': 'audio/flac',
+      'wav': 'audio/wav',
+      'pcm': 'audio/pcm'
+    };
+
+    const contentType = mimeTypes[response_format] || 'audio/mpeg';
+
+    // Устанавливаем правильные заголовки для аудио
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', response.data.length);
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('X-Voice', voice);
+    res.setHeader('X-Model', model);
+    res.setHeader('X-Format', response_format);
+
+    console.log('✅ [Speech API] Аудио успешно синтезировано:', {
+      size: response.data.length,
+      contentType,
+      voice,
+      model,
+      response_format
+    });
+
+    res.send(response.data);
+
+    logToFile('INFO', 'Speech synthesis completed successfully', {
+      textLength: text.length,
+      voice,
+      model,
+      response_format,
+      audioSize: response.data.length
+    });
+
+  } catch (error) {
+    console.error('❌ [Speech API] Ошибка синтеза речи:', {
+      error: error.message,
+      stack: error.stack,
+      text: req.body.text?.substring(0, 100),
+      voice: req.body.voice,
+      model: req.body.model,
+      response_format: req.body.response_format
+    });
+
+    logToFile('ERROR', 'Speech synthesis error', {
+      error: error.message,
+      stack: error.stack,
+      requestData: req.body
+    });
+
+    if (error.response) {
+      console.error('❌ [Speech API] OpenAI API error response:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data
+      });
+
+      // Возвращаем более детальную ошибку для отладки
+      res.status(error.response.status).json({
+        error: 'Speech synthesis failed',
+        details: error.response.data,
+        openai_status: error.response.status,
+        request_text: req.body.text?.substring(0, 100)
+      });
+    } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      console.error('❌ [Speech API] Request timeout');
+      res.status(408).json({
+        error: 'Speech synthesis timeout',
+        details: 'Request took too long to complete'
+      });
+    } else {
+      console.error('❌ [Speech API] Network or other error:', error);
+      res.status(500).json({
+        error: 'Internal server error',
+        details: error.message
+      });
+    }
+  }
+});
+
+// Audio transcription endpoint (/api/audio/transcriptions) - основной для STT
+app.post('/api/audio/transcriptions', upload.single('file'), async (req, res) => {
+  try {
+    const { language = 'ru', model = 'whisper-1', prompt, temperature = 0.2 } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Audio file is required' });
+    }
+
+    const apiKey = process.env.VITE_OPENAI_API_KEY;
+
+    if (!apiKey) {
+      logToFile('ERROR', 'OpenAI API key not configured for audio transcription');
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
+    }
+
+    console.log('🎵 [Transcription API] Starting transcription request:', {
+      fileName: req.file.originalname,
+      fileSize: req.file.size,
+      mimeType: req.file.mimetype,
+      bufferLength: req.file.buffer?.length,
+      language,
+      model,
+      hasPrompt: !!prompt
+    });
+
+    // Создаем новый FormData для отправки в OpenAI
+    const formData = new FormData();
+
+    // ВАЖНО: Добавляем аудио файл ПЕРВЫМ
+    // Проверяем, что req.file.buffer является Buffer'ом
+    if (!Buffer.isBuffer(req.file.buffer)) {
+      console.error('❌ [Transcription API] req.file.buffer is not a Buffer:', typeof req.file.buffer);
+      return res.status(400).json({
+        error: 'Invalid file buffer type',
+        details: `Expected Buffer, got ${typeof req.file.buffer}`
+      });
+    }
+
+    formData.append('file', req.file.buffer, req.file.originalname || 'audio.webm');
+
+    // Добавляем модель
+    formData.append('model', model);
+
+    // Добавляем язык
+    formData.append('language', language);
+
+    // Добавляем prompt если есть
+    if (prompt) {
+      formData.append('prompt', prompt);
+    }
+
+    // Добавляем temperature если указана
+    if (temperature !== undefined) {
+      formData.append('temperature', String(temperature));
+    }
+
+    console.log('🎵 [Transcription API] FormData prepared:', {
+      hasFile: true,
+      model,
+      language,
+      hasPrompt: !!prompt
+    });
+
+    const axiosConfig = {
+      method: 'POST',
+      url: 'https://api.openai.com/v1/audio/transcriptions',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        // Не устанавливаем Content-Type, axios сделает это автоматически для FormData
+      },
+      data: formData,
+      proxy: false,
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+      timeout: 60000 // 60 секунд таймаут для транскрибации
+    };
+
+    // Добавляем прокси агент если настроен
+    if (proxyAgent) {
+      axiosConfig.httpsAgent = proxyAgent;
+      axiosConfig.httpAgent = proxyAgent;
+    }
+
+    console.log('🎵 [Transcription API] Sending transcription request to OpenAI...');
+
+    const response = await axios(axiosConfig);
+
+    logToFile('INFO', 'Audio transcription successful', {
+      fileSize: req.file.size,
+      responseSize: JSON.stringify(response.data).length,
+      language,
+      model
+    });
+
+    // Возвращаем результат как есть
+    res.status(response.status).send(response.data);
+
+  } catch (error) {
+    console.error('❌ [Transcription API] Transcription error:', error.message);
+
+    logToFile('ERROR', 'Audio transcription failed', {
+      error: error.message,
+      stack: error.stack,
+      fileName: req.file?.originalname,
+      fileSize: req.file?.size
+    });
+
+    if (error.response) {
+      res.status(error.response.status).json(error.response.data);
+    } else {
+      res.status(500).json({
+        error: 'Audio transcription failed',
+        details: error.message
+      });
+    }
+  }
+});
+
+// ===== END AUDIO ENDPOINTS =====
+
 // OpenAI DALL-E 3 endpoint для генерации изображений
 app.post('/api/openai/generate-image', async (req, res) => {
   try {
@@ -981,6 +1293,18 @@ app.post('/api/openai/generate-image', async (req, res) => {
 // OpenAI Audio API роут - специальная обработка для файлов
 app.post('/api/openai/v1/audio/transcriptions', upload.single('file'), async (req, res) => {
   try {
+    console.log('🎵 [OpenAI Audio] Received transcription request', {
+      hasFile: !!req.file,
+      fileInfo: req.file ? {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        encoding: req.file.encoding
+      } : null,
+      body: req.body,
+      headers: req.headers
+    });
+
     const apiKey = process.env.VITE_OPENAI_API_KEY;
 
     if (!apiKey) {
@@ -995,6 +1319,13 @@ app.post('/api/openai/v1/audio/transcriptions', upload.single('file'), async (re
       console.error('❌ [OpenAI Audio] Invalid API key format');
       return res.status(500).json({
         error: 'Invalid OpenAI API key format'
+      });
+    }
+
+    if (!req.file) {
+      console.error('❌ [OpenAI Audio] No file received in request');
+      return res.status(400).json({
+        error: 'Audio file is required'
       });
     }
 
@@ -2623,7 +2954,7 @@ app.post('/api/chat', async (req, res) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(5 * 60 * 1000) // 5 минут таймаут
+        signal: AbortSignal.timeout(10 * 60 * 1000) // 10 минут таймаут для сложных рецептов
       });
 
       if (!openaiResponse.ok) {
@@ -2724,7 +3055,7 @@ app.post('/api/chat', async (req, res) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(5 * 60 * 1000)
+        signal: AbortSignal.timeout(10 * 60 * 1000) // 10 минут таймаут
       });
 
       if (!openaiResponse.ok) {

@@ -16,24 +16,25 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 8080,
+    port: 5173,
     strictPort: false,
-    // Прокси для разработки и продакшена
+    // Прокси для разработки - перенаправляет /api на локальный сервер
     proxy: {
       '/api': {
-        target: 'https://cook.windexs.ru',
-        changeOrigin: true,
+        target: 'http://localhost:4000',
+        changeOrigin: false,
+        secure: false,
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('Sending API Request to the Target:', req.method, req.url);
+            console.log('🔄 [Vite Proxy] Sending API Request:', req.method, req.url, '→ http://localhost:4000' + req.url);
           });
 
           proxy.on('error', (err, _req, _res) => {
-            console.log('API proxy error', err);
+            console.error('❌ [Vite Proxy] Error:', err.message);
           });
 
           proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('Received API Response from the Target:', proxyRes.statusCode, req.url);
+            console.log('✅ [Vite Proxy] Response:', proxyRes.statusCode, req.url);
           });
         },
       }

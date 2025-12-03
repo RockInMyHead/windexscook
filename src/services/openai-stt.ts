@@ -254,6 +254,51 @@ export class OpenAISTT {
   }
 
   /**
+   * Транскрибирует переданный аудио blob
+   */
+  static async transcribe(audioBlob: Blob, options?: { language?: string }): Promise<string> {
+    console.log('🌐 [OpenAI STT] Отправляем аудио на транскрибацию...', {
+      blobSize: audioBlob.size,
+      blobType: audioBlob.type
+    });
+
+    // Определяем расширение файла по MIME типу
+    let extension = 'webm';
+    if (audioBlob.type.includes('mp4') || audioBlob.type.includes('m4a')) {
+      extension = 'm4a';
+    } else if (audioBlob.type.includes('wav')) {
+      extension = 'wav';
+    } else if (audioBlob.type.includes('mp3') || audioBlob.type.includes('mpeg')) {
+      extension = 'mp3';
+    } else if (audioBlob.type.includes('ogg')) {
+      extension = 'ogg';
+    } else if (audioBlob.type.includes('flac')) {
+      extension = 'flac';
+    }
+
+    const formData = new FormData();
+    formData.append('file', audioBlob, `audio.${extension}`);
+    formData.append('model', 'whisper-1');
+    formData.append('language', options?.language || 'ru');
+    formData.append('response_format', 'text');
+
+    const response = await fetch('/api/openai/v1/audio/transcriptions', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [OpenAI STT] Ошибка транскрибации:', errorText);
+      throw new Error(`Ошибка транскрибации: ${response.status}`);
+    }
+
+    const transcription = await response.text();
+    console.log('✅ [OpenAI STT] Транскрибация успешна:', transcription);
+    return transcription.trim();
+  }
+
+  /**
    * Записывает аудио и возвращает транскрибацию (удобный метод)
    */
   static async recordAndTranscribe(): Promise<string> {

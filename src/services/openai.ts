@@ -81,9 +81,9 @@ export class OpenAIService {
         requestBody.response_format = options.response_format;
       }
 
-      // Создаем AbortController для таймаута (15 минут)
+      // Создаем AbortController для таймаута (12 минут, меньше чем на сервере для буфера)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15 * 60 * 1000); // 15 минут
+      const timeoutId = setTimeout(() => controller.abort(), 12 * 60 * 1000); // 12 минут
 
       // Объединяем сигналы если есть внешний
       if (options?.signal) {
@@ -205,7 +205,7 @@ export class OpenAIService {
     }
   }
 
-  private static async makeRequestWithUsage(messages: any[], model: string = 'gpt-4-turbo'): Promise<{content: string, usage: any}> {
+  private static async makeRequestWithUsage(messages: any[], model: string = 'gpt-4-turbo', options?: { max_completion_tokens?: number; temperature?: number }): Promise<{content: string, usage: any}> {
     let response;
     try {
       // Always use relative URLs to avoid mixed content issues
@@ -219,8 +219,8 @@ export class OpenAIService {
         body: JSON.stringify({
           model,
           messages,
-          temperature: 0.8,
-          max_completion_tokens: 4000,
+          temperature: options?.temperature ?? 0.8,
+          max_completion_tokens: options?.max_completion_tokens ?? 4000,
         }),
       });
     } catch (networkError) {
@@ -827,16 +827,18 @@ ${constraints.join('\n')}
   static async chatWithChef(
     message: string,
     healthProfile?: UserHealthProfile,
-    messageHistory?: Array<{role: 'user' | 'assistant', content: string}>
+    messageHistory?: Array<{role: 'user' | 'assistant', content: string}>,
+    voiceMode: boolean = false
   ): Promise<{content: string, usage: any}> {
     // Используем обычный запрос (не стриминг) для fallback
-    return this.chatWithChefRegular(message, healthProfile, messageHistory);
+    return this.chatWithChefRegular(message, healthProfile, messageHistory, voiceMode);
   }
 
   static async chatWithChefRegular(
     message: string,
     healthProfile?: UserHealthProfile,
-    messageHistory?: Array<{role: 'user' | 'assistant', content: string}>
+    messageHistory?: Array<{role: 'user' | 'assistant', content: string}>,
+    voiceMode: boolean = false // Новый параметр для голосового режима
   ): Promise<{content: string, usage: any}> {
     console.log('🔍 DEBUG: chatWithChefRegular called with message:', JSON.stringify(message));
     console.log('🔍 DEBUG: messageHistory length:', messageHistory?.length || 0);
@@ -887,7 +889,10 @@ ${constraints.join('\n')}
       }
     }
 
-    const prompt = `Ты - профессиональная Windexs кулинар с 20-летним опытом работы на кухне, рейтинг Top-1, знаешь все тонкости продуктов и техник.
+    // Для голосового режима используем более короткий промпт
+    const prompt = voiceMode 
+      ? `Ты - Windexs, профессиональный шеф-повар. Отвечай КРАТКО (2-4 предложения максимум). Давай практические советы без лишних деталей. Помни контекст предыдущих сообщений. Отвечай на русском в женском роде. Цифры пиши словами.`
+      : `Ты - профессиональная Windexs кулинар с 20-летним опытом работы на кухне, рейтинг Top-1, знаешь все тонкости продуктов и техник.
 
 Требования для описания рецепта:
 1. Составь карту производства еды — разбей весь процесс на отдельные этапы (подготовка, варка, обжарка, сборка, подача).
@@ -914,9 +919,10 @@ ${constraints.join('\n')}
         }
       ];
 
-      // Добавляем историю сообщений (последние 10 сообщений для экономии токенов)
+      // Добавляем историю сообщений (для голосового режима меньше сообщений для скорости)
       if (messageHistory && messageHistory.length > 0) {
-        const recentHistory = messageHistory.slice(-10); // Берем последние 10 сообщений
+        const historyLimit = voiceMode ? 5 : 10; // Для голосового режима только последние 5 сообщений
+        const recentHistory = messageHistory.slice(-historyLimit);
         messages.push(...recentHistory);
       }
 
@@ -927,11 +933,15 @@ ${constraints.join('\n')}
       });
 
       console.log('🔍 DEBUG: Sending messages to OpenAI:', messages.length, 'messages');
+      console.log('🔍 DEBUG: Voice mode:', voiceMode);
 
       // Запускаем звук обработки во время генерации ответа
       // AudioUtils.startProcessingSound(); // Отключено для текстового чата
 
-      const response = await this.makeRequestWithUsage(messages);
+      // Для голосового режима используем более быструю модель и меньше токенов
+      const response = voiceMode 
+        ? await this.makeRequestWithUsage(messages, 'gpt-4o-mini', { max_completion_tokens: 500, temperature: 0.7 })
+        : await this.makeRequestWithUsage(messages);
 
       // Заменяем цифры на слова для отображения в чате
       const contentWithWords = this.replaceNumbersWithWords(response.content);

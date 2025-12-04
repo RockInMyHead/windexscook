@@ -1085,6 +1085,21 @@ app.post('/api/audio/speech', async (req, res) => {
 
 // Audio transcription endpoint (/api/audio/transcriptions) - основной для STT
 app.post('/api/audio/transcriptions', upload.single('file'), async (req, res) => {
+  console.log('🎵 [Transcription API] === NEW TRANSCRIPTION REQUEST ===');
+  console.log('🎵 [Transcription API] Headers:', {
+    'content-type': req.headers['content-type'],
+    'user-agent': req.headers['user-agent'],
+    'content-length': req.headers['content-length']
+  });
+  console.log('🎵 [Transcription API] Body fields:', Object.keys(req.body || {}));
+  console.log('🎵 [Transcription API] File info:', req.file ? {
+    fieldname: req.file.fieldname,
+    originalname: req.file.originalname,
+    mimetype: req.file.mimetype,
+    size: req.file.size,
+    bufferLength: req.file.buffer?.length
+  } : 'NO FILE');
+
   try {
     const { language = 'ru', model = 'whisper-1', prompt, temperature = 0.2 } = req.body;
 
@@ -1093,11 +1108,19 @@ app.post('/api/audio/transcriptions', upload.single('file'), async (req, res) =>
     }
 
     const apiKey = process.env.VITE_OPENAI_API_KEY;
+    console.log('🔑 [Transcription API] OpenAI API key check:', {
+      keyExists: !!apiKey,
+      keyLength: apiKey?.length || 0,
+      keyPrefix: apiKey?.substring(0, 10) + '...'
+    });
 
     if (!apiKey) {
+      console.error('❌ [Transcription API] OpenAI API key not configured!');
       logToFile('ERROR', 'OpenAI API key not configured for audio transcription');
       return res.status(500).json({ error: 'OpenAI API key not configured' });
     }
+
+    console.log('✅ [Transcription API] OpenAI API key is available');
 
     console.log('🎵 [Transcription API] Starting transcription request:', {
       fileName: req.file.originalname,
@@ -1203,6 +1226,12 @@ app.post('/api/audio/transcriptions', upload.single('file'), async (req, res) =>
     console.log('🎵 [Transcription API] Sending transcription request to OpenAI...');
 
     const response = await axios(axiosConfig);
+
+    console.log('✅ [Transcription API] OpenAI transcription successful:', {
+      responseStatus: response.status,
+      responseData: response.data,
+      dataLength: JSON.stringify(response.data).length
+    });
 
     logToFile('INFO', 'Audio transcription successful', {
       fileSize: req.file.size,

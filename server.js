@@ -1114,6 +1114,14 @@ app.post('/api/audio/transcriptions', upload.single('file'), async (req, res) =>
 
     // ВАЖНО: Добавляем аудио файл ПЕРВЫМ
     // Проверяем, что req.file.buffer является Buffer'ом
+    console.log('🎵 [Transcription API] Checking file buffer type:', {
+      isBuffer: Buffer.isBuffer(req.file.buffer),
+      typeof: typeof req.file.buffer,
+      bufferLength: req.file.buffer?.length,
+      fileName: req.file.originalname,
+      mimeType: req.file.mimetype
+    });
+
     if (!Buffer.isBuffer(req.file.buffer)) {
       console.error('❌ [Transcription API] req.file.buffer is not a Buffer:', typeof req.file.buffer);
       return res.status(400).json({
@@ -1122,7 +1130,21 @@ app.post('/api/audio/transcriptions', upload.single('file'), async (req, res) =>
       });
     }
 
-    formData.append('file', req.file.buffer, req.file.originalname || 'audio.webm');
+    console.log('🎵 [Transcription API] Creating FormData with file:', {
+      bufferSize: req.file.buffer.length,
+      filename: req.file.originalname || 'audio.webm'
+    });
+
+    try {
+      formData.append('file', req.file.buffer, req.file.originalname || 'audio.webm');
+      console.log('✅ [Transcription API] FormData append successful');
+    } catch (error) {
+      console.error('❌ [Transcription API] FormData append failed:', error);
+      return res.status(500).json({
+        error: 'FormData creation failed',
+        details: error.message
+      });
+    }
 
     // Добавляем модель
     formData.append('model', model);
@@ -1144,8 +1166,19 @@ app.post('/api/audio/transcriptions', upload.single('file'), async (req, res) =>
       hasFile: true,
       model,
       language,
-      hasPrompt: !!prompt
+      hasPrompt: !!prompt,
+      apiKeyPresent: !!apiKey
     });
+
+    // Проверяем, что API ключ есть
+    if (!apiKey) {
+      console.error('❌ [Transcription API] OpenAI API key is missing');
+      return res.status(500).json({
+        error: 'OpenAI API key not configured'
+      });
+    }
+
+    console.log('🎵 [Transcription API] Preparing axios request to OpenAI...');
 
     const axiosConfig = {
       method: 'POST',
@@ -1182,18 +1215,29 @@ app.post('/api/audio/transcriptions', upload.single('file'), async (req, res) =>
     res.status(response.status).send(response.data);
 
   } catch (error) {
-    console.error('❌ [Transcription API] Transcription error:', error.message);
+    console.error('❌ [Transcription API] Transcription error:', {
+      message: error.message,
+      code: error.code,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      stack: error.stack?.substring(0, 500)
+    });
 
     logToFile('ERROR', 'Audio transcription failed', {
       error: error.message,
       stack: error.stack,
       fileName: req.file?.originalname,
-      fileSize: req.file?.size
+      fileSize: req.file?.size,
+      responseStatus: error.response?.status,
+      responseData: error.response?.data
     });
 
     if (error.response) {
+      console.log('❌ [Transcription API] OpenAI responded with error:', error.response.status, error.response.data);
       res.status(error.response.status).json(error.response.data);
     } else {
+      console.log('❌ [Transcription API] Network or other error:', error.message);
       res.status(500).json({
         error: 'Audio transcription failed',
         details: error.message

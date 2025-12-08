@@ -90,7 +90,7 @@ class ChefAI {
 
   async synthesizeSpeech(text: string): Promise<ArrayBuffer> {
     try {
-      const result = await OpenAITTS.generateAudio(text, "alloy");
+      const result = await OpenAITTS.generateAudio(text, "alloy", "ru");
       return await result.blob.arrayBuffer();
     } catch (error) {
       console.error('Error synthesizing speech for chef:', error);

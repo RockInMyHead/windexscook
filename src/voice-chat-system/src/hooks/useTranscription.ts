@@ -218,9 +218,9 @@ export const useTranscription = ({ transcriptionService,
           const volumeLevel = await checkAudioVolume(blob);
           addDebugLog(`[Mobile] Audio volume: ${volumeLevel.toFixed(2)}%`);
 
-          // Only send if volume is above threshold (0.1% = any sound detected)
-          // Note: WebM/Opus codec has lower volume levels than raw PCM
-          if (volumeLevel < 0.1) {
+          // Only send if volume is above threshold
+          // Raise threshold to reduce "silence" hallucinations
+          if (volumeLevel < 0.5) {
             addDebugLog(`[Mobile] ⚠️ Too quiet (${volumeLevel.toFixed(2)}%), skipping`);
             return;
           }
@@ -230,12 +230,12 @@ export const useTranscription = ({ transcriptionService,
           // Send to OpenAI with timeout (don't block recording!)
           const transcriptionPromise = transcribeWithOpenAI(blob);
           
-          // Add 8 second timeout
+          // Add 30 second timeout (increased from 8s for better reliability)
           const timeoutPromise = new Promise<null>((resolve) => {
             setTimeout(() => {
-              addDebugLog(`[Mobile] ⏱️ OpenAI timeout (8s), skipping`);
+              addDebugLog(`[Mobile] ⏱️ OpenAI timeout (30s), skipping`);
               resolve(null);
-            }, 8000);
+            }, 30000);
           });
 
           // Race between transcription and timeout
@@ -324,7 +324,19 @@ export const useTranscription = ({ transcriptionService,
       addDebugLog(`[OpenAI] ⚠️ Empty result`);
       return null;
     } catch (error: any) {
-      addDebugLog(`[OpenAI] ❌ Failed: ${error.message}`);
+      const errorMessage = error?.message || String(error);
+      const errorStatus = error?.response?.status || error?.status;
+      addDebugLog(`[OpenAI] ❌ Failed: ${errorMessage}${errorStatus ? ` (${errorStatus})` : ''}`);
+      
+      // Log more details for debugging
+      if (error?.response) {
+        console.error('[OpenAI] Transcription error details:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data
+        });
+      }
+      
       return null;
     } finally {
       setTranscriptionStatus("");

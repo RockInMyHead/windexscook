@@ -5,7 +5,7 @@ export class OpenAITTS {
   private static currentAudio: HTMLAudioElement | null = null;
   private static requestId = 0;
 
-  static async generateAudio(text: string, voice: string = 'alloy'): Promise<{blob: Blob, duration?: number}> {
+  static async generateAudio(text: string, voice: string = 'alloy', language: string = 'ru'): Promise<{blob: Blob, duration?: number}> {
     const requestId = ++this.requestId;
     const startTime = Date.now();
 
@@ -20,6 +20,7 @@ export class OpenAITTS {
       console.log(`📝 [OpenAI TTS #${requestId}] Текст для генерации:`, {
         textLength: text.length,
         voice,
+        language,
         model: 'tts-1-hd',
         textPreview: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
         fullText: text
@@ -36,7 +37,8 @@ export class OpenAITTS {
         body: JSON.stringify({
           text,
           voice,
-          model: 'tts-1-hd-1106'
+          model: 'tts-1-hd-1106',
+          language
         }),
       });
 
@@ -89,7 +91,7 @@ export class OpenAITTS {
     }
   }
 
-  static async speak(text: string, voice: string = 'alloy'): Promise<void> {
+  static async speak(text: string, voice: string = 'alloy', language: string = 'ru'): Promise<void> {
     const requestId = ++this.requestId;
     const startTime = Date.now();
 
@@ -104,6 +106,7 @@ export class OpenAITTS {
       console.log(`📝 [OpenAI TTS #${requestId}] Текст для синтеза:`, {
         textLength: text.length,
         voice,
+        language,
         model: 'tts-1-hd',
         textPreview: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
         fullText: text
@@ -129,7 +132,8 @@ export class OpenAITTS {
         body: JSON.stringify({
           text,
           voice,
-          model: 'tts-1-hd-1106'
+          model: 'tts-1-hd-1106',
+          language
         }),
       });
 

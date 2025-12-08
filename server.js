@@ -9,6 +9,7 @@ import crypto from 'crypto';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import multer from 'multer';
+import FormData from 'form-data';
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -788,7 +789,7 @@ app.get('/api/auth/user/:email', async (req, res) => {
 // OpenAI TTS endpoint - должен быть ПЕРЕД общим прокси
 app.post('/api/openai/tts', async (req, res) => {
   try {
-    const { text, voice = 'alloy', model = 'tts-1' } = req.body;
+    const { text, voice = 'alloy', model = 'tts-1', language = 'ru' } = req.body;
 
     console.log('🎯 [TTS API] Получен запрос:', {
       textType: typeof text,
@@ -796,6 +797,7 @@ app.post('/api/openai/tts', async (req, res) => {
       textPreview: (typeof text === 'string' && text) ? text.substring(0, 100) : 'undefined',
       voice,
       model,
+      language,
       body: req.body
     });
 
@@ -824,6 +826,7 @@ app.post('/api/openai/tts', async (req, res) => {
       model,
       input: text,
       voice,
+      language,
       response_format: 'mp3'
     };
 
@@ -842,7 +845,31 @@ app.post('/api/openai/tts', async (req, res) => {
       axiosConfig.httpAgent = proxyAgent;
     }
 
-    const response = await axios(axiosConfig);
+    let response;
+    let attemptedWithoutProxy = false;
+
+    try {
+      response = await axios(axiosConfig);
+    } catch (error) {
+      // If proxy is set and network unreachable/timeouts occur, retry without proxy once
+      const retriableNetworkErrors = ['ENETUNREACH', 'ETIMEDOUT', 'ECONNRESET', 'EHOSTUNREACH'];
+      const shouldRetryWithoutProxy = proxyAgent && !attemptedWithoutProxy &&
+        (retriableNetworkErrors.includes(error.code) || error.message?.includes('timeout'));
+
+      if (shouldRetryWithoutProxy) {
+        console.warn('⚠️ [Transcription API] Proxy request failed, retrying without proxy...', {
+          error: error.code || error.message
+        });
+        attemptedWithoutProxy = true;
+        const axiosConfigNoProxy = { ...axiosConfig };
+        delete axiosConfigNoProxy.httpAgent;
+        delete axiosConfigNoProxy.httpsAgent;
+        axiosConfigNoProxy.proxy = false;
+        response = await axios(axiosConfigNoProxy);
+      } else {
+        throw error;
+      }
+    }
 
     // Устанавливаем правильные заголовки для аудио
     res.setHeader('Content-Type', 'audio/mpeg');
@@ -887,11 +914,34 @@ app.post('/api/openai/tts', async (req, res) => {
         headers: error.response.headers
       });
 
-      // Возвращаем более детальную ошибку для отладки
+      // Попробуем распарсить тело ошибки от OpenAI
+      let openaiError = null;
+      let openaiErrorText = null;
+      try {
+        if (Buffer.isBuffer(error.response.data)) {
+          openaiErrorText = error.response.data.toString('utf8');
+          openaiError = JSON.parse(openaiErrorText);
+        } else if (typeof error.response.data === 'string') {
+          openaiErrorText = error.response.data;
+          openaiError = JSON.parse(error.response.data);
+        } else if (typeof error.response.data === 'object') {
+          openaiError = error.response.data;
+          openaiErrorText = JSON.stringify(error.response.data);
+        }
+      } catch (parseError) {
+        openaiErrorText = openaiErrorText || 'Unable to parse OpenAI error response';
+      }
+
+      const openaiMessage = openaiError?.error?.message || openaiErrorText;
+      const openaiCode = openaiError?.error?.code || openaiError?.code;
+
+      // Возвращаем детальную ошибку для клиента
       res.status(error.response.status).json({
         error: 'TTS generation failed',
-        details: error.response.data,
+        details: openaiError || openaiMessage || error.response.data,
         openai_status: error.response.status,
+        openai_code: openaiCode,
+        openai_message: openaiMessage,
         request_text: req.body.text ? req.body.text.substring(0, 100) : 'undefined'
       });
     } else {
@@ -1092,13 +1142,20 @@ app.post('/api/audio/transcriptions', upload.single('file'), async (req, res) =>
     'content-length': req.headers['content-length']
   });
   console.log('🎵 [Transcription API] Body fields:', Object.keys(req.body || {}));
+  console.log('🎵 [Transcription API] Body values:', {
+    language: req.body?.language,
+    model: req.body?.model,
+    hasPrompt: !!req.body?.prompt,
+    temperature: req.body?.temperature
+  });
   console.log('🎵 [Transcription API] File info:', req.file ? {
     fieldname: req.file.fieldname,
     originalname: req.file.originalname,
     mimetype: req.file.mimetype,
     size: req.file.size,
-    bufferLength: req.file.buffer?.length
-  } : 'NO FILE');
+    bufferLength: req.file.buffer?.length,
+    isBuffer: Buffer.isBuffer(req.file.buffer)
+  } : 'NO FILE - This will cause an error!');
 
   try {
     const { language = 'ru', model = 'whisper-1', prompt, temperature = 0.2 } = req.body;
@@ -1159,13 +1216,24 @@ app.post('/api/audio/transcriptions', upload.single('file'), async (req, res) =>
     });
 
     try {
-      formData.append('file', req.file.buffer, req.file.originalname || 'audio.webm');
+      // Убедимся, что у нас именно Buffer. Некоторые окружения могут отдавать Uint8Array
+      const fileBuffer = Buffer.isBuffer(req.file.buffer)
+        ? req.file.buffer
+        : Buffer.from(req.file.buffer);
+
+      formData.append('file', fileBuffer, {
+        filename: req.file.originalname || 'audio.webm',
+        contentType: req.file.mimetype || 'audio/webm'
+      });
       console.log('✅ [Transcription API] FormData append successful');
     } catch (error) {
       console.error('❌ [Transcription API] FormData append failed:', error);
       return res.status(500).json({
         error: 'FormData creation failed',
-        details: error.message
+        details: error.message,
+        hasFile: !!req.file,
+        fileType: req.file?.mimetype,
+        bufferType: req.file?.buffer ? typeof req.file.buffer : 'undefined'
       });
     }
 
@@ -1229,29 +1297,48 @@ app.post('/api/audio/transcriptions', upload.single('file'), async (req, res) =>
 
     console.log('✅ [Transcription API] OpenAI transcription successful:', {
       responseStatus: response.status,
-      responseData: response.data,
-      dataLength: JSON.stringify(response.data).length
+      responseDataType: typeof response.data,
+      responseDataPreview: typeof response.data === 'string' 
+        ? response.data.substring(0, 100) 
+        : JSON.stringify(response.data).substring(0, 100),
+      dataLength: typeof response.data === 'string' 
+        ? response.data.length 
+        : JSON.stringify(response.data).length
     });
 
     logToFile('INFO', 'Audio transcription successful', {
       fileSize: req.file.size,
-      responseSize: JSON.stringify(response.data).length,
+      responseSize: typeof response.data === 'string' 
+        ? response.data.length 
+        : JSON.stringify(response.data).length,
       language,
       model
     });
 
-    // Возвращаем результат как есть
-    res.status(response.status).send(response.data);
+    // Возвращаем результат как есть (может быть текст или JSON)
+    // Устанавливаем правильный Content-Type
+    if (typeof response.data === 'string') {
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.status(response.status).send(response.data);
+    } else {
+      res.setHeader('Content-Type', 'application/json');
+      res.status(response.status).json(response.data);
+    }
 
   } catch (error) {
-    console.error('❌ [Transcription API] Transcription error:', {
+    const errorDetails = {
       message: error.message,
       code: error.code,
       status: error.response?.status,
       statusText: error.response?.statusText,
       data: error.response?.data,
-      stack: error.stack?.substring(0, 500)
-    });
+      stack: error.stack?.substring(0, 500),
+      fileName: req.file?.originalname,
+      fileSize: req.file?.size,
+      hasFile: !!req.file
+    };
+
+    console.error('❌ [Transcription API] Transcription error:', errorDetails);
 
     logToFile('ERROR', 'Audio transcription failed', {
       error: error.message,
@@ -1259,17 +1346,37 @@ app.post('/api/audio/transcriptions', upload.single('file'), async (req, res) =>
       fileName: req.file?.originalname,
       fileSize: req.file?.size,
       responseStatus: error.response?.status,
-      responseData: error.response?.data
+      responseData: error.response?.data,
+      errorCode: error.code
     });
 
     if (error.response) {
-      console.log('❌ [Transcription API] OpenAI responded with error:', error.response.status, error.response.data);
-      res.status(error.response.status).json(error.response.data);
+      // OpenAI API вернул ошибку
+      const errorMessage = error.response.data?.error?.message || 
+                          error.response.data?.error || 
+                          JSON.stringify(error.response.data);
+      console.log('❌ [Transcription API] OpenAI responded with error:', error.response.status, errorMessage);
+      
+      res.status(error.response.status).json({
+        error: 'Transcription failed',
+        details: errorMessage,
+        status: error.response.status
+      });
+    } else if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      // Таймаут
+      console.log('❌ [Transcription API] Request timeout:', error.message);
+      res.status(504).json({
+        error: 'Transcription timeout',
+        details: 'The transcription request took too long. Please try again.',
+        timeout: true
+      });
     } else {
+      // Сетевая или другая ошибка
       console.log('❌ [Transcription API] Network or other error:', error.message);
       res.status(500).json({
         error: 'Audio transcription failed',
-        details: error.message
+        details: error.message,
+        code: error.code
       });
     }
   }

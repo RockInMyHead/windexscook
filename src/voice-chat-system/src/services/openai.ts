@@ -375,15 +375,29 @@ class PsychologistAI {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+        let errorText = '';
+        try {
+          errorText = await response.text();
+        } catch (e) {
+          errorText = `HTTP ${response.status} ${response.statusText}`;
+        }
+        console.error(`[OpenAI] Transcription failed: ${response.status}`, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 200)}`);
       }
 
-      const data = await response.json();
-
-      const text = typeof data === "string"
-        ? data
-        : (data?.text ?? "");
+      // Try to parse as JSON first, fallback to text
+      const contentType = response.headers.get('content-type') || '';
+      let text = '';
+      
+      if (contentType.includes('application/json')) {
+        const data = await response.json();
+        text = typeof data === "string"
+          ? data
+          : (data?.text ?? "");
+      } else {
+        // Server returns text directly
+        text = await response.text();
+      }
 
       if (!text.trim()) {
         throw new Error("Empty transcription result");

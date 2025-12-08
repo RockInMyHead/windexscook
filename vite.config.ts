@@ -21,12 +21,12 @@ export default defineConfig({
     // Прокси для разработки - перенаправляет /api на локальный сервер
     proxy: {
       '/api': {
-        target: 'http://localhost:4000',
+        target: 'https://cook.windexs.ru',
         changeOrigin: false,
         secure: false,
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('🔄 [Vite Proxy] Sending API Request:', req.method, req.url, '→ http://localhost:4000' + req.url);
+            console.log('🔄 [Vite Proxy] Sending API Request:', req.method, req.url, '→ https://cook.windexs.ru' + req.url);
           });
 
           proxy.on('error', (err, _req, _res) => {

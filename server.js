@@ -3287,7 +3287,7 @@ async function startServer() {
         proxyPort: PROXY_PORT,
         proxyUsername: PROXY_USERNAME,
         logsDirectory: logsDir,
-        serverUrl: `http://localhost:${PORT}`
+        serverUrl: `https://cook.windexs.ru`
       });
 
       console.log(`🚀 Pastel Chef AI API server running on port ${PORT}`);
@@ -3295,7 +3295,7 @@ async function startServer() {
       console.log(`🔑 OpenAI API key configured: ${process.env.VITE_OPENAI_API_KEY ? 'Yes' : 'No'}`);
       console.log(`🌐 Proxy configured: ${PROXY_HOST}:${PROXY_PORT} (${PROXY_USERNAME})`);
       console.log(`📁 Logs directory: ${logsDir}`);
-      console.log(`🌐 Server URL: http://localhost:${PORT}`);
+      console.log(`🌐 Server URL: https://cook.windexs.ru`);
     });
   } catch (error) {
     console.error('❌ [Server] Failed to start server:', error);

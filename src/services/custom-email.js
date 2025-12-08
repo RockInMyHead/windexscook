@@ -254,7 +254,7 @@ export class CustomEmailService {
       smtpUser: smtpUser || '',
       smtpPass: smtpPass || '',
       fromEmail: process.env.SMTP_FROM_EMAIL || 'noreply@windexscook.ru',
-      frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173'
+      frontendUrl: process.env.FRONTEND_URL || 'https://cook.windexs.ru'
     };
   }
 

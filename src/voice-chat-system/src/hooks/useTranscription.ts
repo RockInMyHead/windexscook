@@ -219,8 +219,8 @@ export const useTranscription = ({ transcriptionService,
           addDebugLog(`[Mobile] Audio volume: ${volumeLevel.toFixed(2)}%`);
 
           // Only send if volume is above threshold
-          // Raise threshold to reduce "silence" hallucinations
-          if (volumeLevel < 0.5) {
+          // Lower threshold to catch quieter speech while still filtering silence
+          if (volumeLevel < 0.2) {
             addDebugLog(`[Mobile] ⚠️ Too quiet (${volumeLevel.toFixed(2)}%), skipping`);
             return;
           }

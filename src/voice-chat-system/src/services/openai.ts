@@ -390,10 +390,10 @@ class PsychologistAI {
       let text = '';
       
       if (contentType.includes('application/json')) {
-        const data = await response.json();
+      const data = await response.json();
         text = typeof data === "string"
-          ? data
-          : (data?.text ?? "");
+        ? data
+        : (data?.text ?? "");
       } else {
         // Server returns text directly
         text = await response.text();

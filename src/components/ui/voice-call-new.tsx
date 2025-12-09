@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './card';
 import { Button } from './button';
 import { Badge } from './badge';
@@ -114,6 +115,10 @@ export const VoiceCallNew: React.FC<VoiceCallProps> = ({ className = '' }) => {
   const audioChunksRef = useRef<Blob[]>([]);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
+  // Voice call timer refs
+  const callStartTimeRef = useRef<number | null>(null);
+  const callTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Инициализация аудио контекста
   const initializeAudioContext = useCallback(async (): Promise<AudioContext> => {
     if (audioContextRef.current) {
@@ -163,6 +168,75 @@ export const VoiceCallNew: React.FC<VoiceCallProps> = ({ className = '' }) => {
     return !!SpeechRecognition;
   }, []);
 
+  // Voice call time management
+  const FREE_VOICE_TIME_MINUTES = 60; // 1 hour free
+
+  const getVoiceCallTime = useCallback((): number => {
+    const stored = localStorage.getItem('voiceCallTime');
+    if (!stored) return 0;
+    return parseInt(stored, 10) || 0;
+  }, []);
+
+  const saveVoiceCallTime = useCallback((time: number): void => {
+    localStorage.setItem('voiceCallTime', time.toString());
+  }, []);
+
+  const getRemainingTime = useCallback((): number => {
+    const usedTime = getVoiceCallTime();
+    const totalFreeTime = FREE_VOICE_TIME_MINUTES * 60 * 1000; // Convert to milliseconds
+    return Math.max(0, totalFreeTime - usedTime);
+  }, [getVoiceCallTime]);
+
+  const checkPremiumRequired = useCallback((): boolean => {
+    return getRemainingTime() <= 0;
+  }, [getRemainingTime]);
+
+  const startCallTimer = useCallback(() => {
+    if (callTimerRef.current) {
+      clearInterval(callTimerRef.current);
+    }
+
+    callStartTimeRef.current = Date.now();
+    callTimerRef.current = setInterval(() => {
+      const currentTime = Date.now();
+      const elapsed = currentTime - (callStartTimeRef.current || currentTime);
+      const totalUsed = getVoiceCallTime() + elapsed;
+
+      const remaining = Math.max(0, (FREE_VOICE_TIME_MINUTES * 60 * 1000) - totalUsed);
+      if (remaining <= 0) {
+        console.log('⏰ Бесплатное время вышло! Перенаправление на премиум...');
+        stopCallTimer();
+        // Redirect to premium page after a short delay
+        setTimeout(() => {
+          navigate('/premium');
+        }, 2000);
+      }
+    }, 1000);
+  }, [getVoiceCallTime, navigate]);
+
+  const stopCallTimer = useCallback(() => {
+    if (callTimerRef.current) {
+      clearInterval(callTimerRef.current);
+      callTimerRef.current = null;
+    }
+
+    // Save the call duration
+    if (callStartTimeRef.current) {
+      const callDuration = Date.now() - callStartTimeRef.current;
+      const totalUsed = getVoiceCallTime() + callDuration;
+      saveVoiceCallTime(totalUsed);
+      callStartTimeRef.current = null;
+    }
+  }, [getVoiceCallTime, saveVoiceCallTime]);
+
+  // Cleanup timer on component unmount
+  useEffect(() => {
+    return () => {
+      if (callTimerRef.current) {
+        clearInterval(callTimerRef.current);
+      }
+    };
+  }, []);
 
   // Transcribe audio using OpenAI Whisper API (fallback)
   const transcribeWithOpenAI = useCallback(async (audioBlob: Blob): Promise<string | null> => {
@@ -403,6 +477,9 @@ export const VoiceCallNew: React.FC<VoiceCallProps> = ({ className = '' }) => {
       setIsRecording(false);
       setIsTranscribing(false);
 
+      // Stop the call timer
+      stopCallTimer();
+
       if (useFallbackTranscription || !isWebSpeechAvailable()) {
         const transcript = await stopFallbackRecording();
         if (transcript && transcript.trim()) {
@@ -430,6 +507,24 @@ export const VoiceCallNew: React.FC<VoiceCallProps> = ({ className = '' }) => {
         }
       }
     } else {
+      // Check if premium is required before starting
+      if (isPremiumRequired || checkPremiumRequired()) {
+        toast({
+          title: "Премиум требуется",
+          description: "Ваше бесплатное время голосового общения истекло. Переход на премиум...",
+          variant: "destructive"
+        });
+        navigate('/premium');
+        return;
+      }
+
+      // Check if premium is required before starting
+      if (checkPremiumRequired()) {
+        console.log('💎 Премиум требуется - перенаправление на страницу оплаты');
+        navigate('/premium');
+        return;
+      }
+
       if (!isMicEnabled) {
         toast({
           title: "Микрофон отключен",
@@ -441,6 +536,9 @@ export const VoiceCallNew: React.FC<VoiceCallProps> = ({ className = '' }) => {
 
       console.log('🎤 Запуск записи...');
       setTranscriptDisplay("");
+
+      // Start the call timer
+      startCallTimer();
 
       if (!isWebSpeechAvailable()) {
         console.log('🔄 Используется fallback режим (OpenAI Whisper)');

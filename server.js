@@ -90,12 +90,27 @@ const proxyUrl = PROXY_HOST && PROXY_PORT && PROXY_USERNAME && PROXY_PASSWORD
 
 const proxyAgent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : null;
 
+// Проверка правильности прокси
+if (PROXY_HOST !== '45.147.180.108') {
+  console.warn('⚠️ [Proxy] ВНИМАНИЕ: Используется прокси с IP отличным от дефолтного!', {
+    current: PROXY_HOST,
+    expected: '45.147.180.108',
+    fromEnv: !!process.env.PROXY_HOST
+  });
+}
+
 console.log('🔧 Proxy configuration:', {
   proxyUrl: proxyUrl ? proxyUrl.replace(/:[^@]*@/, ':***@') : 'disabled', // Скрываем пароль в логах
   proxyHost: PROXY_HOST,
   proxyPort: PROXY_PORT,
   proxyUsername: PROXY_USERNAME,
-  proxyEnabled: !!proxyAgent
+  proxyEnabled: !!proxyAgent,
+  fromEnv: {
+    PROXY_HOST: !!process.env.PROXY_HOST,
+    PROXY_PORT: !!process.env.PROXY_PORT,
+    PROXY_USERNAME: !!process.env.PROXY_USERNAME,
+    PROXY_PASSWORD: !!process.env.PROXY_PASSWORD
+  }
 });
 
 // Создаем директорию для логов

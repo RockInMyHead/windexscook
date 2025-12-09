@@ -1476,15 +1476,18 @@ app.post('/api/openai/generate-image', async (req, res) => {
 });
 
 // OpenAI Audio API роут - специальная обработка для файлов
-app.post('/api/openai/v1/audio/transcriptions', upload.single('file'), async (req, res) => {
+app.post('/api/openai/v1/audio/transcriptions', upload.fields([
+  { name: 'file', maxCount: 1 },
+  { name: 'audio', maxCount: 1 }
+]), async (req, res) => {
   try {
     console.log('🎵 [OpenAI Audio] Received transcription request', {
-      hasFile: !!req.file,
-      fileInfo: req.file ? {
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size,
-        encoding: req.file.encoding
+      hasFile: !!audioFile,
+      fileInfo: audioFile ? {
+        originalname: audioFile.originalname,
+        mimetype: audioFile.mimetype,
+        size: audioFile.size,
+        encoding: audioFile.encoding
       } : null,
       body: req.body,
       headers: req.headers
@@ -1507,10 +1510,22 @@ app.post('/api/openai/v1/audio/transcriptions', upload.single('file'), async (re
       });
     }
 
-    if (!req.file) {
+    // Проверяем наличие файла в любом из полей
+    const audioFile = req.files?.file?.[0] || req.files?.audio?.[0] || req.file;
+
+    if (!audioFile) {
       console.error('❌ [OpenAI Audio] No file received in request');
       return res.status(400).json({
         error: 'Audio file is required'
+      });
+    }
+
+    // Проверяем размер файла (OpenAI ограничение: 25MB)
+    const maxSize = 25 * 1024 * 1024; // 25MB
+    if (audioFile.size > maxSize) {
+      console.error('❌ [OpenAI Audio] File too large:', audioFile.size, 'bytes (max:', maxSize, ')');
+      return res.status(400).json({
+        error: 'Audio file is too large. Maximum size is 25MB.'
       });
     }
 
@@ -1521,11 +1536,11 @@ app.post('/api/openai/v1/audio/transcriptions', upload.single('file'), async (re
 
     // Копируем все поля из оригинального запроса
     for (const [key, value] of Object.entries(req.body)) {
-      if (key === 'file' && req.file) {
+      if ((key === 'file' || key === 'audio') && audioFile) {
         // Если есть файл, добавляем его
-        formData.append('file', req.file.buffer, {
-          filename: req.file.originalname,
-          contentType: req.file.mimetype
+        formData.append('file', audioFile.buffer, {
+          filename: audioFile.originalname,
+          contentType: audioFile.mimetype
         });
       } else {
         formData.append(key, value);
@@ -1533,11 +1548,10 @@ app.post('/api/openai/v1/audio/transcriptions', upload.single('file'), async (re
     }
 
     // Добавляем файл из multipart/form-data если он есть
-    if (req.files && req.files.file) {
-      const file = req.files.file;
-      formData.append('file', file.data, {
-        filename: file.name,
-        contentType: file.mimetype
+    if (audioFile) {
+      formData.append('file', audioFile.buffer, {
+        filename: audioFile.originalname,
+        contentType: audioFile.mimetype
       });
     }
 
@@ -1565,7 +1579,11 @@ app.post('/api/openai/v1/audio/transcriptions', upload.single('file'), async (re
       axiosConfig.httpAgent = proxyAgent;
     }
 
-    console.log('🎵 [OpenAI Audio] Sending transcription request to OpenAI');
+    console.log('🎵 [OpenAI Audio] Sending transcription request to OpenAI', {
+      fileSize: audioFile.size,
+      fileType: audioFile.mimetype,
+      formDataKeys: Array.from(formData.keys())
+    });
 
     const response = await axios(axiosConfig);
 
@@ -1577,16 +1595,27 @@ app.post('/api/openai/v1/audio/transcriptions', upload.single('file'), async (re
     res.status(response.status).send(response.data);
 
   } catch (error) {
-    console.error('❌ [OpenAI Audio] Transcription error:', error.message);
+    console.error('❌ [OpenAI Audio] Transcription error:', error.message, {
+      hasResponse: !!error.response,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      code: error.code,
+      errno: error.errno
+    });
 
     logToFile('ERROR', 'Audio transcription failed', {
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
+      responseStatus: error.response?.status,
+      responseData: error.response?.data
     });
 
     if (error.response) {
+      console.error('❌ [OpenAI Audio] OpenAI API error response:', error.response.status, error.response.data);
       res.status(error.response.status).json(error.response.data);
     } else {
+      console.error('❌ [OpenAI Audio] Network/other error:', error.message);
       res.status(500).json({
         error: 'Audio transcription failed',
         details: error.message

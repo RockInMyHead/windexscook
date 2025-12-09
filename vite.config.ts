@@ -18,6 +18,9 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5174,
     strictPort: false,
+    hmr: {
+      port: 5174,
+    },
     // Прокси для разработки - перенаправляет /api на локальный сервер
     proxy: {
       '/api': {

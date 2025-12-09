@@ -897,11 +897,22 @@ app.post('/api/openai/tts', async (req, res) => {
   } catch (error) {
     console.error('❌ [TTS API] Ошибка генерации речи:', {
       error: error.message,
+      code: error.code,
+      errno: error.errno,
+      isAxiosError: error.isAxiosError,
       stack: error.stack,
       textLength: req.body?.text?.length,
       textPreview: typeof req.body?.text === 'string' ? req.body.text.substring(0, 120) : 'not-string',
       voice: req.body.voice,
-      model: req.body.model
+      model: req.body.model,
+      axiosConfig: error.config ? {
+        url: error.config.url,
+        timeout: error.config.timeout,
+        proxy: error.config.proxy,
+        hasHttpsAgent: !!error.config.httpsAgent,
+        hasHttpAgent: !!error.config.httpAgent,
+        headers: error.config.headers,
+      } : null
     });
 
     logToFile('ERROR', 'TTS generation error', {
@@ -957,7 +968,18 @@ app.post('/api/openai/tts', async (req, res) => {
         request_text: req.body.text ? req.body.text.substring(0, 100) : 'undefined'
       });
     } else {
-      console.error('❌ [TTS API] Network or other error:', error);
+      console.error('❌ [TTS API] Network or other error:', {
+        message: error.message,
+        code: error.code,
+        errno: error.errno,
+        isAxiosError: error.isAxiosError,
+        requestUrl: error.config?.url,
+        timeout: error.config?.timeout,
+        proxy: error.config?.proxy,
+        hasHttpsAgent: !!error.config?.httpsAgent,
+        hasHttpAgent: !!error.config?.httpAgent,
+        headers: error.config?.headers
+      });
       res.status(500).json({
         error: 'Internal server error',
         details: error.message

@@ -16,12 +16,12 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 5173,
+    port: 5174,
     strictPort: false,
     // Прокси для разработки - перенаправляет /api на локальный сервер
     proxy: {
       '/api': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:4001',
         changeOrigin: true,
         secure: false,
         timeout: 30000,
@@ -30,7 +30,7 @@ export default defineConfig({
         },
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('🔄 [Vite Proxy] Sending API Request:', req.method, req.url, '→ http://localhost:4000' + req.url);
+            console.log('🔄 [Vite Proxy] Sending API Request:', req.method, req.url, '→ http://localhost:4001' + req.url);
             // Убираем origin header чтобы избежать CORS проблем
             proxyReq.removeHeader('origin');
           });

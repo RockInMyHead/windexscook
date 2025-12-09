@@ -215,15 +215,18 @@ export const useTranscription = ({ transcriptionService,
           }
 
           // Check audio volume to filter out silence/background noise
+          addDebugLog(`[Mobile] 🔍 Checking volume for ${blob.size} bytes blob...`);
           const volumeLevel = await checkAudioVolume(blob);
-          addDebugLog(`[Mobile] Audio volume: ${volumeLevel.toFixed(2)}%`);
+          addDebugLog(`[Mobile] Audio volume: ${volumeLevel.toFixed(2)}% (threshold: 0.1%)`);
 
           // Only send if volume is above threshold
-          // Lower threshold to catch quieter speech while still filtering silence
-          if (volumeLevel < 0.2) {
-            addDebugLog(`[Mobile] ⚠️ Too quiet (${volumeLevel.toFixed(2)}%), skipping`);
+          // Very low threshold to catch any speech while still filtering pure silence
+          if (volumeLevel < 0.1) {
+            addDebugLog(`[Mobile] ⚠️ Too quiet (${volumeLevel.toFixed(2)}%), skipping audio processing`);
             return;
           }
+
+          addDebugLog(`[Mobile] ✅ Volume check passed (${volumeLevel.toFixed(2)}%), proceeding with transcription`);
 
           addDebugLog(`[Mobile] ✅ Sending ${blob.size} bytes to OpenAI...`);
 

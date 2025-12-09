@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles, Send } from "lucide-react";
 import heroChef from "@/assets/hero-chef.jpg";
 
 interface HeroSectionProps {
@@ -72,6 +72,20 @@ export const HeroSection = ({ onGetStarted, onViewExamples }: HeroSectionProps) 
                 className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 hover:bg-secondary/80 transition-colors drop-shadow-md"
               >
                 Посмотреть примеры
+              </Button>
+
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 hover:bg-primary/5 transition-colors drop-shadow-md"
+              >
+                <a href="https://t.me/WindexsGroup" target="_blank" rel="noreferrer">
+                  <span className="flex items-center gap-2">
+                    <Send className="w-5 h-5" />
+                    <span>Спросить</span>
+                  </span>
+                </a>
               </Button>
 
             </div>

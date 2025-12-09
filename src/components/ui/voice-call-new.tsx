@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './card';
 import { Button } from './button';
 import { Badge } from './badge';
@@ -115,12 +114,6 @@ export const VoiceCallNew: React.FC<VoiceCallProps> = ({ className = '' }) => {
   const audioChunksRef = useRef<Blob[]>([]);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
-  // Voice call timer refs and state
-  const callStartTimeRef = useRef<number | null>(null);
-  const callTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const [remainingTime, setRemainingTime] = useState<number>(0);
-  const [isPremiumRequired, setIsPremiumRequired] = useState<boolean>(false);
-
   // Инициализация аудио контекста
   const initializeAudioContext = useCallback(async (): Promise<AudioContext> => {
     if (audioContextRef.current) {
@@ -170,87 +163,6 @@ export const VoiceCallNew: React.FC<VoiceCallProps> = ({ className = '' }) => {
     return !!SpeechRecognition;
   }, []);
 
-  // Voice call time management
-  const FREE_VOICE_TIME_MINUTES = 60; // 1 hour free
-
-  const getVoiceCallTime = useCallback((): number => {
-    const stored = localStorage.getItem('voiceCallTime');
-    if (!stored) return 0;
-    return parseInt(stored, 10) || 0;
-  }, []);
-
-  const saveVoiceCallTime = useCallback((time: number): void => {
-    localStorage.setItem('voiceCallTime', time.toString());
-  }, []);
-
-  const getRemainingTime = useCallback((): number => {
-    const usedTime = getVoiceCallTime();
-    const totalFreeTime = FREE_VOICE_TIME_MINUTES * 60 * 1000; // Convert to milliseconds
-    return Math.max(0, totalFreeTime - usedTime);
-  }, [getVoiceCallTime]);
-
-  const checkPremiumRequired = useCallback((): boolean => {
-    return getRemainingTime() <= 0;
-  }, [getRemainingTime]);
-
-  const startCallTimer = useCallback(() => {
-    if (callTimerRef.current) {
-      clearInterval(callTimerRef.current);
-    }
-
-    callStartTimeRef.current = Date.now();
-    callTimerRef.current = setInterval(() => {
-      const currentTime = Date.now();
-      const elapsed = currentTime - (callStartTimeRef.current || currentTime);
-      const totalUsed = getVoiceCallTime() + elapsed;
-
-      // Update remaining time display
-      const remaining = Math.max(0, (FREE_VOICE_TIME_MINUTES * 60 * 1000) - totalUsed);
-      setRemainingTime(remaining);
-
-      // Check if time is up
-      if (remaining <= 0) {
-        console.log('⏰ Бесплатное время вышло! Перенаправление на премиум...');
-        stopCallTimer();
-        setIsPremiumRequired(true);
-        // Redirect to premium page after a short delay
-        setTimeout(() => {
-          navigate('/premium');
-        }, 2000);
-      }
-    }, 1000);
-  }, [getVoiceCallTime, navigate]);
-
-  const stopCallTimer = useCallback(() => {
-    if (callTimerRef.current) {
-      clearInterval(callTimerRef.current);
-      callTimerRef.current = null;
-    }
-
-    // Save the call duration
-    if (callStartTimeRef.current) {
-      const callDuration = Date.now() - callStartTimeRef.current;
-      const totalUsed = getVoiceCallTime() + callDuration;
-      saveVoiceCallTime(totalUsed);
-      callStartTimeRef.current = null;
-    }
-  }, [getVoiceCallTime, saveVoiceCallTime]);
-
-  // Initialize remaining time on component mount
-  useEffect(() => {
-    const remaining = getRemainingTime();
-    setRemainingTime(remaining);
-    setIsPremiumRequired(checkPremiumRequired());
-  }, [getRemainingTime, checkPremiumRequired]);
-
-  // Cleanup timer on component unmount
-  useEffect(() => {
-    return () => {
-      if (callTimerRef.current) {
-        clearInterval(callTimerRef.current);
-      }
-    };
-  }, []);
 
   // Transcribe audio using OpenAI Whisper API (fallback)
   const transcribeWithOpenAI = useCallback(async (audioBlob: Blob): Promise<string | null> => {
@@ -491,9 +403,6 @@ export const VoiceCallNew: React.FC<VoiceCallProps> = ({ className = '' }) => {
       setIsRecording(false);
       setIsTranscribing(false);
 
-      // Stop the call timer
-      stopCallTimer();
-
       if (useFallbackTranscription || !isWebSpeechAvailable()) {
         const transcript = await stopFallbackRecording();
         if (transcript && transcript.trim()) {
@@ -521,17 +430,6 @@ export const VoiceCallNew: React.FC<VoiceCallProps> = ({ className = '' }) => {
         }
       }
     } else {
-      // Check if premium is required before starting
-      if (isPremiumRequired || checkPremiumRequired()) {
-        toast({
-          title: "Премиум требуется",
-          description: "Ваше бесплатное время голосового общения истекло. Переход на премиум...",
-          variant: "destructive"
-        });
-        navigate('/premium');
-        return;
-      }
-
       if (!isMicEnabled) {
         toast({
           title: "Микрофон отключен",
@@ -542,12 +440,7 @@ export const VoiceCallNew: React.FC<VoiceCallProps> = ({ className = '' }) => {
       }
 
       console.log('🎤 Запуск записи...');
-      console.log(`⏰ Начало звонка. Осталось времени: ${Math.floor(remainingTime / 60000)} мин ${Math.floor((remainingTime % 60000) / 1000)} сек`);
-
       setTranscriptDisplay("");
-
-      // Start the call timer
-      startCallTimer();
 
       if (!isWebSpeechAvailable()) {
         console.log('🔄 Используется fallback режим (OpenAI Whisper)');
@@ -1064,30 +957,6 @@ export const VoiceCallNew: React.FC<VoiceCallProps> = ({ className = '' }) => {
           <div className="text-foreground/80 text-xl md:text-2xl font-light tracking-widest uppercase transition-colors duration-300">
             {statusText}
           </div>
-
-          {/* Voice Call Timer */}
-          {!isPremiumRequired && remainingTime > 0 && (
-            <div className="bg-background/80 backdrop-blur-sm px-4 py-2 rounded-full border border-border/50 shadow-sm">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-foreground/70 text-sm font-medium">
-                  {isRecording ? '🎤' : '⏰'} Осталось: {Math.floor(remainingTime / 60000)}:{String(Math.floor((remainingTime % 60000) / 1000)).padStart(2, '0')}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Premium Required Warning */}
-          {isPremiumRequired && (
-            <div className="bg-destructive/10 backdrop-blur-sm px-6 py-3 rounded-full border border-destructive/20 shadow-sm">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-destructive rounded-full"></div>
-                <span className="text-destructive text-sm font-medium">
-                  ⏰ Бесплатное время вышло! Переход на премиум...
-                </span>
-              </div>
-            </div>
-          )}
 
           {/* Interrupt Button */}
           {showInterruptButton && (

@@ -18,7 +18,6 @@ import PaymentSuccess from './pages/PaymentSuccess';
 import TermsOfService from './pages/TermsOfService';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import ResetPassword from './pages/ResetPassword';
-import Premium from './pages/Premium';
 
 const queryClient = new QueryClient();
 
@@ -40,7 +39,6 @@ const App = () => (
             <Route path="/settings/*" element={<Settings />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
-            <Route path="/premium" element={<Premium />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/reset-password" element={<ResetPassword />} />

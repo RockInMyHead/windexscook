@@ -904,7 +904,7 @@ app.post('/api/openai/tts', async (req, res) => {
       stack: error.stack,
       textLength: req.body?.text?.length,
       textPreview: typeof req.body?.text === 'string' ? req.body.text.substring(0, 120) : 'not-string',
-      voice: req.body.voice,
+        voice: req.body.voice,
       model: req.body.model,
       axiosConfig: error.config ? {
         url: error.config.url,

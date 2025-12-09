@@ -228,67 +228,67 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-md bg-gradient-card border-border/50 shadow-glow">
-        <CardHeader className="relative">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
+      <Card className="w-full max-w-md bg-gradient-card border-border/50 shadow-glow my-auto">
+        <CardHeader className="relative p-4 sm:p-6">
           <Button
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="absolute top-4 right-4 hover:bg-destructive/10 hover:text-destructive"
+            className="absolute top-2 right-2 sm:top-4 sm:right-4 hover:bg-destructive/10 hover:text-destructive w-8 h-8 sm:w-10 sm:h-10"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
           
-          <div className="text-center space-y-2">
-            <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
-              <ChefHat className="w-8 h-8 text-primary-foreground" />
+          <div className="text-center space-y-2 pt-2 sm:pt-0">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+              <ChefHat className="w-6 h-6 sm:w-8 sm:h-8 text-primary-foreground" />
             </div>
-            <CardTitle className="text-2xl font-bold text-foreground">
+            <CardTitle className="text-lg sm:text-2xl font-bold text-foreground px-2 sm:px-0">
               Добро пожаловать в <span className="text-primary">Windexs</span> кулинар!
             </CardTitle>
-            <p className="text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground px-2 sm:px-0">
               Сохраняйте рецепты, создавайте коллекции и получайте персональные рекомендации
             </p>
           </div>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="p-4 sm:p-6">
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Вход</TabsTrigger>
-              <TabsTrigger value="register">Регистрация</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 h-10 sm:h-11">
+              <TabsTrigger value="login" className="text-sm sm:text-base">Вход</TabsTrigger>
+              <TabsTrigger value="register" className="text-sm sm:text-base">Регистрация</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="login" className="space-y-4">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
+            <TabsContent value="login" className="space-y-3 sm:space-y-4 mt-4 sm:mt-6">
+              <form onSubmit={handleLogin} className="space-y-3 sm:space-y-4">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="login-email" className="text-sm sm:text-base">Email</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     <Input
                       id="login-email"
                       type="email"
                       placeholder="your@email.com"
                       value={loginData.email}
                       onChange={(e) => setLoginData({...loginData, email: e.target.value})}
-                      className="pl-10"
+                      className="pl-10 sm:pl-12 h-10 sm:h-11 text-sm sm:text-base"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Пароль</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="login-password" className="text-sm sm:text-base">Пароль</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     <Input
                       id="login-password"
                       type="password"
                       placeholder="••••••••"
                       value={loginData.password}
                       onChange={(e) => setLoginData({...loginData, password: e.target.value})}
-                      className="pl-10"
+                      className="pl-10 sm:pl-12 h-10 sm:h-11 text-sm sm:text-base"
                       required
                     />
                   </div>
@@ -299,7 +299,7 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
                     type="button"
                     variant="link"
                     onClick={() => setShowResetPassword(true)}
-                    className="text-sm text-primary hover:text-primary/80 p-0 h-auto"
+                    className="text-xs sm:text-sm text-primary hover:text-primary/80 p-0 h-auto"
                   >
                     Забыли пароль?
                   </Button>
@@ -307,12 +307,12 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
 
                 <Button 
                   type="submit" 
-                  className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
+                  className="w-full bg-gradient-primary hover:opacity-90 transition-opacity h-10 sm:h-11 text-sm sm:text-base font-medium"
                   disabled={isLoading}
                 >
                   {isLoading ? (
                     <>
-                      <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                      <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 mr-2 animate-spin" />
                       Входим...
                     </>
                   ) : (
@@ -322,89 +322,89 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
               </form>
             </TabsContent>
 
-            <TabsContent value="register" className="space-y-4">
-              <form onSubmit={handleRegister} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="register-name">Имя</Label>
+            <TabsContent value="register" className="space-y-3 sm:space-y-4 mt-4 sm:mt-6">
+              <form onSubmit={handleRegister} className="space-y-3 sm:space-y-4">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="register-name" className="text-sm sm:text-base">Имя</Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     <Input
                       id="register-name"
                       type="text"
                       placeholder="Ваше имя"
                       value={registerData.name}
                       onChange={(e) => setRegisterData({...registerData, name: e.target.value})}
-                      className="pl-10"
+                      className="pl-10 sm:pl-12 h-10 sm:h-11 text-sm sm:text-base"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="register-email">Email</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="register-email" className="text-sm sm:text-base">Email</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     <Input
                       id="register-email"
                       type="email"
                       placeholder="your@email.com"
                       value={registerData.email}
                       onChange={(e) => setRegisterData({...registerData, email: e.target.value})}
-                      className="pl-10"
+                      className="pl-10 sm:pl-12 h-10 sm:h-11 text-sm sm:text-base"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="register-password">Пароль</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="register-password" className="text-sm sm:text-base">Пароль</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     <Input
                       id="register-password"
                       type="password"
                       placeholder="••••••••"
                       value={registerData.password}
                       onChange={(e) => setRegisterData({...registerData, password: e.target.value})}
-                      className="pl-10"
+                      className="pl-10 sm:pl-12 h-10 sm:h-11 text-sm sm:text-base"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="register-confirm">Подтвердите пароль</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="register-confirm" className="text-sm sm:text-base">Подтвердите пароль</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     <Input
                       id="register-confirm"
                       type="password"
                       placeholder="••••••••"
                       value={registerData.confirmPassword}
                       onChange={(e) => setRegisterData({...registerData, confirmPassword: e.target.value})}
-                      className="pl-10"
+                      className="pl-10 sm:pl-12 h-10 sm:h-11 text-sm sm:text-base"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="flex items-start space-x-2">
+                <div className="flex items-start space-x-2 sm:space-x-3">
                   <Checkbox
                     id="accept-terms"
                     checked={acceptTerms}
                     onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
-                    className="mt-1"
+                    className="mt-0.5 sm:mt-1 w-4 h-4 sm:w-5 sm:h-5"
                   />
-                  <div className="grid gap-1.5 leading-none">
+                  <div className="grid gap-1 leading-none flex-1">
                     <Label
                       htmlFor="accept-terms"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      className="text-xs sm:text-sm font-medium leading-relaxed peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                     >
                       Я принимаю{" "}
                       <Button
                         type="button"
                         variant="link"
-                        className="p-0 h-auto text-primary hover:text-primary/80 underline"
+                        className="p-0 h-auto text-primary hover:text-primary/80 underline text-xs sm:text-sm"
                         onClick={() => {
                           window.open('/terms', '_blank');
                         }}
@@ -415,7 +415,7 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
                       <Button
                         type="button"
                         variant="link"
-                        className="p-0 h-auto text-primary hover:text-primary/80 underline"
+                        className="p-0 h-auto text-primary hover:text-primary/80 underline text-xs sm:text-sm"
                         onClick={() => {
                           window.open('/privacy', '_blank');
                         }}
@@ -428,12 +428,12 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
 
                 <Button 
                   type="submit" 
-                  className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
+                  className="w-full bg-gradient-primary hover:opacity-90 transition-opacity h-10 sm:h-11 text-sm sm:text-base font-medium"
                   disabled={isLoading || !acceptTerms}
                 >
                   {isLoading ? (
                     <>
-                      <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                      <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 mr-2 animate-spin" />
                       Регистрируем...
                     </>
                   ) : (
@@ -444,8 +444,8 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
             </TabsContent>
           </Tabs>
 
-          <div className="mt-6 text-center">
-            <p className="text-xs text-muted-foreground">
+          <div className="mt-4 sm:mt-6 text-center px-2 sm:px-0">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Продолжая, вы соглашаетесь с нашими условиями использования
             </p>
           </div>
@@ -454,9 +454,9 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
 
       {/* Модальное окно восстановления пароля */}
       {showResetPassword && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-60">
-          <Card className="w-full max-w-md bg-gradient-card border-border/50 shadow-glow">
-            <CardHeader className="relative">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-60 overflow-y-auto">
+          <Card className="w-full max-w-md bg-gradient-card border-border/50 shadow-glow my-auto">
+            <CardHeader className="relative p-4 sm:p-6">
               <Button
                 variant="ghost"
                 size="icon"
@@ -464,43 +464,43 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
                   setShowResetPassword(false);
                   setResetEmail("");
                 }}
-                className="absolute top-4 right-4 hover:bg-destructive/10 hover:text-destructive"
+                className="absolute top-2 right-2 sm:top-4 sm:right-4 hover:bg-destructive/10 hover:text-destructive w-8 h-8 sm:w-10 sm:h-10"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
               
-              <div className="text-center space-y-2">
-                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Lock className="w-8 h-8 text-primary-foreground" />
+              <div className="text-center space-y-2 pt-2 sm:pt-0">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                  <Lock className="w-6 h-6 sm:w-8 sm:h-8 text-primary-foreground" />
                 </div>
-                <CardTitle className="text-2xl font-bold text-foreground">
+                <CardTitle className="text-lg sm:text-2xl font-bold text-foreground px-2 sm:px-0">
                   Восстановление пароля
                 </CardTitle>
-                <p className="text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground px-2 sm:px-0">
                   Введите ваш email для получения ссылки восстановления
                 </p>
               </div>
             </CardHeader>
 
-            <CardContent>
-              <form onSubmit={handleResetPassword} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="reset-email">Email</Label>
+            <CardContent className="p-4 sm:p-6">
+              <form onSubmit={handleResetPassword} className="space-y-3 sm:space-y-4">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="reset-email" className="text-sm sm:text-base">Email</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     <Input
                       id="reset-email"
                       type="email"
                       placeholder="your@email.com"
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
-                      className="pl-10"
+                      className="pl-10 sm:pl-12 h-10 sm:h-11 text-sm sm:text-base"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="flex space-x-3">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                   <Button
                     type="button"
                     variant="outline"
@@ -508,18 +508,18 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
                       setShowResetPassword(false);
                       setResetEmail("");
                     }}
-                    className="flex-1"
+                    className="flex-1 h-10 sm:h-11 text-sm sm:text-base"
                   >
                     Отмена
                   </Button>
                   <Button 
                     type="submit" 
-                    className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity"
+                    className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity h-10 sm:h-11 text-sm sm:text-base font-medium"
                     disabled={isLoading}
                   >
                     {isLoading ? (
                       <>
-                        <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                        <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 mr-2 animate-spin" />
                         Отправляем...
                       </>
                     ) : (
@@ -529,8 +529,8 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
                 </div>
               </form>
 
-              <div className="mt-6 text-center">
-                <p className="text-xs text-muted-foreground">
+              <div className="mt-4 sm:mt-6 text-center px-2 sm:px-0">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   Ссылка для восстановления будет действительна в течение 24 часов
                 </p>
               </div>

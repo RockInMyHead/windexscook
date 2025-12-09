@@ -898,14 +898,10 @@ app.post('/api/openai/tts', async (req, res) => {
     console.error('❌ [TTS API] Ошибка генерации речи:', {
       error: error.message,
       stack: error.stack,
-      text: req.body.text,
-      textType: typeof req.body.text,
-      fullError: error,
-      requestData: {
-        text: req.body.text,
-        voice: req.body.voice,
-        model: req.body.model
-      }
+      textLength: req.body?.text?.length,
+      textPreview: typeof req.body?.text === 'string' ? req.body.text.substring(0, 120) : 'not-string',
+      voice: req.body.voice,
+      model: req.body.model
     });
 
     logToFile('ERROR', 'TTS generation error', {
@@ -917,14 +913,7 @@ app.post('/api/openai/tts', async (req, res) => {
     });
 
     if (error.response) {
-      console.error('❌ [TTS API] OpenAI API error response:', {
-        status: error.response.status,
-        statusText: error.response.statusText,
-        data: error.response.data,
-        headers: error.response.headers
-      });
-
-      // Попробуем распарсить тело ошибки от OpenAI
+      // Стараемся безопасно логировать тело ответа OpenAI (усечено)
       let openaiError = null;
       let openaiErrorText = null;
       try {
@@ -944,6 +933,18 @@ app.post('/api/openai/tts', async (req, res) => {
 
       const openaiMessage = openaiError?.error?.message || openaiErrorText;
       const openaiCode = openaiError?.error?.code || openaiError?.code;
+      const openaiDataPreview = openaiErrorText
+        ? openaiErrorText.substring(0, 4000)
+        : (typeof error.response.data === 'string'
+          ? error.response.data.substring(0, 4000)
+          : '[unavailable]');
+
+      console.error('❌ [TTS API] OpenAI API error response:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        headers: error.response.headers,
+        dataPreview: openaiDataPreview
+      });
 
       // Возвращаем детальную ошибку для клиента
       res.status(error.response.status).json({
@@ -952,6 +953,7 @@ app.post('/api/openai/tts', async (req, res) => {
         openai_status: error.response.status,
         openai_code: openaiCode,
         openai_message: openaiMessage,
+        openai_data_preview: openaiDataPreview,
         request_text: req.body.text ? req.body.text.substring(0, 100) : 'undefined'
       });
     } else {

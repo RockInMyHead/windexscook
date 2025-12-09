@@ -3132,9 +3132,21 @@ app.post('/api/auth/send-premium-confirmation', async (req, res) => {
 // Потоковая выдача токенов для чата с LLM
 app.post('/api/chat', async (req, res) => {
   console.log('🔍 [API Chat] Received request:', {
-    body: req.body,
-    headers: req.headers,
-    url: req.url
+    url: req.url,
+    ip: req.ip,
+    headers: {
+      host: req.headers.host,
+      origin: req.headers.origin,
+      referer: req.headers.referer,
+      'user-agent': req.headers['user-agent'],
+      'x-forwarded-for': req.headers['x-forwarded-for']
+    },
+    bodyMeta: {
+      hasMessages: Array.isArray(req.body?.messages),
+      messagesCount: Array.isArray(req.body?.messages) ? req.body.messages.length : 0,
+      model: req.body?.model,
+      stream: req.body?.stream
+    }
   });
 
   try {
@@ -3170,6 +3182,17 @@ app.post('/api/chat', async (req, res) => {
       ...(stream && { stream: true })
     };
 
+    console.log('🛰️ [Chat Streaming] Sending request to OpenAI:', {
+      url,
+      stream,
+      model: requestBody.model,
+      messagesCount: requestBody.messages?.length,
+      firstMessagePreview: requestBody.messages?.[0]?.content?.substring?.(0, 120),
+      lastMessagePreview: requestBody.messages?.[requestBody.messages.length - 1]?.content?.substring?.(0, 120),
+      temperature: requestBody.temperature,
+      max_completion_tokens: requestBody.max_completion_tokens
+    });
+
     if (stream) {
       // Парсим SSE и отдаем чистые токены (не SSE)
       console.log('🎯 [Chat Streaming] Starting stream parsing');
@@ -3195,7 +3218,7 @@ app.post('/api/chat', async (req, res) => {
         console.error('❌ [Chat Streaming] OpenAI API Error:', {
           status: openaiResponse.status,
           statusText: openaiResponse.statusText,
-          errorText: errorText,
+          errorText: errorText?.substring(0, 4000),
           headers: Object.fromEntries(openaiResponse.headers.entries())
         });
 
@@ -3287,7 +3310,12 @@ app.post('/api/chat', async (req, res) => {
 
       if (!openaiResponse.ok) {
         const errorText = await openaiResponse.text();
-        console.error('❌ [Chat Regular] OpenAI API Error:', openaiResponse.status, errorText);
+        console.error('❌ [Chat Regular] OpenAI API Error:', {
+          status: openaiResponse.status,
+          statusText: openaiResponse.statusText,
+          errorText: errorText?.substring(0, 4000),
+          headers: Object.fromEntries(openaiResponse.headers.entries())
+        });
         return res.status(openaiResponse.status).send(errorText);
       }
 
@@ -3296,7 +3324,10 @@ app.post('/api/chat', async (req, res) => {
     }
 
   } catch (error) {
-    console.error('❌ [Chat API] Error:', error);
+    console.error('❌ [Chat API] Error:', {
+      message: error.message,
+      stack: error.stack
+    });
     logToFile('ERROR', 'Chat API error', {
       error: error.message,
       stack: error.stack

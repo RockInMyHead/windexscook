@@ -351,7 +351,12 @@ const PORT = process.env.PORT || 1041;
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
 // Остальные middleware
-app.use(cors());
+app.use(cors({
+  origin: true, // Разрешаем все origins
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(requestLogger);

@@ -21,12 +21,18 @@ export default defineConfig({
     // Прокси для разработки - перенаправляет /api на локальный сервер
     proxy: {
       '/api': {
-        target: 'https://cook.windexs.ru',
-        changeOrigin: false,
+        target: 'http://localhost:4000',
+        changeOrigin: true,
         secure: false,
+        timeout: 30000,
+        headers: {
+          'Connection': 'keep-alive'
+        },
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('🔄 [Vite Proxy] Sending API Request:', req.method, req.url, '→ https://cook.windexs.ru' + req.url);
+            console.log('🔄 [Vite Proxy] Sending API Request:', req.method, req.url, '→ http://localhost:4000' + req.url);
+            // Убираем origin header чтобы избежать CORS проблем
+            proxyReq.removeHeader('origin');
           });
 
           proxy.on('error', (err, _req, _res) => {
@@ -35,6 +41,10 @@ export default defineConfig({
 
           proxy.on('proxyRes', (proxyRes, req, _res) => {
             console.log('✅ [Vite Proxy] Response:', proxyRes.statusCode, req.url);
+            // Добавляем CORS headers
+            proxyRes.headers['Access-Control-Allow-Origin'] = '*';
+            proxyRes.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
+            proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With';
           });
         },
       }

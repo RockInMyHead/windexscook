@@ -757,9 +757,17 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
                       </div>
                     )}
                     {message.isAudio && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-2">
                         <span className="text-xs text-blue-500">🎤</span>
                         <span className="text-xs text-muted-foreground">Аудио</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => handleCopyMessage(message.content)}
+                        >
+                          <Copy className="w-3 h-3" />
+                        </Button>
                       </div>
                     )}
                   </div>

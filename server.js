@@ -794,7 +794,7 @@ app.get('/api/auth/user/:email', async (req, res) => {
 // OpenAI TTS endpoint - должен быть ПЕРЕД общим прокси
 app.post('/api/openai/tts', async (req, res) => {
   try {
-    const { text, voice = 'alloy', model = 'tts-1', language = 'ru' } = req.body;
+    const { text, voice = 'alloy', model = 'tts-1' } = req.body;
 
     console.log('🎯 [TTS API] Получен запрос:', {
       textType: typeof text,
@@ -802,7 +802,6 @@ app.post('/api/openai/tts', async (req, res) => {
       textPreview: (typeof text === 'string' && text) ? text.substring(0, 100) : 'undefined',
       voice,
       model,
-      language,
       body: req.body
     });
 
@@ -831,7 +830,6 @@ app.post('/api/openai/tts', async (req, res) => {
       model,
       input: text,
       voice,
-      language,
       response_format: 'mp3'
     };
 
@@ -841,8 +839,15 @@ app.post('/api/openai/tts', async (req, res) => {
       headers,
       data: JSON.stringify(requestData),
       responseType: 'arraybuffer',
-      proxy: false
+      proxy: false,
+      timeout: 30000 // 30 second timeout
     };
+
+    console.log('🎵 [TTS API] Sending request to OpenAI:', {
+      url: axiosConfig.url,
+      requestData: requestData,
+      headers: { ...headers, Authorization: headers.Authorization.substring(0, 20) + '...' } // Hide API key
+    });
     
     // Добавляем прокси агент только если он настроен
     if (proxyAgent) {
@@ -1497,6 +1502,7 @@ app.post('/api/openai/v1/audio/transcriptions', upload.fields([
 
     if (!apiKey) {
       logToFile('ERROR', 'OpenAI API key not configured for audio transcription');
+      console.error('❌ [OpenAI Audio] API key not configured');
       return res.status(500).json({
         error: 'OpenAI API key not configured'
       });
@@ -1509,6 +1515,8 @@ app.post('/api/openai/v1/audio/transcriptions', upload.fields([
         error: 'Invalid OpenAI API key format'
       });
     }
+
+    console.log('✅ [OpenAI Audio] API key validated, starting transcription');
 
     // Проверяем наличие файла в любом из полей
     const audioFile = req.files?.file?.[0] || req.files?.audio?.[0] || req.file;
@@ -1534,15 +1542,18 @@ app.post('/api/openai/v1/audio/transcriptions', upload.fields([
     // Создаем новый FormData для отправки в OpenAI
     const formData = new FormData();
 
-    // Копируем все поля из оригинального запроса
+    // Добавляем файл в FormData
+    if (audioFile) {
+      formData.append('file', audioFile.buffer, {
+        filename: audioFile.originalname,
+        contentType: audioFile.mimetype
+      });
+    }
+
+    // Копируем все остальные поля из оригинального запроса
     for (const [key, value] of Object.entries(req.body)) {
-      if ((key === 'file' || key === 'audio') && audioFile) {
-        // Если есть файл, добавляем его
-        formData.append('file', audioFile.buffer, {
-          filename: audioFile.originalname,
-          contentType: audioFile.mimetype
-        });
-      } else {
+      // Пропускаем поля с файлами, так как мы их уже обработали выше
+      if (key !== 'file' && key !== 'audio') {
         formData.append(key, value);
       }
     }

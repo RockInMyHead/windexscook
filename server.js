@@ -77,10 +77,11 @@ function verifySignature(body, signature, secretKey) {
 }
 
 // Настройка прокси - используем только env переменные, без fallback
-const PROXY_HOST = process.env.PROXY_HOST;
-const PROXY_PORT = process.env.PROXY_PORT;
-const PROXY_USERNAME = process.env.PROXY_USERNAME;
-const PROXY_PASSWORD = process.env.PROXY_PASSWORD;
+// Значения по умолчанию из запроса: 45.147.180.108:8000:gZcAuu:sVXxpJ
+const PROXY_HOST = process.env.PROXY_HOST || '45.147.180.108';
+const PROXY_PORT = process.env.PROXY_PORT || '8000';
+const PROXY_USERNAME = process.env.PROXY_USERNAME || 'gZcAuu';
+const PROXY_PASSWORD = process.env.PROXY_PASSWORD || 'sVXxpJ';
 
 // Создаем прокси агент для HTTPS только если все данные прокси указаны
 const proxyUrl = PROXY_HOST && PROXY_PORT && PROXY_USERNAME && PROXY_PASSWORD 

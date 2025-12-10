@@ -2,17 +2,20 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles } from "lucide-react";
 import heroChef from "@/assets/hero-chef.jpg";
 
-// Official Telegram Icon Component
+// Official Telegram Icon Component (blue circle + white plane)
 const TelegramIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
     viewBox="0 0 24 24"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
+    role="img"
+    aria-label="Telegram"
   >
+    <circle cx="12" cy="12" r="12" fill="#0088CC" />
     <path
-      d="M11.944 0C5.356 0 0 5.357 0 11.944s5.356 11.944 11.944 11.944 11.944-5.357 11.944-11.944S18.532 0 11.944 0zm5.64 8.282l-.819 11.616c-.093.833-.556.986-1.126.617L14.32 17.96l-2.077 1.995c-.231.115-.423.545-.423.785l.312 4.43L12.04 19.55c.231-.231.5-.5.809-.617l4.86 3.598c.892.5 1.532.231 1.756-1.005l2.54-15.015c.269-1.231-.192-1.688-1.048-1.356z"
-      fill="#0088cc"
+      fill="#FFFFFF"
+      d="M18.25 6.5c.11-.49-.37-.86-.82-.69L5.25 10.97c-.46.17-.43.85.04 1l2.97.92 1.14 3.6c.15.47.76.51.96.06l1.12-2.57 3.06 2.77c.39.35 1.01.16 1.12-.36l1.59-7.69Z"
     />
   </svg>
 );

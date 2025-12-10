@@ -834,7 +834,7 @@ export const VoiceCallNew: React.FC<VoiceCallProps> = ({ className = '' }) => {
         body: JSON.stringify({
           text,
           voice: 'nova',
-          model: 'tts-1-hd',
+          model: 'tts-1',
           speed: 0.95
         })
       });

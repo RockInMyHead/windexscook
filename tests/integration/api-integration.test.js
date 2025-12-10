@@ -114,7 +114,7 @@ describe('API Integration Tests', () => {
         .send({
           text: 'Привет, я AI шеф-повар!',
           voice: 'alloy',
-          model: 'tts-1-hd',
+          model: 'tts-1',
           speed: 0.95
         })
         .expect(200);

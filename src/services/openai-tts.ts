@@ -21,7 +21,7 @@ export class OpenAITTS {
         textLength: text.length,
         voice,
         language,
-        model: 'tts-1-hd',
+        model: 'tts-1',
         textPreview: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
         fullText: text
       });
@@ -37,7 +37,7 @@ export class OpenAITTS {
         body: JSON.stringify({
           text,
           voice,
-          model: 'tts-1-hd',
+          model: 'tts-1',
           language
         }),
       });
@@ -110,7 +110,7 @@ export class OpenAITTS {
         textLength: text.length,
         voice,
         language,
-        model: 'tts-1-hd',
+        model: 'tts-1',
         textPreview: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
         fullText: text
       });
@@ -135,7 +135,7 @@ export class OpenAITTS {
         body: JSON.stringify({
           text,
           voice,
-          model: 'tts-1-hd',
+          model: 'tts-1',
           language
         }),
       });

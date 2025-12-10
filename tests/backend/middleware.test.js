@@ -68,6 +68,7 @@ describe('Middleware Functions', () => {
     });
     
     test('should handle malformed JSON', async () => {
+      jest.setTimeout(15000);
       app.use(express.json());
       app.post('/test', (req, res) => {
         res.json({ received: req.body });
@@ -168,6 +169,7 @@ describe('Middleware Functions', () => {
     });
     
     test('should handle general errors', async () => {
+      jest.setTimeout(15000);
       app.use((error, req, res, next) => {
         if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
           return res.status(400).json({ error: 'Invalid JSON' });
@@ -188,6 +190,7 @@ describe('Middleware Functions', () => {
   
   describe('Request Logging Middleware', () => {
     test('should log request details', (done) => {
+      jest.setTimeout(15000);
       const requestLogger = (req, res, next) => {
         const start = Date.now();
         

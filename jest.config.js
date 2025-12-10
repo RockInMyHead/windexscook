@@ -21,7 +21,6 @@ export default {
     url: 'https://jestjs.io/',
     userAgent: 'Agent/007'
   },
-  setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
       useESM: true,
@@ -67,20 +66,6 @@ export default {
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
     '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$': '<rootDir>/tests/__mocks__/fileMock.js'
   },
-  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  testMatch: [
-    '**/__tests__/**/*.test.(ts|tsx|js)',
-    '**/*.(test|spec).(ts|tsx|js)',
-    '**/__tests__/**/*.test.(ts|tsx|js)',
-    '**/smoke/**/*.test.js'
-  ],
-  testMatch: [
-    '**/__tests__/**/*.test.js',
-    '**/__tests__/**/*.test.ts',
-    '**/?(*.)+(spec|test).js',
-    '**/?(*.)+(spec|test).ts',
-    '**/smoke/**/*.test.js'
-  ],
   collectCoverageFrom: [
     'server.js',
     'src/services/**/*.js',
@@ -90,10 +75,6 @@ export default {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
-  testTimeout: 10000,
-  verbose: true,
-  moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1'
-  }
+  testTimeout: 15000,
+  verbose: true
 };

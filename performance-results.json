@@ -1,9 +1,11 @@
 {
-  "timestamp": "2025-12-10T16:16:35.653Z",
+  "timestamp": "2025-12-10T16:28:07.385Z",
   "results": {
-    "BrowserCompatibility.getCapabilities": 0.8544999999999163,
-    "BrowserCompatibility.checkMinimumRequirements": 0.10579199999983757,
-    "BrowserCompatibility.getBrowserInfo": 1.6251250000004802
+    "BrowserCompatibility.getCapabilities": 0.6223340000001372,
+    "BrowserCompatibility.checkMinimumRequirements": 0.06662500000038563,
+    "BrowserCompatibility.getBrowserInfo": 1.2172500000001492,
+    "OpenAI Concurrent Requests": 2.0809580000000096,
+    "OpenAI Large Payload": 0.15562499999941792
   },
   "benchmarks": {
     "maxResponseTime": 500,

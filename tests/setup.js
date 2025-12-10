@@ -155,6 +155,10 @@ global.performance.now = jest.fn(() => Date.now());
 global.requestAnimationFrame = jest.fn((cb) => setTimeout(cb, 16));
 global.cancelAnimationFrame = jest.fn((id) => clearTimeout(id));
 
+// Mock setImmediate for Node.js compatibility
+global.setImmediate = jest.fn((cb, ...args) => setTimeout(() => cb(...args), 0));
+global.clearImmediate = jest.fn((id) => clearTimeout(id));
+
 // Cleanup after each test
 afterEach(() => {
   jest.clearAllMocks();

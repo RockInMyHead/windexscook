@@ -77,11 +77,10 @@ function verifySignature(body, signature, secretKey) {
 }
 
 // Настройка прокси - используем только env переменные, без fallback
-// Значения по умолчанию из запроса: 45.147.180.108:8000:gZcAuu:sVXxpJ
-const PROXY_HOST = process.env.PROXY_HOST || '45.147.180.108';
-const PROXY_PORT = process.env.PROXY_PORT || '8000';
-const PROXY_USERNAME = process.env.PROXY_USERNAME || 'gZcAuu';
-const PROXY_PASSWORD = process.env.PROXY_PASSWORD || 'sVXxpJ';
+const PROXY_HOST = process.env.PROXY_HOST;
+const PROXY_PORT = process.env.PROXY_PORT;
+const PROXY_USERNAME = process.env.PROXY_USERNAME;
+const PROXY_PASSWORD = process.env.PROXY_PASSWORD;
 
 // Создаем прокси агент для HTTPS только если все данные прокси указаны
 const proxyUrl = PROXY_HOST && PROXY_PORT && PROXY_USERNAME && PROXY_PASSWORD 
@@ -835,7 +834,10 @@ app.post('/api/openai/tts', async (req, res) => {
     const apiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
     
     if (!apiKey) {
-      return res.status(500).json({ error: 'OpenAI API key not configured' });
+      return res.status(500).json({ 
+        error: 'OpenAI API key not configured',
+        details: 'Check OPENAI_API_KEY or VITE_OPENAI_API_KEY environment variables'
+      });
     }
 
     const headers = {
@@ -1447,7 +1449,10 @@ app.post('/api/openai/generate-image', async (req, res) => {
     const apiKey = process.env.VITE_OPENAI_API_KEY;
 
     if (!apiKey) {
-      return res.status(500).json({ error: 'OpenAI API key not configured' });
+      return res.status(500).json({ 
+        error: 'OpenAI API key not configured',
+        details: 'Check OPENAI_API_KEY or VITE_OPENAI_API_KEY environment variables'
+      });
     }
 
     const headers = {

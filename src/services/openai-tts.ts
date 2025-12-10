@@ -54,6 +54,9 @@ export class OpenAITTS {
         let errorDetails = `TTS API error: ${response.status}`;
         try {
           const errorData = await response.json();
+          if (errorData.error) {
+            errorDetails += ` - ${errorData.error}`;
+          }
           if (errorData.details) {
             errorDetails += ` - ${JSON.stringify(errorData.details)}`;
           }
@@ -149,6 +152,9 @@ export class OpenAITTS {
         let errorDetails = `TTS API error: ${response.status}`;
         try {
           const errorData = await response.json();
+          if (errorData.error) {
+            errorDetails += ` - ${errorData.error}`;
+          }
           if (errorData.details) {
             errorDetails += ` - ${JSON.stringify(errorData.details)}`;
           }

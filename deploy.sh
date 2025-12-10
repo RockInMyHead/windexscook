@@ -59,7 +59,8 @@ cat > .env << EOF
 # OpenAI TTS для голосового синтеза
 ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
 
-# OpenAI API для генерации рецептов и изображений
+# OpenAI API для генерации рецептов, изображений, TTS и транскрибации
+OPENAI_API_KEY=${OPENAI_API_KEY}
 VITE_OPENAI_API_KEY=${OPENAI_API_KEY}
 
 # Порт сервера

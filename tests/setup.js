@@ -6,6 +6,17 @@
 process.env.NODE_ENV = 'test';
 process.env.VITE_API_URL = 'https://cook.windexs.ru';
 
+// Mock import.meta for Vite environment variables
+global.import = global.import || {};
+global.import.meta = {
+  env: {
+    VITE_OPENAI_API_KEY: 'test-openai-key',
+    VITE_API_URL: 'https://cook.windexs.ru',
+    DEV: false,
+    PROD: true
+  }
+};
+
 // Mock console methods to reduce noise in tests
 const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;

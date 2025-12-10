@@ -206,6 +206,8 @@ describe('BrowserCompatibility', () => {
         speak: jest.fn(),
         getVoices: jest.fn().mockReturnValue([])
       };
+      (window as any).SpeechRecognition = jest.fn();
+      (window as any).webkitSpeechRecognition = jest.fn();
 
       const result = BrowserCompatibility.checkMinimumRequirements();
 

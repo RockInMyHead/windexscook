@@ -2,7 +2,7 @@ import { UserHealthProfile } from '../types/health';
 import { WORLD_CUISINES } from '../types/cuisine';
 import { AudioUtils } from '../lib/audio-utils';
 
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || "";
+const OPENAI_API_KEY = process.env.VITE_OPENAI_API_KEY || "";
 // Guard to ensure API key is provided
 if (!OPENAI_API_KEY) {
   console.warn("OpenAI API key not found in environment variables. API calls will be proxied through server.");

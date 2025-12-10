@@ -83,9 +83,18 @@ const PROXY_USERNAME = process.env.PROXY_USERNAME;
 const PROXY_PASSWORD = process.env.PROXY_PASSWORD;
 
 // Создаем прокси агент для HTTPS только если все данные прокси указаны
-const proxyUrl = PROXY_HOST && PROXY_PORT && PROXY_USERNAME && PROXY_PASSWORD 
+const proxyUrl = PROXY_HOST && PROXY_PORT && PROXY_USERNAME && PROXY_PASSWORD
   ? `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_HOST}:${PROXY_PORT}`
   : null;
+
+console.log('🔧 [Proxy] Configuration check:', {
+  PROXY_HOST: PROXY_HOST || 'not set',
+  PROXY_PORT: PROXY_PORT || 'not set',
+  PROXY_USERNAME: PROXY_USERNAME || 'not set',
+  PROXY_PASSWORD: PROXY_PASSWORD ? '[SET]' : 'not set',
+  proxyUrl: proxyUrl || 'no proxy configured',
+  proxyAgent: proxyUrl ? 'will be created' : 'disabled'
+});
 
 const proxyAgent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : null;
 
@@ -1350,8 +1359,11 @@ app.post('/api/audio/transcriptions', upload.single('file'), async (req, res) =>
 
     // Добавляем прокси агент если настроен
     if (proxyAgent) {
+      console.log('🔧 [Transcription API] Using proxy agent for request');
       axiosConfig.httpsAgent = proxyAgent;
       axiosConfig.httpAgent = proxyAgent;
+    } else {
+      console.log('🔧 [Transcription API] No proxy agent, using direct connection');
     }
 
     console.log('🎵 [Transcription API] Sending transcription request to OpenAI...');
@@ -1642,8 +1654,11 @@ app.post('/api/openai/v1/audio/transcriptions', upload.fields([
 
     // Добавляем прокси агент если настроен
     if (proxyAgent) {
+      console.log('🔧 [Transcription API] Using proxy agent for request');
       axiosConfig.httpsAgent = proxyAgent;
       axiosConfig.httpAgent = proxyAgent;
+    } else {
+      console.log('🔧 [Transcription API] No proxy agent, using direct connection');
     }
 
     console.log('🎵 [OpenAI Audio] Sending transcription request to OpenAI', {

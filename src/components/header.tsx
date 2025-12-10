@@ -84,7 +84,7 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
                 <ChefHat className="w-6 h-6 text-primary-foreground" />
               </div>
               <div className="hidden sm:block">
-                <h1 className="text-xl font-bold text-foreground"><span className="text-primary">Windexs</span> кулинар</h1>
+                <h1 className="text-xl font-bold text-foreground"><span className="text-primary">TEST</span> кулинар</h1>
                 <p className="text-xs text-muted-foreground">Умный помощник на кухне</p>
               </div>
             </Link>

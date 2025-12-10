@@ -61,7 +61,7 @@ export const HeroSection = ({ onGetStarted, onViewExamples }: HeroSectionProps) 
               </div>
               
               <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-foreground leading-tight drop-shadow-lg">
-                <span className="text-primary drop-shadow-md">Windexs</span> кулинар
+                <span className="text-primary drop-shadow-md">TEST</span> кулинар
                 <br />
                 <span className="block text-base sm:text-lg md:text-2xl lg:text-3xl xl:text-5xl text-foreground/80 drop-shadow-md">
                   Ваш умный помощник

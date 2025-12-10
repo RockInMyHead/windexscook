@@ -26,7 +26,7 @@ describe('OpenAI Service', () => {
       };
       mockFetch.mockResolvedValue(mockResponse as any);
 
-      const result = await makeRequest('Test prompt', 'gpt-4-turbo', 1000);
+      const result = await makeRequest([{ role: 'user', content: 'Test prompt' }], 'gpt-4-turbo', { max_completion_tokens: 1000 });
 
       expect(mockFetch).toHaveBeenCalledWith(
         'https://api.openai.com/v1/chat/completions',
@@ -60,14 +60,14 @@ describe('OpenAI Service', () => {
       };
       mockFetch.mockResolvedValue(mockResponse as any);
 
-      await expect(makeRequest('Test prompt')).rejects.toThrow(OpenAIError);
-      await expect(makeRequest('Test prompt')).rejects.toThrow('Rate limit exceeded');
+      await expect(makeRequest([{ role: 'user', content: 'Test prompt' }])).rejects.toThrow(OpenAIError);
+      await expect(makeRequest([{ role: 'user', content: 'Test prompt' }])).rejects.toThrow('Rate limit exceeded');
     });
 
     test('should handle network errors', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      await expect(makeRequest('Test prompt')).rejects.toThrow('Network error');
+      await expect(makeRequest([{ role: 'user', content: 'Test prompt' }])).rejects.toThrow('Network error');
     });
 
     test('should use default model and tokens when not specified', async () => {
@@ -79,7 +79,7 @@ describe('OpenAI Service', () => {
       };
       mockFetch.mockResolvedValue(mockResponse as any);
 
-      await makeRequest('Test prompt');
+      await makeRequest([{ role: 'user', content: 'Test prompt' }]);
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.any(String),
@@ -111,7 +111,7 @@ describe('OpenAI Service', () => {
       mockFetch.mockResolvedValue(mockResponse as any);
 
       const onChunk = jest.fn();
-      const result = await makeStreamingRequest('Test prompt', onChunk);
+      const result = await makeStreamingRequest([{ role: 'user', content: 'Test prompt' }], 'gpt-4-turbo', onChunk);
 
       expect(onChunk).toHaveBeenCalledWith('Hello');
       expect(onChunk).toHaveBeenCalledWith(' world');
@@ -131,7 +131,7 @@ describe('OpenAI Service', () => {
 
       const onChunk = jest.fn();
 
-      await expect(makeStreamingRequest('Test prompt', onChunk)).rejects.toThrow('Streaming timeout');
+      await expect(makeStreamingRequest([{ role: 'user', content: 'Test prompt' }], 'gpt-4-turbo', onChunk)).rejects.toThrow('Streaming timeout');
     });
 
     test('should handle malformed streaming data', async () => {
@@ -148,7 +148,7 @@ describe('OpenAI Service', () => {
       mockFetch.mockResolvedValue(mockResponse as any);
 
       const onChunk = jest.fn();
-      const result = await makeStreamingRequest('Test prompt', onChunk);
+      const result = await makeStreamingRequest([{ role: 'user', content: 'Test prompt' }], 'gpt-4-turbo', onChunk);
 
       // Should handle invalid JSON gracefully
       expect(result).toBe('');

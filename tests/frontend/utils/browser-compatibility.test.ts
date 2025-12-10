@@ -1,5 +1,9 @@
 import { BrowserCompatibility } from '../../../src/lib/browser-compatibility';
 
+// Mock browser objects
+const mockNavigator = navigator as any;
+const mockWindow = window as any;
+
 // Mock browser APIs using jest.spyOn for better control
 beforeEach(() => {
   // Reset BrowserCompatibility capabilities cache
@@ -152,7 +156,7 @@ describe('BrowserCompatibility', () => {
 
   describe('getBrowserInfo', () => {
     test('should correctly identify Chrome', () => {
-      mockNavigator.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
+      jest.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
 
       const info = BrowserCompatibility.getBrowserInfo();
 
@@ -163,7 +167,7 @@ describe('BrowserCompatibility', () => {
     });
 
     test('should correctly identify Safari', () => {
-      mockNavigator.userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15';
+      jest.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15');
 
       const info = BrowserCompatibility.getBrowserInfo();
 
@@ -174,7 +178,7 @@ describe('BrowserCompatibility', () => {
     });
 
     test('should correctly identify Firefox', () => {
-      mockNavigator.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0';
+      jest.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0');
 
       const info = BrowserCompatibility.getBrowserInfo();
 
@@ -189,14 +193,24 @@ describe('BrowserCompatibility', () => {
     test('should pass when all requirements are met', () => {
       // Mock all required APIs
       (window as any).fetch = jest.fn();
-      (window as any).AudioContext = jest.fn();
+      (window as any).AudioContext = class {}; // Mock as constructor
       (window as any).localStorage = {
         setItem: jest.fn(),
         getItem: jest.fn(),
         removeItem: jest.fn()
       };
+      (navigator as any).mediaDevices = {
+        getUserMedia: jest.fn()
+      };
+      (window as any).speechSynthesis = {
+        speak: jest.fn(),
+        getVoices: jest.fn().mockReturnValue([])
+      };
 
       const result = BrowserCompatibility.checkMinimumRequirements();
+
+      // Debug what issues are found
+      console.log('DEBUG: checkMinimumRequirements result:', result);
 
       expect(result.passed).toBe(true);
       expect(result.issues).toHaveLength(0);

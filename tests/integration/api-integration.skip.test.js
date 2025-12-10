@@ -5,6 +5,7 @@ const cors = require('cors');
 // Mock the server setup
 jest.mock('../../../server.js', () => {
   const express = require('express');
+  const cors = require('cors');
   const app = express();
 
   app.use(cors());

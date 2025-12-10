@@ -1,0 +1,14 @@
+{
+  "timestamp": "2025-12-10T16:16:35.653Z",
+  "results": {
+    "BrowserCompatibility.getCapabilities": 0.8544999999999163,
+    "BrowserCompatibility.checkMinimumRequirements": 0.10579199999983757,
+    "BrowserCompatibility.getBrowserInfo": 1.6251250000004802
+  },
+  "benchmarks": {
+    "maxResponseTime": 500,
+    "maxVoiceProcessingTime": 2000,
+    "maxMemoryUsage": 104857600,
+    "minConcurrentUsers": 100
+  }
+}

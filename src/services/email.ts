@@ -7,6 +7,39 @@ if (process.env.SENDGRID_API_KEY) {
 
 export class EmailService {
   /**
+   * Общий метод отправки email
+   */
+  static async sendEmail(options: { to: string; subject: string; html?: string; text?: string }): Promise<{ success: boolean; messageId?: string }> {
+    try {
+      console.log('📧 [EmailService] Отправляем общее письмо на:', options.to);
+
+      const msg = {
+        to: options.to,
+        from: {
+          email: process.env.FROM_EMAIL || 'noreply@cook.windexs.ru',
+          name: 'AI Шеф-повар'
+        },
+        subject: options.subject,
+        html: options.html,
+        text: options.text
+      };
+
+      if (process.env.SENDGRID_API_KEY) {
+        const result = await sgMail.send(msg);
+        console.log('✅ [EmailService] Письмо успешно отправлено через SendGrid');
+        return { success: true, messageId: result[0]?.headers?.['x-message-id'] };
+      } else {
+        console.warn('⚠️ [EmailService] SendGrid API key не настроен, письмо не отправлено');
+        return { success: false };
+      }
+
+    } catch (error) {
+      console.error('❌ [EmailService] Ошибка отправки общего письма:', error);
+      throw new Error('Не удалось отправить письмо');
+    }
+  }
+
+  /**
    * Отправляет письмо для восстановления пароля
    */
   static async sendPasswordReset(email: string, resetToken: string): Promise<boolean> {

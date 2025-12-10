@@ -8,7 +8,15 @@ if (!OPENAI_API_KEY) {
   console.warn("OpenAI API key not found in environment variables. API calls will be proxied through server.");
 }
 
+export class OpenAIError extends Error {
+  constructor(message: string = 'OpenAI API error', public status?: number, public code?: string) {
+    super(message);
+    this.name = 'OpenAIError';
+  }
+}
+
 export interface Recipe {
+  id?: string;
   title: string;
   description: string;
   cookTime: string;
@@ -20,7 +28,10 @@ export interface Recipe {
   tips?: string;
   content?: string; // Для чата
   image?: string; // URL основного изображения рецепта
+  createdAt?: Date;
+  healthInfo?: any;
 }
+
 
 export class OpenAIService {
   // Функция сжатия изображения
@@ -62,7 +73,7 @@ export class OpenAIService {
     });
   }
 
-  private static async makeRequest(messages: any[], model: string = 'gpt-4-turbo', options?: { signal?: AbortSignal; temperature?: number; response_format?: any; max_completion_tokens?: number }) {
+  static async makeRequest(messages: any[], model: string = 'gpt-4-turbo', options?: { signal?: AbortSignal; temperature?: number; response_format?: any; max_completion_tokens?: number }) {
     let response;
     try {
       // Always use relative URLs to avoid mixed content issues
@@ -265,7 +276,7 @@ export class OpenAIService {
     }
   }
 
-  private static async makeStreamingRequest(messages: any[], model: string = 'gpt-4-turbo', onChunk?: (chunk: string) => void): Promise<{content: string, usage: any}> {
+  static async makeStreamingRequest(messages: any[], model: string = 'gpt-4-turbo', onChunk?: (chunk: string) => void): Promise<{content: string, usage: any}> {
     const requestUrl = '/api/chat';
     console.log('🚀 [Client] Starting streaming request to:', requestUrl);
 
@@ -912,9 +923,9 @@ ${constraints.join('\n')}
 
     try {
       // Строим массив сообщений с контекстом
-      const messages = [
+      const messages: any[] = [
         {
-          role: "system" as const,
+          role: "system",
           content: prompt
         }
       ];
@@ -928,7 +939,7 @@ ${constraints.join('\n')}
 
       // Добавляем текущее сообщение
       messages.push({
-        role: "user" as const,
+        role: "user",
         content: message
       });
 
@@ -1012,8 +1023,8 @@ ${constraints.join('\n')}
       if (isGreeting) {
         // Отвечаем на приветствия коротким сообщением
         console.log('🔍 DEBUG: Returning greeting response');
-        return 'Здравствуйте! Готова помочь с кулинарными вопросами. Что хотите приготовить?';
-        }
+        return { content: 'Здравствуйте! Готова помочь с кулинарными вопросами. Что хотите приготовить?', usage: null };
+      }
       } catch (greetingError) {
         console.warn('⚠️ [OpenAI] Ошибка при проверке приветствия:', greetingError);
         // Продолжаем с обычным чатом
@@ -1040,9 +1051,9 @@ ${constraints.join('\n')}
 
     try {
       // Строим массив сообщений с контекстом
-      const messages = [
+      const messages: any[] = [
         {
-          role: "system" as const,
+          role: "system",
           content: prompt
         }
       ];
@@ -1055,7 +1066,7 @@ ${constraints.join('\n')}
 
       // Добавляем текущее сообщение
       messages.push({
-        role: "user" as const,
+        role: "user",
         content: message
       });
 
@@ -1352,3 +1363,7 @@ ${constraints.join('\n')}
     }
   }
 }
+
+// Export functions for backward compatibility
+export const makeRequest = OpenAIService.makeRequest;
+export const makeStreamingRequest = OpenAIService.makeStreamingRequest;

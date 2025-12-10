@@ -1,6 +1,21 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Send } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import heroChef from "@/assets/hero-chef.jpg";
+
+// Official Telegram Icon Component
+const TelegramIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M11.944 0C5.356 0 0 5.357 0 11.944s5.356 11.944 11.944 11.944 11.944-5.357 11.944-11.944S18.532 0 11.944 0zm5.64 8.282l-.819 11.616c-.093.833-.556.986-1.126.617L14.32 17.96l-2.077 1.995c-.231.115-.423.545-.423.785l.312 4.43L12.04 19.55c.231-.231.5-.5.809-.617l4.86 3.598c.892.5 1.532.231 1.756-1.005l2.54-15.015c.269-1.231-.192-1.688-1.048-1.356z"
+      fill="#0088cc"
+    />
+  </svg>
+);
 
 interface HeroSectionProps {
   onGetStarted: () => void;
@@ -85,7 +100,7 @@ export const HeroSection = ({ onGetStarted, onViewExamples }: HeroSectionProps) 
                 >
                   <a href="https://t.me/WindexsGroup" target="_blank" rel="noreferrer">
                     <span className="flex items-center gap-2">
-                      <Send className="w-5 h-5" />
+                      <TelegramIcon className="w-5 h-5" />
                       <span>Спросить</span>
                     </span>
                   </a>

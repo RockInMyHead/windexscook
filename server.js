@@ -891,8 +891,8 @@ app.post('/api/openai/tts', async (req, res) => {
     try {
       response = await axios(axiosConfig);
     } catch (error) {
-      // If proxy is set and network unreachable/timeouts occur, retry without proxy once
-      const retriableNetworkErrors = ['ENETUNREACH', 'ETIMEDOUT', 'ECONNRESET', 'EHOSTUNREACH'];
+      // If proxy is set and network unreachable/timeouts/connection refused occur, retry without proxy once
+      const retriableNetworkErrors = ['ENETUNREACH', 'ETIMEDOUT', 'ECONNRESET', 'EHOSTUNREACH', 'ECONNREFUSED'];
       const shouldRetryWithoutProxy = proxyAgent && !attemptedWithoutProxy &&
         (retriableNetworkErrors.includes(error.code) || error.message?.includes('timeout'));
 
@@ -1368,7 +1368,31 @@ app.post('/api/audio/transcriptions', upload.single('file'), async (req, res) =>
 
     console.log('🎵 [Transcription API] Sending transcription request to OpenAI...');
 
-    const response = await axios(axiosConfig);
+    let response;
+    let attemptedWithoutProxy = false;
+
+    try {
+      response = await axios(axiosConfig);
+    } catch (error) {
+      // If proxy is set and network unreachable/timeouts/connection refused occur, retry without proxy once
+      const retriableNetworkErrors = ['ENETUNREACH', 'ETIMEDOUT', 'ECONNRESET', 'EHOSTUNREACH', 'ECONNREFUSED'];
+      const shouldRetryWithoutProxy = proxyAgent && !attemptedWithoutProxy &&
+        (retriableNetworkErrors.includes(error.code) || error.message?.includes('timeout'));
+
+      if (shouldRetryWithoutProxy) {
+        console.warn('⚠️ [Transcription API] Proxy request failed, retrying without proxy...', {
+          error: error.code || error.message
+        });
+        attemptedWithoutProxy = true;
+        const axiosConfigNoProxy = { ...axiosConfig };
+        delete axiosConfigNoProxy.httpAgent;
+        delete axiosConfigNoProxy.httpsAgent;
+        axiosConfigNoProxy.proxy = false;
+        response = await axios(axiosConfigNoProxy);
+      } else {
+        throw error;
+      }
+    }
 
     console.log('✅ [Transcription API] OpenAI transcription successful:', {
       responseStatus: response.status,

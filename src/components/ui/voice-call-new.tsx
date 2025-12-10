@@ -508,7 +508,7 @@ export const VoiceCallNew: React.FC<VoiceCallProps> = ({ className = '' }) => {
       }
     } else {
       // Check if premium is required before starting
-      if (isPremiumRequired || checkPremiumRequired()) {
+      if (checkPremiumRequired()) {
         toast({
           title: "Премиум требуется",
           description: "Ваше бесплатное время голосового общения истекло. Переход на премиум...",

@@ -37,7 +37,7 @@ export class OpenAITTS {
         body: JSON.stringify({
           text,
           voice,
-          model: 'tts-1-hd-1106',
+          model: 'tts-1-hd',
           language
         }),
       });
@@ -132,7 +132,7 @@ export class OpenAITTS {
         body: JSON.stringify({
           text,
           voice,
-          model: 'tts-1-hd-1106',
+          model: 'tts-1-hd',
           language
         }),
       });

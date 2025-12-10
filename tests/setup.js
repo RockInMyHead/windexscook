@@ -2,6 +2,8 @@
  * Jest setup file - configures test environment
  */
 
+import '@testing-library/jest-dom';
+
 // Mock environment variables
 process.env.NODE_ENV = 'test';
 process.env.VITE_API_URL = 'https://cook.windexs.ru';

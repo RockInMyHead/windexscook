@@ -1117,7 +1117,32 @@ app.post('/api/audio/speech', async (req, res) => {
     }
 
     console.log('🚀 [Speech API] Отправка запроса в OpenAI TTS API...');
-    const response = await axios(axiosConfig);
+    
+    let response;
+    let attemptedWithoutProxy = false;
+
+    try {
+      response = await axios(axiosConfig);
+    } catch (error) {
+      // If proxy is set and network unreachable/timeouts/connection refused occur, retry without proxy once
+      const retriableNetworkErrors = ['ENETUNREACH', 'ETIMEDOUT', 'ECONNRESET', 'EHOSTUNREACH', 'ECONNREFUSED'];
+      const shouldRetryWithoutProxy = proxyAgent && !attemptedWithoutProxy &&
+        (retriableNetworkErrors.includes(error.code) || error.message?.includes('timeout'));
+
+      if (shouldRetryWithoutProxy) {
+        console.warn('⚠️ [Speech API] Proxy request failed, retrying without proxy...', {
+          error: error.code || error.message
+        });
+        attemptedWithoutProxy = true;
+        const axiosConfigNoProxy = { ...axiosConfig };
+        delete axiosConfigNoProxy.httpAgent;
+        delete axiosConfigNoProxy.httpsAgent;
+        axiosConfigNoProxy.proxy = false;
+        response = await axios(axiosConfigNoProxy);
+      } else {
+        throw error;
+      }
+    }
 
     // Определяем MIME тип на основе формата ответа
     const mimeTypes = {
@@ -1530,7 +1555,31 @@ app.post('/api/openai/generate-image', async (req, res) => {
 
     console.log('🎨 [DALL-E] Generating image with prompt:', prompt.substring(0, 100) + '...');
 
-    const response = await axios(axiosConfig);
+    let response;
+    let attemptedWithoutProxy = false;
+
+    try {
+      response = await axios(axiosConfig);
+    } catch (error) {
+      // If proxy is set and network unreachable/timeouts/connection refused occur, retry without proxy once
+      const retriableNetworkErrors = ['ENETUNREACH', 'ETIMEDOUT', 'ECONNRESET', 'EHOSTUNREACH', 'ECONNREFUSED'];
+      const shouldRetryWithoutProxy = proxyAgent && !attemptedWithoutProxy &&
+        (retriableNetworkErrors.includes(error.code) || error.message?.includes('timeout'));
+
+      if (shouldRetryWithoutProxy) {
+        console.warn('⚠️ [DALL-E API] Proxy request failed, retrying without proxy...', {
+          error: error.code || error.message
+        });
+        attemptedWithoutProxy = true;
+        const axiosConfigNoProxy = { ...axiosConfig };
+        delete axiosConfigNoProxy.httpAgent;
+        delete axiosConfigNoProxy.httpsAgent;
+        axiosConfigNoProxy.proxy = false;
+        response = await axios(axiosConfigNoProxy);
+      } else {
+        throw error;
+      }
+    }
 
     logToFile('INFO', 'DALL-E image generated successfully', {
       prompt: prompt.substring(0, 100),
@@ -1691,7 +1740,31 @@ app.post('/api/openai/v1/audio/transcriptions', upload.fields([
       formDataKeys: Array.from(formData.keys())
     });
 
-    const response = await axios(axiosConfig);
+    let response;
+    let attemptedWithoutProxy = false;
+
+    try {
+      response = await axios(axiosConfig);
+    } catch (error) {
+      // If proxy is set and network unreachable/timeouts/connection refused occur, retry without proxy once
+      const retriableNetworkErrors = ['ENETUNREACH', 'ETIMEDOUT', 'ECONNRESET', 'EHOSTUNREACH', 'ECONNREFUSED'];
+      const shouldRetryWithoutProxy = proxyAgent && !attemptedWithoutProxy &&
+        (retriableNetworkErrors.includes(error.code) || error.message?.includes('timeout'));
+
+      if (shouldRetryWithoutProxy) {
+        console.warn('⚠️ [OpenAI Audio] Proxy request failed, retrying without proxy...', {
+          error: error.code || error.message
+        });
+        attemptedWithoutProxy = true;
+        const axiosConfigNoProxy = { ...axiosConfig };
+        delete axiosConfigNoProxy.httpAgent;
+        delete axiosConfigNoProxy.httpsAgent;
+        axiosConfigNoProxy.proxy = false;
+        response = await axios(axiosConfigNoProxy);
+      } else {
+        throw error;
+      }
+    }
 
     logToFile('INFO', 'Audio transcription successful', {
       responseSize: JSON.stringify(response.data).length
@@ -1793,7 +1866,31 @@ app.use('/api/openai', async (req, res) => {
         axiosConfig.httpAgent = proxyAgent;
       }
       
-      const response = await axios(axiosConfig);
+      let response;
+      let attemptedWithoutProxy = false;
+
+      try {
+        response = await axios(axiosConfig);
+      } catch (error) {
+        // If proxy is set and network unreachable/timeouts/connection refused occur, retry without proxy once
+        const retriableNetworkErrors = ['ENETUNREACH', 'ETIMEDOUT', 'ECONNRESET', 'EHOSTUNREACH', 'ECONNREFUSED'];
+        const shouldRetryWithoutProxy = proxyAgent && !attemptedWithoutProxy &&
+          (retriableNetworkErrors.includes(error.code) || error.message?.includes('timeout'));
+
+        if (shouldRetryWithoutProxy) {
+          console.warn('⚠️ [OpenAI Proxy] Proxy request failed, retrying without proxy...', {
+            error: error.code || error.message
+          });
+          attemptedWithoutProxy = true;
+          const axiosConfigNoProxy = { ...axiosConfig };
+          delete axiosConfigNoProxy.httpAgent;
+          delete axiosConfigNoProxy.httpsAgent;
+          axiosConfigNoProxy.proxy = false;
+          response = await axios(axiosConfigNoProxy);
+        } else {
+          throw error;
+        }
+      }
 
       const data = JSON.stringify(response.data);
       

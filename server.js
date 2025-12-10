@@ -865,7 +865,9 @@ app.post('/api/openai/tts', async (req, res) => {
     console.log('🎵 [TTS API] Sending request to OpenAI:', {
       url: axiosConfig.url,
       requestData: requestData,
-      headers: { ...headers, Authorization: headers.Authorization.substring(0, 20) + '...' } // Hide API key
+      headers: { ...headers, Authorization: headers.Authorization.substring(0, 20) + '...' }, // Hide API key
+      usingProxy: !!proxyAgent,
+      proxyUrl: proxyUrl ? proxyUrl.substring(0, 50) + '...' : 'no proxy'
     });
     
     // Добавляем прокси агент только если он настроен
@@ -886,7 +888,7 @@ app.post('/api/openai/tts', async (req, res) => {
         (retriableNetworkErrors.includes(error.code) || error.message?.includes('timeout'));
 
       if (shouldRetryWithoutProxy) {
-        console.warn('⚠️ [Transcription API] Proxy request failed, retrying without proxy...', {
+        console.warn('⚠️ [TTS API] Proxy request failed, retrying without proxy...', {
           error: error.code || error.message
         });
         attemptedWithoutProxy = true;
@@ -896,6 +898,14 @@ app.post('/api/openai/tts', async (req, res) => {
         axiosConfigNoProxy.proxy = false;
         response = await axios(axiosConfigNoProxy);
       } else {
+        console.error('❌ [TTS API] Request to OpenAI failed:', {
+          message: error.message,
+          code: error.code,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          hasResponse: !!error.response,
+          isAxiosError: error.isAxiosError
+        });
         throw error;
       }
     }

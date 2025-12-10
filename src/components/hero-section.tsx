@@ -55,39 +55,42 @@ export const HeroSection = ({ onGetStarted, onViewExamples }: HeroSectionProps) 
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start">
-              <Button 
-                size="lg" 
-                onClick={onGetStarted}
-                className="bg-gradient-primary hover:opacity-90 transition-opacity shadow-glow text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 animate-pulse-glow"
-              >
-                Создать рецепт
-                <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
-              </Button>
-              
-              <Button
-                size="lg"
-                variant="secondary"
-                onClick={onViewExamples}
-                className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 hover:bg-secondary/80 transition-colors drop-shadow-md"
-              >
-                Посмотреть примеры
-              </Button>
+            <div className="flex flex-col gap-3 sm:gap-4 items-center lg:items-start">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start w-full sm:w-auto">
+                <Button 
+                  size="lg" 
+                  onClick={onGetStarted}
+                  className="bg-gradient-primary hover:opacity-90 transition-opacity shadow-glow text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 animate-pulse-glow"
+                >
+                  Создать рецепт
+                  <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
+                </Button>
+                
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  onClick={onViewExamples}
+                  className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 hover:bg-secondary/80 transition-colors drop-shadow-md"
+                >
+                  Посмотреть примеры
+                </Button>
+              </div>
 
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 hover:bg-primary/5 transition-colors drop-shadow-md"
-              >
-                <a href="https://t.me/WindexsGroup" target="_blank" rel="noreferrer">
-                  <span className="flex items-center gap-2">
-                    <Send className="w-5 h-5" />
-                    <span>Спросить</span>
-                  </span>
-                </a>
-              </Button>
-
+              <div className="w-full sm:w-auto flex justify-center lg:justify-start">
+                <Button
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 hover:bg-primary/5 transition-colors drop-shadow-md"
+                >
+                  <a href="https://t.me/WindexsGroup" target="_blank" rel="noreferrer">
+                    <span className="flex items-center gap-2">
+                      <Send className="w-5 h-5" />
+                      <span>Спросить</span>
+                    </span>
+                  </a>
+                </Button>
+              </div>
             </div>
 
             {/* Stats */}

@@ -831,7 +831,8 @@ app.post('/api/openai/tts', async (req, res) => {
       return res.status(400).json({ error: 'Text cannot be empty' });
     }
 
-    const apiKey = process.env.VITE_OPENAI_API_KEY;
+    // Use both server-style and Vite-style env vars to avoid missing key in prod
+    const apiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
     
     if (!apiKey) {
       return res.status(500).json({ error: 'OpenAI API key not configured' });

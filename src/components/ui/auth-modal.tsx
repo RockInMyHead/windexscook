@@ -8,14 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { X, Mail, Lock, User, ChefHat, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
-// Функция для хэширования пароля (простая реализация для демо)
-const hashPassword = async (password: string): Promise<string> => {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-};
+// Пароль теперь хэшируется на сервере с bcrypt
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -43,10 +36,7 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
     setIsLoading(true);
 
     try {
-      // Хэшируем пароль
-      const passwordHash = await hashPassword(loginData.password);
-
-      // Вызываем API входа
+      // Отправляем обычный пароль (хэширование происходит на сервере)
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -54,7 +44,7 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
         },
         body: JSON.stringify({
           email: loginData.email,
-          passwordHash
+          password: loginData.password
         })
       });
 
@@ -125,10 +115,7 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
     }
 
     try {
-      // Хэшируем пароль
-      const passwordHash = await hashPassword(registerData.password);
-
-      // Вызываем API регистрации
+      // Отправляем обычный пароль (хэширование происходит на сервере)
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
@@ -137,7 +124,7 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
         body: JSON.stringify({
           name: registerData.name,
           email: registerData.email,
-          passwordHash
+          password: registerData.password
         })
       });
 

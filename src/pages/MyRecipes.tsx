@@ -4,12 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Plus, 
-  X, 
-  Sparkles, 
-  Loader2, 
-  Search, 
+import {
+  Plus,
+  X,
+  Sparkles,
+  Loader2,
+  Search,
   Filter,
   Clock,
   Users,
@@ -19,7 +19,8 @@ import {
   Trash2,
   Eye,
   Camera,
-  Globe
+  Globe,
+  Save
 } from "lucide-react";
 import { OpenAIService, Recipe } from "@/services/openai";
 import { CuisineSelector } from "@/components/ui/cuisine-selector";

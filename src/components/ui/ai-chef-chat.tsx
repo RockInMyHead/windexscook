@@ -61,6 +61,9 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
   const [audioSupported, setAudioSupported] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(0);
+  const [isTTSSynthesizing, setIsTTSSynthesizing] = useState(false);
+  const [isTTSPlaying, setIsTTSPlaying] = useState(false);
+  const [currentSpeakingMessageId, setCurrentSpeakingMessageId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -153,6 +156,28 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
       viewport.scrollTop = viewport.scrollHeight;
     }
   }, [messages]);
+
+  // Останавливаем TTS при уходе со страницы
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      stopTTS();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopTTS();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      stopTTS(); // Останавливаем TTS при размонтировании компонента
+    };
+  }, []);
 
   // Анимация мыслей AI (теперь только для индикации загрузки)
   useEffect(() => {
@@ -453,17 +478,69 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
     });
   };
 
-  const handleSpeakMessage = async (content: string) => {
+  const handleSpeakMessage = async (content: string, messageId?: string) => {
+    // Если TTS уже играет для этого сообщения, останавливаем его
+    if (isTTSPlaying && currentSpeakingMessageId === messageId) {
+      OpenAITTS.stop();
+      setIsTTSPlaying(false);
+      setCurrentSpeakingMessageId(null);
+      return;
+    }
+
+    // Останавливаем предыдущий TTS если он играет
+    if (isTTSPlaying) {
+      OpenAITTS.stop();
+      setIsTTSPlaying(false);
+      setCurrentSpeakingMessageId(null);
+    }
+
     try {
+      setIsTTSSynthesizing(true);
+      setCurrentSpeakingMessageId(messageId || null);
+
       // Преобразуем цифры в слова для TTS
       const contentForTTS = OpenAIService.replaceNumbersWithWords(content);
-      await OpenAITTS.speak(contentForTTS, 'alloy');
+
+      // Создаем кастомный аудио элемент для отслеживания состояний
+      const audio = await OpenAITTS.speak(contentForTTS, 'alloy');
+
+      // Отслеживаем состояния через события аудио
+      if (audio) {
+        audio.addEventListener('loadstart', () => {
+          setIsTTSSynthesizing(false);
+          setIsTTSPlaying(true);
+        });
+
+        audio.addEventListener('play', () => {
+          setIsTTSSynthesizing(false);
+          setIsTTSPlaying(true);
+        });
+
+        audio.addEventListener('ended', () => {
+          setIsTTSPlaying(false);
+          setCurrentSpeakingMessageId(null);
+        });
+
+        audio.addEventListener('pause', () => {
+          setIsTTSPlaying(false);
+        });
+
+        audio.addEventListener('error', () => {
+          setIsTTSSynthesizing(false);
+          setIsTTSPlaying(false);
+          setCurrentSpeakingMessageId(null);
+        });
+      }
+
       toast({
         title: "🔊 Воспроизведение",
         description: "Ответ AI озвучен",
       });
     } catch (error: any) {
       console.error('Error speaking message:', error);
+      setIsTTSSynthesizing(false);
+      setIsTTSPlaying(false);
+      setCurrentSpeakingMessageId(null);
 
       let errorMessage = "Не удалось воспроизвести ответ";
       if (error.message?.includes('TTS API error')) {
@@ -478,6 +555,13 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
         variant: "destructive",
       });
     }
+  };
+
+  const stopTTS = () => {
+    OpenAITTS.stop();
+    setIsTTSSynthesizing(false);
+    setIsTTSPlaying(false);
+    setCurrentSpeakingMessageId(null);
   };
 
   const handleClearChat = () => {
@@ -743,9 +827,23 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
                           variant="ghost"
                           size="sm"
                           className="h-6 w-6 p-0"
-                          onClick={() => handleSpeakMessage(message.content)}
+                          onClick={() => handleSpeakMessage(message.content, message.id)}
+                          disabled={isTTSSynthesizing && currentSpeakingMessageId !== message.id}
+                          title={
+                            isTTSSynthesizing && currentSpeakingMessageId === message.id
+                              ? "ПОВАР ДУМАЕТ..."
+                              : isTTSPlaying && currentSpeakingMessageId === message.id
+                              ? "ПОВАР ГОВОРИТ... (нажмите чтобы остановить)"
+                              : "Озвучить ответ"
+                          }
                         >
-                          <Volume2 className="w-3 h-3" />
+                          {isTTSSynthesizing && currentSpeakingMessageId === message.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : isTTSPlaying && currentSpeakingMessageId === message.id ? (
+                            <Square className="w-3 h-3" />
+                          ) : (
+                            <Volume2 className="w-3 h-3" />
+                          )}
                         </Button>
                         <Button
                           variant="ghost"
@@ -786,6 +884,25 @@ export const AiChefChat: React.FC<AiChefChatProps> = ({ className = '' }) => {
         </ScrollArea>
         </CardContent>
       </Card>
+
+      {/* TTS Status */}
+      {(isTTSSynthesizing || isTTSPlaying) && (
+        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-40">
+          <div className="bg-primary/90 text-primary-foreground px-4 py-2 rounded-full text-sm font-medium shadow-lg backdrop-blur-sm flex items-center gap-2">
+            {isTTSSynthesizing ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                ПОВАР ДУМАЕТ...
+              </>
+            ) : isTTSPlaying ? (
+              <>
+                <Volume2 className="w-4 h-4" />
+                ПОВАР ГОВОРИТ...
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
 
       {/* Fixed input at bottom of page */}
       <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50">

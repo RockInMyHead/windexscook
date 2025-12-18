@@ -3,7 +3,8 @@
  * Integrates with multiple monitoring services and provides application metrics
  */
 
-import { performance, PerformanceObserver } from 'perf_hooks';
+// Используем встроенный PerformanceObserver в браузере или perf_hooks в Node.js
+// В браузере используем глобальные объекты, в Node.js - импортируем динамически при необходимости
 
 export interface MonitoringConfig {
   enabled: boolean;
@@ -32,7 +33,7 @@ export interface MonitoringConfig {
 export class MonitoringService {
   private static instance: MonitoringService;
   private config: MonitoringConfig;
-  private performanceObserver: PerformanceObserver;
+  private performanceObserver: PerformanceObserver | null = null;
   private metrics: Map<string, any> = new Map();
 
   private constructor(config: MonitoringConfig) {
@@ -44,25 +45,44 @@ export class MonitoringService {
 
   static getInstance(config?: MonitoringConfig): MonitoringService {
     if (!MonitoringService.instance) {
+      // Используем import.meta.env для Vite (браузер) или process.env для Node.js
+      const isBrowser = typeof window !== 'undefined';
+      const isProduction = isBrowser 
+        ? import.meta.env.PROD 
+        : process.env.NODE_ENV === 'production';
+      const env = isBrowser ? import.meta.env : process.env;
+      const nodeEnv = isBrowser 
+        ? (import.meta.env.MODE || 'development')
+        : (process.env.NODE_ENV || 'development');
+      
+      const getEnv = (key: string): string | undefined => {
+        if (isBrowser) {
+          // В Vite переменные окружения должны начинаться с VITE_
+          const viteKey = `VITE_${key}`;
+          return (import.meta.env as any)[viteKey] || (import.meta.env as any)[key];
+        }
+        return process.env[key];
+      };
+      
       const defaultConfig: MonitoringConfig = {
-        enabled: process.env.NODE_ENV === 'production',
-        logLevel: (process.env.LOG_LEVEL as any) || 'info',
-        sentry: process.env.SENTRY_DSN ? {
-          dsn: process.env.SENTRY_DSN,
-          environment: process.env.NODE_ENV || 'development'
+        enabled: isProduction,
+        logLevel: (getEnv('LOG_LEVEL') as any) || 'info',
+        sentry: getEnv('SENTRY_DSN') ? {
+          dsn: getEnv('SENTRY_DSN')!,
+          environment: nodeEnv
         } : undefined,
-        datadog: process.env.DD_API_KEY ? {
-          apiKey: process.env.DD_API_KEY,
-          appKey: process.env.DD_APP_KEY || '',
+        datadog: getEnv('DD_API_KEY') ? {
+          apiKey: getEnv('DD_API_KEY')!,
+          appKey: getEnv('DD_APP_KEY') || '',
           service: 'ai-chef',
-          env: process.env.NODE_ENV || 'development'
+          env: nodeEnv
         } : undefined,
-        newRelic: process.env.NEW_RELIC_LICENSE_KEY ? {
-          licenseKey: process.env.NEW_RELIC_LICENSE_KEY,
+        newRelic: getEnv('NEW_RELIC_LICENSE_KEY') ? {
+          licenseKey: getEnv('NEW_RELIC_LICENSE_KEY')!,
           appName: 'AI Chef'
         } : undefined,
-        prometheus: process.env.PROMETHEUS_PUSH_GATEWAY ? {
-          pushGateway: process.env.PROMETHEUS_PUSH_GATEWAY,
+        prometheus: getEnv('PROMETHEUS_PUSH_GATEWAY') ? {
+          pushGateway: getEnv('PROMETHEUS_PUSH_GATEWAY')!,
           jobName: 'ai-chef'
         } : undefined
       };
@@ -73,24 +93,30 @@ export class MonitoringService {
   }
 
   private setupPerformanceMonitoring() {
-    this.performanceObserver = new PerformanceObserver((list) => {
-      const entries = list.getEntries();
-      entries.forEach((entry) => {
-        this.recordMetric(`performance.${entry.name}`, entry.duration, {
-          type: entry.entryType,
-          startTime: entry.startTime
-        });
+    // Используем встроенный PerformanceObserver в браузере
+    if (typeof window !== 'undefined' && window.PerformanceObserver) {
+      this.performanceObserver = new window.PerformanceObserver((list) => {
+        const entries = list.getEntries();
+        entries.forEach((entry) => {
+          this.recordMetric(`performance.${entry.name}`, entry.duration, {
+            type: entry.entryType,
+            startTime: entry.startTime
+          });
 
-        // Send to monitoring services
-        this.sendToMonitoringServices('performance', {
-          name: entry.name,
-          duration: entry.duration,
-          type: entry.entryType
+          // Send to monitoring services
+          this.sendToMonitoringServices('performance', {
+            name: entry.name,
+            duration: entry.duration,
+            type: entry.entryType
+          });
         });
       });
-    });
 
-    this.performanceObserver.observe({ entryTypes: ['measure', 'navigation', 'resource'] });
+      this.performanceObserver.observe({ entryTypes: ['measure', 'navigation', 'resource'] });
+    } else if (typeof process !== 'undefined' && process.env) {
+      // В Node.js используем динамический импорт при необходимости
+      // Пока пропускаем, так как это клиентский код
+    }
   }
 
   private setupErrorTracking() {

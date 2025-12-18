@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
-  ChefHat, 
+  ChefHat,
   Menu, 
   X, 
   User, 
@@ -24,6 +24,7 @@ import {
   Activity,
   Shield
 } from "lucide-react";
+import logo from "/logo.png";
 import { useUser } from "@/contexts/UserContext";
 import { AuthModal } from "@/components/ui/auth-modal";
 import { HealthProfileModal } from "@/components/ui/health-profile-modal";
@@ -79,14 +80,15 @@ export const Header = ({ onRegister, onLogin }: HeaderProps) => {
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
-                <ChefHat className="w-6 h-6 text-primary-foreground" />
-              </div>
-              <div className="hidden sm:block">
-                <h1 className="text-xl font-bold text-foreground"><span className="text-primary">TEST</span> кулинар</h1>
-                <p className="text-xs text-muted-foreground">Умный помощник на кухне</p>
-              </div>
+            <Link to="/" className="flex items-center gap-4 hover:opacity-80 transition-opacity">
+              <img 
+                src={logo} 
+                alt="Windexs логотип" 
+                className="h-8 sm:h-12 md:h-16 w-auto max-w-full"
+              />
+              <span className="hidden sm:inline text-xl sm:text-2xl font-semibold text-foreground">
+                кулинар
+              </span>
             </Link>
 
             {/* Desktop Navigation */}

@@ -2,7 +2,7 @@
 export { MonitoringService, monitoring, withMonitoring, usePerformanceMonitoring } from './monitoring';
 
 // Initialize monitoring in production
-if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+if (typeof window !== 'undefined' && import.meta.env.MODE === 'production') {
   // Client-side initialization
   import('./monitoring').then(({ monitoring }) => {
     // Monitor page load performance

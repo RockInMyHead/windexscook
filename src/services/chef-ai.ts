@@ -137,9 +137,29 @@ class ChefAI {
         throw new Error(`Ошибка транскрибации: ${response.status}`);
       }
 
-      const transcription = await response.text();
+      let transcription = await response.text();
       console.log('✅ [Chef AI] Транскрибация успешна:', transcription);
-      return transcription.trim();
+
+      // Handle JSON response format (OpenAI returns JSON even with text format)
+      try {
+        const parsed = JSON.parse(transcription);
+        if (parsed && typeof parsed === 'object' && parsed.text) {
+          transcription = parsed.text;
+          console.log('📝 [Chef AI] Extracted text from JSON response:', transcription);
+        } else if (parsed && typeof parsed === 'object') {
+          console.warn('⚠️ [Chef AI] JSON response missing text field:', parsed);
+        }
+      } catch (e) {
+        // If parsing fails, use the raw text (backward compatibility)
+        console.log('⚠️ [Chef AI] Response is not JSON, using raw text');
+      }
+
+      const trimmedTranscription = transcription.trim();
+      if (!trimmedTranscription) {
+        console.warn('⚠️ [Chef AI] Empty transcription received');
+        return '';
+      }
+      return trimmedTranscription;
 
     } catch (error) {
       console.error('Error transcribing audio for chef:', error);

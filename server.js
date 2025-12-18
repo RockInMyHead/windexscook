@@ -10,9 +10,331 @@ import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import multer from 'multer';
 import FormData from 'form-data';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import cookieParser from 'cookie-parser';
 
 // Загружаем переменные окружения
 dotenv.config();
+
+// ===== ENVIRONMENT VALIDATION =====
+const requiredEnvVars = [
+  'JWT_SECRET',
+  'JWT_REFRESH_SECRET',
+  'VITE_OPENAI_API_KEY',
+  'YOOKASSA_SHOP_ID',
+  'YOOKASSA_SECRET_KEY',
+  'SMTP_HOST',
+  'SMTP_PORT',
+  'SMTP_USER',
+  'SMTP_PASS'
+];
+
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+  console.error('❌ [Environment] Missing required environment variables:');
+  missingEnvVars.forEach(varName => {
+    console.error(`   - ${varName}`);
+  });
+  console.error('💥 Server startup failed due to missing environment variables');
+  process.exit(1);
+}
+
+console.log('✅ [Environment] All required variables are present');
+
+// YooKassa configuration
+const YOOKASSA_CONFIG = {
+  shopId: process.env.YOOKASSA_SHOP_ID,
+  secretKey: process.env.YOOKASSA_SECRET_KEY,
+  returnUrl: process.env.YOOKASSA_RETURN_URL || 'https://cook.windexs.ru/payment-success'
+};
+
+// ===== SECURITY CONSTANTS =====
+const JWT_ACCESS_EXPIRES_IN = '15m'; // 15 minutes
+const JWT_REFRESH_EXPIRES_IN = '7d'; // 7 days
+const BCRYPT_ROUNDS = 12;
+
+// ===== JWT UTILITIES =====
+const generateAccessToken = (payload) => {
+  return jwt.sign(payload, process.env.JWT_SECRET, {
+    expiresIn: JWT_ACCESS_EXPIRES_IN,
+    issuer: 'windexs-cook',
+    audience: 'windexs-cook-users'
+  });
+};
+
+const generateRefreshToken = (payload) => {
+  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
+    expiresIn: JWT_REFRESH_EXPIRES_IN,
+    issuer: 'windexs-cook',
+    audience: 'windexs-cook-users'
+  });
+};
+
+const verifyAccessToken = (token) => {
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET, {
+      issuer: 'windexs-cook',
+      audience: 'windexs-cook-users'
+    });
+  } catch (error) {
+    throw new Error('Invalid access token');
+  }
+};
+
+const verifyRefreshToken = (token) => {
+  try {
+    return jwt.verify(token, process.env.JWT_REFRESH_SECRET, {
+      issuer: 'windexs-cook',
+      audience: 'windexs-cook-users'
+    });
+  } catch (error) {
+    throw new Error('Invalid refresh token');
+  }
+};
+
+// ===== AUTHENTICATION MIDDLEWARE =====
+const authenticateToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+    if (!token) {
+      return res.status(401).json({ error: 'Access token required' });
+    }
+
+    const decoded = verifyAccessToken(token);
+
+    // Get user from database to ensure they still exist
+    const db = await getDbConnection();
+    const user = await db.get(
+      'SELECT id, email, role, created_at FROM users WHERE id = ?',
+      [decoded.userId]
+    );
+
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role
+    };
+
+    next();
+  } catch (error) {
+    console.error('❌ [Auth] Token verification failed:', error.message);
+    return res.status(401).json({ error: 'Invalid access token' });
+  }
+};
+
+// ===== AUTHORIZATION MIDDLEWARE (RBAC) =====
+const requireRole = (requiredRole) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const roleHierarchy = {
+      'user': 1,
+      'moderator': 2,
+      'admin': 3
+    };
+
+    const userLevel = roleHierarchy[req.user.role] || 0;
+    const requiredLevel = roleHierarchy[requiredRole] || 0;
+
+    if (userLevel < requiredLevel) {
+      return res.status(403).json({
+        error: `Insufficient permissions. Required: ${requiredRole}, Current: ${req.user.role}`
+      });
+    }
+
+    next();
+  };
+};
+
+// ===== PASSWORD UTILITIES =====
+const hashPassword = async (password) => {
+  return await bcrypt.hash(password, BCRYPT_ROUNDS);
+};
+
+const verifyPassword = async (password, hash) => {
+  return await bcrypt.compare(password, hash);
+};
+
+// ===== AUDIT LOGGING =====
+const auditLog = async (userId, action, resourceType, resourceId = null, oldValues = null, newValues = null, req = null) => {
+  try {
+    if (!db) return;
+
+    const auditData = {
+      user_id: userId,
+      action,
+      resource_type: resourceType,
+      resource_id: resourceId,
+      old_values: oldValues ? JSON.stringify(oldValues) : null,
+      new_values: newValues ? JSON.stringify(newValues) : null,
+      ip_address: req?.ip || null,
+      user_agent: req?.get('User-Agent') || null,
+      created_at: new Date().toISOString()
+    };
+
+    await db.run(`
+      INSERT INTO audit_log (user_id, action, resource_type, resource_id, old_values, new_values, ip_address, user_agent, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      auditData.user_id,
+      auditData.action,
+      auditData.resource_type,
+      auditData.resource_id,
+      auditData.old_values,
+      auditData.new_values,
+      auditData.ip_address,
+      auditData.user_agent,
+      auditData.created_at
+    ]);
+
+    console.log(`📊 [Audit] ${action} on ${resourceType}${resourceId ? `:${resourceId}` : ''} by user ${userId}`);
+  } catch (error) {
+    console.error('❌ [Audit] Failed to log audit event:', error);
+  }
+};
+
+// ===== TRANSACTION UTILITIES =====
+const withTransaction = async (callback) => {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
+  const transaction = await db.run('BEGIN TRANSACTION');
+  try {
+    const result = await callback(db);
+    await db.run('COMMIT');
+    return result;
+  } catch (error) {
+    await db.run('ROLLBACK');
+    throw error;
+  }
+};
+
+// ===== MIGRATION SYSTEM =====
+const runMigrations = async () => {
+  try {
+    if (!db) {
+      console.log('⚠️ [Migrations] Database not initialized, skipping migrations');
+      return;
+    }
+
+    console.log('🔄 [Migrations] Checking for pending migrations...');
+
+    // Create migrations table if it doesn't exist
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        version TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        executed_at TEXT NOT NULL
+      );
+    `);
+
+    // Migration: Add missing indexes (v1)
+    const migrationV1 = await db.get("SELECT version FROM schema_migrations WHERE version = 'v1'");
+    if (!migrationV1) {
+      console.log('🔄 [Migrations] Running migration v1: Add performance indexes');
+
+      await db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+        CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+        CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
+
+        CREATE INDEX IF NOT EXISTS idx_recipes_author_id ON recipes(author_id);
+        CREATE INDEX IF NOT EXISTS idx_recipes_status ON recipes(status);
+        CREATE INDEX IF NOT EXISTS idx_recipes_created_at ON recipes(created_at);
+        CREATE INDEX IF NOT EXISTS idx_recipes_category ON recipes(category);
+        CREATE INDEX IF NOT EXISTS idx_recipes_author_status ON recipes(author_id, status);
+
+        CREATE INDEX IF NOT EXISTS idx_comments_recipe_id ON comments(recipe_id);
+        CREATE INDEX IF NOT EXISTS idx_comments_author_id ON comments(author_id);
+        CREATE INDEX IF NOT EXISTS idx_comments_status ON comments(status);
+
+        CREATE INDEX IF NOT EXISTS idx_user_likes_user_id ON user_likes(user_id);
+        CREATE INDEX IF NOT EXISTS idx_user_likes_recipe_id ON user_likes(recipe_id);
+
+        CREATE INDEX IF NOT EXISTS idx_user_favorites_user_id ON user_favorites(user_id);
+        CREATE INDEX IF NOT EXISTS idx_user_favorites_recipe_id ON user_favorites(recipe_id);
+
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_expires_at ON subscriptions(expires_at);
+
+        CREATE INDEX IF NOT EXISTS idx_rate_limits_user_action_date ON rate_limits(user_identifier, action_type, date_key);
+
+        CREATE INDEX IF NOT EXISTS idx_payment_events_payment_id ON payment_events(payment_id);
+        CREATE INDEX IF NOT EXISTS idx_payment_events_user_id ON payment_events(user_id);
+        CREATE INDEX IF NOT EXISTS idx_payment_events_event_type ON payment_events(event_type);
+        CREATE INDEX IF NOT EXISTS idx_payment_events_created_at ON payment_events(created_at);
+
+        CREATE INDEX IF NOT EXISTS idx_audit_log_user_id ON audit_log(user_id);
+        CREATE INDEX IF NOT EXISTS idx_audit_log_resource ON audit_log(resource_type, resource_id);
+        CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
+      `);
+
+      await db.run(
+        "INSERT INTO schema_migrations (version, name, executed_at) VALUES (?, ?, ?)",
+        ['v1', 'Add performance indexes', new Date().toISOString()]
+      );
+
+      console.log('✅ [Migrations] Migration v1 completed');
+    }
+
+    // Migration: Add audit fields to existing tables (v2)
+    const migrationV2 = await db.get("SELECT version FROM schema_migrations WHERE version = 'v2'");
+    if (!migrationV2) {
+      console.log('🔄 [Migrations] Running migration v2: Add audit fields');
+
+      // Add new columns to existing tables (SQLite allows ALTER TABLE for adding columns)
+      try {
+        await db.run(`ALTER TABLE users ADD COLUMN last_login TEXT`);
+        await db.run(`ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0`);
+        await db.run(`ALTER TABLE users ADD COLUMN locked_until TEXT`);
+        await db.run(`ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT 0`);
+        await db.run(`ALTER TABLE users ADD COLUMN email_verification_token TEXT`);
+        await db.run(`ALTER TABLE users ADD COLUMN email_verification_expires TEXT`);
+        await db.run(`ALTER TABLE users ADD COLUMN password_reset_token TEXT`);
+        await db.run(`ALTER TABLE users ADD COLUMN password_reset_expires TEXT`);
+
+        await db.run(`ALTER TABLE recipes ADD COLUMN rejected_count INTEGER DEFAULT 0`);
+        await db.run(`ALTER TABLE recipes ADD COLUMN view_count INTEGER DEFAULT 0`);
+
+        await db.run(`ALTER TABLE comments ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''`);
+        await db.run(`ALTER TABLE comments ADD COLUMN moderated_by INTEGER`);
+        await db.run(`ALTER TABLE comments ADD COLUMN moderated_at TEXT`);
+        await db.run(`ALTER TABLE comments ADD COLUMN moderation_reason TEXT`);
+
+        console.log('✅ [Migrations] Migration v2: Audit fields added');
+      } catch (alterError) {
+        if (!alterError.message.includes('duplicate column name')) {
+          console.warn('⚠️ [Migrations] Some columns might already exist:', alterError.message);
+        }
+      }
+
+      await db.run(
+        "INSERT INTO schema_migrations (version, name, executed_at) VALUES (?, ?, ?)",
+        ['v2', 'Add audit fields to existing tables', new Date().toISOString()]
+      );
+
+      console.log('✅ [Migrations] Migration v2 completed');
+    }
+
+    console.log('✅ [Migrations] All migrations completed');
+
+  } catch (error) {
+    console.error('❌ [Migrations] Migration failed:', error);
+    throw error;
+  }
+};
 
 // ===== MONITORING SETUP =====
 let monitoring;
@@ -151,6 +473,15 @@ async function initializeDatabase() {
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         role TEXT DEFAULT 'user',
+        health_profile TEXT DEFAULT NULL,
+        last_login TEXT,
+        failed_login_attempts INTEGER DEFAULT 0,
+        locked_until TEXT,
+        email_verified BOOLEAN DEFAULT 0,
+        email_verification_token TEXT,
+        email_verification_expires TEXT,
+        password_reset_token TEXT,
+        password_reset_expires TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
@@ -165,10 +496,9 @@ async function initializeDatabase() {
         servings INTEGER,
         difficulty TEXT,
         category TEXT,
-        cuisine TEXT,
         tips TEXT,
         image TEXT,
-        author_id INTEGER,
+        author_id INTEGER NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         rating REAL DEFAULT 0,
@@ -176,7 +506,13 @@ async function initializeDatabase() {
         favorites INTEGER DEFAULT 0,
         comments_count INTEGER DEFAULT 0,
         status TEXT DEFAULT 'pending',
-        FOREIGN KEY (author_id) REFERENCES users(id)
+        moderated_by INTEGER,
+        moderated_at TEXT,
+        moderation_reason TEXT,
+        rejected_count INTEGER DEFAULT 0,
+        view_count INTEGER DEFAULT 0,
+        FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (moderated_by) REFERENCES users(id)
       );
 
       CREATE TABLE IF NOT EXISTS comments (
@@ -185,9 +521,15 @@ async function initializeDatabase() {
         author_id INTEGER NOT NULL,
         content TEXT NOT NULL,
         created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
         likes INTEGER DEFAULT 0,
-        FOREIGN KEY (recipe_id) REFERENCES recipes(id),
-        FOREIGN KEY (author_id) REFERENCES users(id)
+        status TEXT DEFAULT 'active',
+        moderated_by INTEGER,
+        moderated_at TEXT,
+        moderation_reason TEXT,
+        FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE,
+        FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (moderated_by) REFERENCES users(id)
       );
 
       CREATE TABLE IF NOT EXISTS user_likes (
@@ -195,9 +537,9 @@ async function initializeDatabase() {
         user_id INTEGER NOT NULL,
         recipe_id INTEGER NOT NULL,
         created_at TEXT NOT NULL,
-        UNIQUE(user_id, recipe_id),
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (recipe_id) REFERENCES recipes(id)
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE,
+        UNIQUE(user_id, recipe_id)
       );
 
       CREATE TABLE IF NOT EXISTS user_favorites (
@@ -205,26 +547,112 @@ async function initializeDatabase() {
         user_id INTEGER NOT NULL,
         recipe_id INTEGER NOT NULL,
         created_at TEXT NOT NULL,
-        UNIQUE(user_id, recipe_id),
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (recipe_id) REFERENCES recipes(id)
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE,
+        UNIQUE(user_id, recipe_id)
       );
+
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        payment_id TEXT NOT NULL,
+        plan_type TEXT DEFAULT 'premium',
+        status TEXT DEFAULT 'active',
+        activated_at TEXT NOT NULL,
+        expires_at TEXT,
+        cancelled_at TEXT,
+        amount INTEGER NOT NULL,
+        currency TEXT DEFAULT 'RUB',
+        auto_renew BOOLEAN DEFAULT 1,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(user_id, status)
+      );
+
+      CREATE TABLE IF NOT EXISTS rate_limits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_identifier TEXT NOT NULL,
+        action_type TEXT NOT NULL,
+        date_key TEXT NOT NULL,
+        count INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(user_identifier, action_type, date_key)
+      );
+
+      CREATE TABLE IF NOT EXISTS payment_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id TEXT NOT NULL UNIQUE,
+        payment_id TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        event_data TEXT NOT NULL,
+        signature_verified BOOLEAN DEFAULT 0,
+        user_id INTEGER,
+        amount INTEGER,
+        currency TEXT,
+        status TEXT,
+        processed_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        action TEXT NOT NULL,
+        resource_type TEXT NOT NULL,
+        resource_id INTEGER,
+        old_values TEXT,
+        new_values TEXT,
+        ip_address TEXT,
+        user_agent TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      );
+
+      -- Indexes for performance
+      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+      CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+      CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
+
+      CREATE INDEX IF NOT EXISTS idx_recipes_author_id ON recipes(author_id);
+      CREATE INDEX IF NOT EXISTS idx_recipes_status ON recipes(status);
+      CREATE INDEX IF NOT EXISTS idx_recipes_created_at ON recipes(created_at);
+      CREATE INDEX IF NOT EXISTS idx_recipes_category ON recipes(category);
+      CREATE INDEX IF NOT EXISTS idx_recipes_author_status ON recipes(author_id, status);
+
+      CREATE INDEX IF NOT EXISTS idx_comments_recipe_id ON comments(recipe_id);
+      CREATE INDEX IF NOT EXISTS idx_comments_author_id ON comments(author_id);
+      CREATE INDEX IF NOT EXISTS idx_comments_status ON comments(status);
+
+      CREATE INDEX IF NOT EXISTS idx_user_likes_user_id ON user_likes(user_id);
+      CREATE INDEX IF NOT EXISTS idx_user_likes_recipe_id ON user_likes(recipe_id);
+
+      CREATE INDEX IF NOT EXISTS idx_user_favorites_user_id ON user_favorites(user_id);
+      CREATE INDEX IF NOT EXISTS idx_user_favorites_recipe_id ON user_favorites(recipe_id);
+
+      CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
+      CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
+      CREATE INDEX IF NOT EXISTS idx_subscriptions_expires_at ON subscriptions(expires_at);
+
+      CREATE INDEX IF NOT EXISTS idx_rate_limits_user_action_date ON rate_limits(user_identifier, action_type, date_key);
+
+      CREATE INDEX IF NOT EXISTS idx_payment_events_payment_id ON payment_events(payment_id);
+      CREATE INDEX IF NOT EXISTS idx_payment_events_user_id ON payment_events(user_id);
+      CREATE INDEX IF NOT EXISTS idx_payment_events_event_type ON payment_events(event_type);
+      CREATE INDEX IF NOT EXISTS idx_payment_events_created_at ON payment_events(created_at);
+
+      CREATE INDEX IF NOT EXISTS idx_audit_log_user_id ON audit_log(user_id);
+      CREATE INDEX IF NOT EXISTS idx_audit_log_resource ON audit_log(resource_type, resource_id);
+      CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
     `);
 
-    // Add health_profile column to users table if it doesn't exist
-    try {
-      await db.run(`ALTER TABLE users ADD COLUMN health_profile TEXT DEFAULT NULL`);
-      console.log('✅ [Database] Added health_profile column to users table');
-    } catch (alterError) {
-      // Column might already exist, ignore error
-      if (alterError.message.includes('duplicate column name')) {
-        console.log('ℹ️ [Database] health_profile column already exists');
-      } else {
-        console.warn('⚠️ [Database] Error adding health_profile column:', alterError.message);
-      }
-    }
-
     console.log('✅ [Database] Tables initialized successfully');
+
+    // Run migrations
+    await runMigrations();
+
     return db;
   } catch (error) {
     console.error('❌ [Database] Failed to initialize database:', error);
@@ -232,70 +660,78 @@ async function initializeDatabase() {
   }
 }
 
-// Система отслеживания лимитов изображений
-const imageLimitsFile = path.join(logsDir, 'image_limits.json');
+// Система отслеживания лимитов
 const DAILY_IMAGE_LIMIT = 20;
+const DAILY_RECIPE_LIMIT = 10;
+const HOURLY_API_LIMIT = 100;
 
-// Функция для загрузки лимитов изображений
-const loadImageLimits = () => {
+// Функция для проверки лимита (асинхронная)
+const checkRateLimit = async (userIdentifier, actionType, limit) => {
   try {
-    if (fs.existsSync(imageLimitsFile)) {
-      const data = fs.readFileSync(imageLimitsFile, 'utf8');
-      return JSON.parse(data);
-    }
+    if (!db) return { canPerform: true, currentCount: 0, limit };
+
+    const dateKey = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    // Получаем текущий счетчик
+    const existing = await db.get(
+      'SELECT count FROM rate_limits WHERE user_identifier = ? AND action_type = ? AND date_key = ?',
+      [userIdentifier, actionType, dateKey]
+    );
+
+    const currentCount = existing ? existing.count : 0;
+
+    return {
+      canPerform: currentCount < limit,
+      currentCount,
+      limit,
+      remaining: Math.max(0, limit - currentCount)
+    };
   } catch (error) {
-    console.error('Error loading image limits:', error);
+    console.error('Error checking rate limit:', error);
+    return { canPerform: true, currentCount: 0, limit }; // Fail open
   }
-  return {};
 };
 
-// Функция для сохранения лимитов изображений
-const saveImageLimits = (limits) => {
+// Функция для увеличения счетчика лимита (асинхронная)
+const incrementRateLimit = async (userIdentifier, actionType) => {
   try {
-    fs.writeFileSync(imageLimitsFile, JSON.stringify(limits, null, 2));
+    if (!db) return 0;
+
+    const dateKey = new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
+
+    // Используем UPSERT для SQLite
+    await db.run(`
+      INSERT INTO rate_limits (user_identifier, action_type, date_key, count, created_at, updated_at)
+      VALUES (?, ?, ?, 1, ?, ?)
+      ON CONFLICT(user_identifier, action_type, date_key)
+      DO UPDATE SET
+        count = count + 1,
+        updated_at = excluded.updated_at
+    `, [userIdentifier, actionType, dateKey, now, now]);
+
+    // Возвращаем новый счетчик
+    const result = await db.get(
+      'SELECT count FROM rate_limits WHERE user_identifier = ? AND action_type = ? AND date_key = ?',
+      [userIdentifier, actionType, dateKey]
+    );
+
+    return result ? result.count : 1;
   } catch (error) {
-    console.error('Error saving image limits:', error);
+    console.error('Error incrementing rate limit:', error);
+    return 0;
   }
 };
 
-// Функция для проверки лимита изображений
-const checkImageLimit = (userIdentifier) => {
-  const limits = loadImageLimits();
-  const today = new Date().toDateString();
-  
-  if (!limits[userIdentifier]) {
-    limits[userIdentifier] = {};
-  }
-  
-  if (!limits[userIdentifier][today]) {
-    limits[userIdentifier][today] = 0;
-  }
-  
-  return {
-    canGenerate: limits[userIdentifier][today] < DAILY_IMAGE_LIMIT,
-    currentCount: limits[userIdentifier][today],
-    limit: DAILY_IMAGE_LIMIT
-  };
+// Rate limiting functions
+const checkImageLimit = async (userIdentifier) => {
+  return await checkRateLimit(userIdentifier, 'image_generation', DAILY_IMAGE_LIMIT);
 };
 
-// Функция для увеличения счетчика изображений
-const incrementImageCount = (userIdentifier) => {
-  const limits = loadImageLimits();
-  const today = new Date().toDateString();
-  
-  if (!limits[userIdentifier]) {
-    limits[userIdentifier] = {};
-  }
-  
-  if (!limits[userIdentifier][today]) {
-    limits[userIdentifier][today] = 0;
-  }
-  
-  limits[userIdentifier][today]++;
-  saveImageLimits(limits);
-  
-  return limits[userIdentifier][today];
+const incrementImageCount = async (userIdentifier) => {
+  return await incrementRateLimit(userIdentifier, 'image_generation');
 };
+
 
 // Функция для логирования
 const logToFile = (level, message, data = null) => {
@@ -318,21 +754,52 @@ const logToFile = (level, message, data = null) => {
 };
 
 // Middleware для логирования запросов
+// Utility function to redact sensitive data
+const redactSensitiveData = (obj) => {
+  if (!obj || typeof obj !== 'object') return obj;
+
+  const redacted = { ...obj };
+  const sensitiveKeys = [
+    'authorization', 'password', 'passwordhash', 'token', 'refreshtoken',
+    'accesstoken', 'jwt', 'secret', 'key', 'apikey', 'emailtoken', 'resettoken'
+  ];
+
+  for (const key in redacted) {
+    if (sensitiveKeys.some(sensitive => key.toLowerCase().includes(sensitive))) {
+      redacted[key] = '[REDACTED]';
+    } else if (typeof redacted[key] === 'object') {
+      redacted[key] = redactSensitiveData(redacted[key]);
+    }
+  }
+
+  return redacted;
+};
+
 const requestLogger = (req, res, next) => {
   const start = Date.now();
-  
+
   res.on('finish', () => {
     const duration = Date.now() - start;
-    logToFile('INFO', `${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`, {
+    const logData = {
       method: req.method,
       path: req.path,
       statusCode: res.statusCode,
       duration: `${duration}ms`,
       userAgent: req.get('User-Agent'),
-      ip: req.ip
-    });
+      ip: req.ip,
+      // Redact sensitive headers
+      headers: redactSensitiveData(req.headers),
+      // Redact sensitive body data (limit size to prevent huge logs)
+      body: req.body ? redactSensitiveData(
+        JSON.stringify(req.body).length > 1000
+          ? { ...req.body, _truncated: true }
+          : req.body
+      ) : undefined
+    };
+
+    logToFile('INFO', `${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`, logData);
   });
-  
+
   next();
 };
 
@@ -371,16 +838,73 @@ const upload = multer({
 const app = express();
 const PORT = process.env.PORT || 1041;
 
+// ===== CORS CONFIGURATION =====
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      'http://localhost:8080',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'https://cook.windexs.ru',
+      'https://www.cook.windexs.ru',
+      process.env.FRONTEND_URL
+    ].filter(Boolean);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`🚨 [CORS] Blocked request from origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token'],
+  exposedHeaders: ['X-CSRF-Token'],
+  optionsSuccessStatus: 200
+};
+
+// ===== CSRF PROTECTION =====
+const CSRF_TOKENS = new Map(); // In production, use Redis
+
+const generateCSRFToken = () => {
+  return crypto.randomBytes(32).toString('hex');
+};
+
+const validateCSRFToken = (token) => {
+  // In production, check against Redis/session
+  return CSRF_TOKENS.has(token);
+};
+
+// ===== CSRF MIDDLEWARE =====
+const csrfProtection = (req, res, next) => {
+  // Skip CSRF for safe methods
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    return next();
+  }
+
+  // Check CSRF token from header or body
+  const csrfToken = req.headers['x-csrf-token'] || req.body?.csrfToken;
+
+  if (!csrfToken || !validateCSRFToken(csrfToken)) {
+    console.warn(`🚨 [CSRF] Invalid or missing CSRF token for ${req.method} ${req.path}`);
+    return res.status(403).json({ error: 'Invalid CSRF token' });
+  }
+
+  next();
+};
+
 // Middleware для обработки raw body (нужно для webhook подписи)
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
-// Остальные middleware
-app.use(cors({
-  origin: true, // Разрешаем все origins
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
+// Cookie parser middleware
+app.use(cookieParser());
+
+// CORS middleware
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(requestLogger);
@@ -455,7 +979,7 @@ app.get('/api/admin/pending-recipes', async (req, res) => {
 });
 
 // Получить опубликованные рецепты (только для администраторов)
-app.get('/api/admin/published-recipes', async (req, res) => {
+app.get('/api/admin/published-recipes', authenticateToken, requireRole('admin'), async (req, res) => {
   try {
     if (!db) {
       return res.status(503).json({ error: 'Database not initialized' });
@@ -474,8 +998,8 @@ app.get('/api/admin/published-recipes', async (req, res) => {
   }
 });
 
-// Одобрить рецепт
-app.put('/api/recipes/:id/approve', async (req, res) => {
+// Одобрить рецепт (требует роли moderator или admin)
+app.put('/api/recipes/:id/approve', authenticateToken, requireRole('moderator'), async (req, res) => {
   try {
     if (!db) {
       return res.status(503).json({ error: 'Database not initialized' });
@@ -484,11 +1008,27 @@ app.put('/api/recipes/:id/approve', async (req, res) => {
     const { id } = req.params;
     const { moderatorId, reason } = req.body;
 
-    const now = new Date().toISOString();
-    const result = await db.run(
-      'UPDATE recipes SET status = ?, moderated_by = ?, moderated_at = ?, moderation_reason = ?, updated_at = ? WHERE id = ?',
-      ['approved', moderatorId || null, now, reason || 'Одобрен администратором', now, id]
-    );
+    const result = await withTransaction(async (db) => {
+      // Get current recipe state for audit
+      const currentRecipe = await db.get('SELECT status, author_id FROM recipes WHERE id = ?', [id]);
+
+      const now = new Date().toISOString();
+      const updateResult = await db.run(
+        'UPDATE recipes SET status = ?, moderated_by = ?, moderated_at = ?, moderation_reason = ?, updated_at = ? WHERE id = ?',
+        ['approved', moderatorId || null, now, reason || 'Одобрен администратором', now, id]
+      );
+
+      // Log audit event
+      await auditLog(moderatorId, 'RECIPE_APPROVE', 'recipe', id, {
+        status: currentRecipe.status
+      }, {
+        status: 'approved',
+        moderated_by: moderatorId,
+        moderation_reason: reason || 'Одобрен администратором'
+      }, req);
+
+      return updateResult;
+    });
 
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Recipe not found' });
@@ -502,8 +1042,8 @@ app.put('/api/recipes/:id/approve', async (req, res) => {
   }
 });
 
-// Отклонить рецепт
-app.put('/api/recipes/:id/reject', async (req, res) => {
+// Отклонить рецепт (требует роли moderator или admin)
+app.put('/api/recipes/:id/reject', authenticateToken, requireRole('moderator'), async (req, res) => {
   try {
     if (!db) {
       return res.status(503).json({ error: 'Database not initialized' });
@@ -555,8 +1095,8 @@ app.get('/api/recipes/user/:userId', async (req, res) => {
   }
 });
 
-// Сохранить рецепт
-app.post('/api/recipes', async (req, res) => {
+// Сохранить рецепт (требует аутентификации и CSRF)
+app.post('/api/recipes', authenticateToken, csrfProtection, async (req, res) => {
   try {
     if (!db) {
       console.error('❌ [Database] Database not initialized');
@@ -578,26 +1118,38 @@ app.post('/api/recipes', async (req, res) => {
     }
 
     const now = new Date().toISOString();
-    const result = await db.run(
-      `INSERT INTO recipes (title, description, ingredients, instructions, cook_time, servings, difficulty, cuisine, tips, image, author_id, created_at, updated_at, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
+    const result = await withTransaction(async (db) => {
+      // Insert recipe
+      const insertResult = await db.run(
+        `INSERT INTO recipes (title, description, ingredients, instructions, cook_time, servings, difficulty, category, tips, image, author_id, created_at, updated_at, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          title,
+          description || '',
+          JSON.stringify(ingredients),
+          JSON.stringify(instructions),
+          cookTime || '',
+          servings || 0,
+          difficulty || 'Medium',
+          category || '',
+          tips || '',
+          image || null,
+          authorId || null,
+          now,
+          now,
+          'pending' // Новые рецепты ждут модерации
+        ]
+      );
+
+      // Log audit event
+      await auditLog(authorId, 'RECIPE_CREATE', 'recipe', insertResult.lastID, null, {
         title,
-        description || '',
-        JSON.stringify(ingredients),
-        JSON.stringify(instructions),
-        cookTime || '',
-        servings || 0,
-        difficulty || 'Medium',
-        cuisine || '',
-        tips || '',
-        image || null,
-        authorId || null,
-        now,
-        now,
-        'pending' // Новые рецепты ждут модерации
-      ]
-    );
+        status: 'pending',
+        category
+      }, req);
+
+      return insertResult;
+    });
 
     console.log(`✅ [Database] Recipe saved with ID: ${result.lastID}`);
     res.json({ id: result.lastID, message: 'Recipe saved successfully' });
@@ -660,6 +1212,22 @@ app.delete('/api/recipes/:id', async (req, res) => {
   }
 });
 
+// ===== CSRF TOKEN ENDPOINT =====
+app.get('/api/auth/csrf-token', (req, res) => {
+  const csrfToken = generateCSRFToken();
+  CSRF_TOKENS.set(csrfToken, Date.now());
+
+  // Set CSRF token in httpOnly cookie
+  res.cookie('csrf-token', csrfToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 60 * 60 * 1000 // 1 hour
+  });
+
+  res.json({ csrfToken });
+});
+
 // Зарегистрировать пользователя
 app.post('/api/auth/register', async (req, res) => {
   try {
@@ -667,33 +1235,57 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(503).json({ error: 'Database not initialized' });
     }
 
-    const { name, email, passwordHash } = req.body;
+    const { name, email, password } = req.body;
 
-    if (!name || !email || !passwordHash) {
+    if (!name || !email || !password) {
       return res.status(400).json({ error: 'Name, email and password are required' });
     }
 
-    const now = new Date().toISOString();
-    const result = await db.run(
-      'INSERT INTO users (email, password_hash, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-      [email, passwordHash, 'user', now, now]
-    );
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
 
-    console.log(`✅ [Database] User registered with ID: ${result.lastID}`);
+    // Validate password strength
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+    }
+
+    const hashedPassword = await hashPassword(password);
+    const now = new Date().toISOString();
+
+    const result = await withTransaction(async (db) => {
+      // Insert user
+      const insertResult = await db.run(
+        'INSERT INTO users (email, password_hash, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+        [email.toLowerCase(), hashedPassword, 'user', now, now]
+      );
+
+      // Log audit event
+      await auditLog(insertResult.lastID, 'USER_REGISTER', 'user', insertResult.lastID, null, {
+        email: email.toLowerCase(),
+        role: 'user'
+      }, req);
+
+      return insertResult;
+    });
+
+    console.log(`✅ [Auth] User registered with ID: ${result.lastID}`);
     res.json({
       id: result.lastID,
       name,
-      email,
+      email: email.toLowerCase(),
       role: 'user',
       message: 'User registered successfully'
     });
   } catch (error) {
     if (error.message.includes('UNIQUE constraint failed')) {
-      console.warn(`⚠️ [Database] User already exists: ${req.body.email}`);
-      return res.status(400).json({ error: 'User already exists' });
+      console.error('❌ [Auth] Email already exists:', email);
+      return res.status(409).json({ error: 'Email already registered' });
     }
-    console.error('❌ [Database] Error registering user:', error);
-    res.status(500).json({ error: 'Failed to register user' });
+    console.error('❌ [Auth] Registration error:', error);
+    res.status(500).json({ error: 'Registration failed' });
   }
 });
 
@@ -753,33 +1345,99 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(503).json({ error: 'Database not initialized' });
     }
 
-    const { email, passwordHash } = req.body;
+    const { email, password } = req.body;
 
-    if (!email || !passwordHash) {
+    if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
+    // Get user by email
     const user = await db.get(
-      'SELECT id, email, role, created_at, updated_at FROM users WHERE email = ? AND password_hash = ?',
-      [email, passwordHash]
+      'SELECT id, email, password_hash, role, created_at FROM users WHERE email = ?',
+      [email.toLowerCase()]
     );
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    console.log(`✅ [Database] User logged in: ${user.id} (${user.role})`);
+    // Verify password
+    const isPasswordValid = await verifyPassword(password, user.password_hash);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Generate tokens
+    const accessToken = generateAccessToken({ userId: user.id, email: user.email, role: user.role });
+    const refreshToken = generateRefreshToken({ userId: user.id });
+
+    // Store refresh token (in production, use Redis/database)
+    // For now, we'll send it in httpOnly cookie
+    res.cookie('refresh-token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    console.log(`✅ [Auth] User logged in: ${user.id} (${user.role})`);
     res.json({
-      id: user.id,
-      name: email.split('@')[0], // Extract name from email as fallback
-      email: user.email,
-      role: user.role || 'user',
-      message: 'Login successful'
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role || 'user',
+        name: user.email.split('@')[0]
+      }
     });
   } catch (error) {
-    console.error('❌ [Database] Error logging in:', error);
-    res.status(500).json({ error: 'Failed to login' });
+    console.error('❌ [Auth] Login error:', error);
+    res.status(500).json({ error: 'Login failed' });
   }
+});
+
+// Refresh access token
+app.post('/api/auth/refresh', async (req, res) => {
+  try {
+    const refreshToken = req.cookies['refresh-token'];
+
+    if (!refreshToken) {
+      return res.status(401).json({ error: 'Refresh token required' });
+    }
+
+    // Verify refresh token
+    const decoded = verifyRefreshToken(refreshToken);
+
+    // Get user to ensure they still exist
+    const user = await db.get(
+      'SELECT id, email, role FROM users WHERE id = ?',
+      [decoded.userId]
+    );
+
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    // Generate new access token
+    const accessToken = generateAccessToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role
+    });
+
+    console.log(`✅ [Auth] Token refreshed for user: ${user.id}`);
+    res.json({ accessToken });
+  } catch (error) {
+    console.error('❌ [Auth] Token refresh error:', error);
+    res.status(401).json({ error: 'Invalid refresh token' });
+  }
+});
+
+// Logout
+app.post('/api/auth/logout', (req, res) => {
+  // Clear refresh token cookie
+  res.clearCookie('refresh-token');
+  res.json({ message: 'Logged out successfully' });
 });
 
 // Получить пользователя по email
@@ -1627,18 +2285,6 @@ app.post('/api/openai/v1/audio/transcriptions', upload.fields([
   { name: 'audio', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    console.log('🎵 [OpenAI Audio] Received transcription request', {
-      hasFile: !!audioFile,
-      fileInfo: audioFile ? {
-        originalname: audioFile.originalname,
-        mimetype: audioFile.mimetype,
-        size: audioFile.size,
-        encoding: audioFile.encoding
-      } : null,
-      body: req.body,
-      headers: req.headers
-    });
-
     const apiKey = process.env.VITE_OPENAI_API_KEY;
 
     if (!apiKey) {
@@ -1662,6 +2308,18 @@ app.post('/api/openai/v1/audio/transcriptions', upload.fields([
     // Проверяем наличие файла в любом из полей
     const audioFile = req.files?.file?.[0] || req.files?.audio?.[0] || req.file;
 
+    console.log('🎵 [OpenAI Audio] Received transcription request', {
+      hasFile: !!audioFile,
+      fileInfo: audioFile ? {
+        originalname: audioFile.originalname,
+        mimetype: audioFile.mimetype,
+        size: audioFile.size,
+        encoding: audioFile.encoding
+      } : null,
+      body: req.body,
+      headers: req.headers
+    });
+
     if (!audioFile) {
       console.error('❌ [OpenAI Audio] No file received in request');
       return res.status(400).json({
@@ -1682,6 +2340,7 @@ app.post('/api/openai/v1/audio/transcriptions', upload.fields([
 
     // Создаем новый FormData для отправки в OpenAI
     const formData = new FormData();
+    const addedFields = new Set();
 
     // Добавляем файл в FormData
     if (audioFile) {
@@ -1689,6 +2348,7 @@ app.post('/api/openai/v1/audio/transcriptions', upload.fields([
         filename: audioFile.originalname,
         contentType: audioFile.mimetype
       });
+      addedFields.add('file');
     }
 
     // Копируем все остальные поля из оригинального запроса
@@ -1696,20 +2356,14 @@ app.post('/api/openai/v1/audio/transcriptions', upload.fields([
       // Пропускаем поля с файлами, так как мы их уже обработали выше
       if (key !== 'file' && key !== 'audio') {
         formData.append(key, value);
+        addedFields.add(key);
       }
     }
 
-    // Добавляем файл из multipart/form-data если он есть
-    if (audioFile) {
-      formData.append('file', audioFile.buffer, {
-        filename: audioFile.originalname,
-        contentType: audioFile.mimetype
-      });
-    }
-
     // Устанавливаем язык на русский по умолчанию
-    if (!formData.has('language')) {
+    if (!addedFields.has('language')) {
       formData.append('language', 'ru');
+      addedFields.add('language');
     }
 
     const axiosConfig = {
@@ -1737,7 +2391,7 @@ app.post('/api/openai/v1/audio/transcriptions', upload.fields([
     console.log('🎵 [OpenAI Audio] Sending transcription request to OpenAI', {
       fileSize: audioFile.size,
       fileType: audioFile.mimetype,
-      formDataKeys: Array.from(formData.keys())
+      addedFields: Array.from(addedFields)
     });
 
     let response;
@@ -2267,7 +2921,7 @@ app.post('/api/generate-nb-image', async (req, res) => {
 
     // Проверяем лимит изображений для пользователя
     const userKey = userIdentifier || req.ip || 'anonymous';
-    const limitCheck = checkImageLimit(userKey);
+    const limitCheck = await checkImageLimit(userKey);
     
     if (!limitCheck.canGenerate) {
       logToFile('INFO', `Image generation limit exceeded for user: ${userKey}`, {
@@ -2373,11 +3027,11 @@ app.post('/api/generate-nb-image', async (req, res) => {
 });
 
 // Check image generation limits endpoint
-app.get('/api/image-limits/:userIdentifier', (req, res) => {
+app.get('/api/image-limits/:userIdentifier', async (req, res) => {
   try {
     const { userIdentifier } = req.params;
     const userKey = userIdentifier || req.ip || 'anonymous';
-    const limitCheck = checkImageLimit(userKey);
+    const limitCheck = await checkImageLimit(userKey);
     
     res.json({
       canGenerate: limitCheck.canGenerate,
@@ -2489,6 +3143,7 @@ app.post('/api/payments/confirm', async (req, res) => {
 
     // Временное решение - сохраняем в файл (в продакшене должна быть БД)
     try {
+      const fsPromises = await import('fs/promises');
       const fs = await import('fs');
       const path = await import('path');
 
@@ -2496,22 +3151,31 @@ app.post('/api/payments/confirm', async (req, res) => {
       const subscriptionsFile = path.join(subscriptionsDir, 'subscriptions.json');
 
       // Создаем директорию если не существует
-      if (!fs.existsSync(subscriptionsDir)) {
-        fs.mkdirSync(subscriptionsDir, { recursive: true });
+      try {
+        await fsPromises.mkdir(subscriptionsDir, { recursive: true });
+      } catch (mkdirError) {
+        if (mkdirError.code !== 'EEXIST') {
+          throw mkdirError;
+        }
       }
 
       // Читаем существующие подписки
       let subscriptions = [];
-      if (fs.existsSync(subscriptionsFile)) {
-        const data = fs.readFileSync(subscriptionsFile, 'utf8');
+      try {
+        const data = await fsPromises.readFile(subscriptionsFile, 'utf8');
         subscriptions = JSON.parse(data || '[]');
+      } catch (readError) {
+        if (readError.code !== 'ENOENT') {
+          throw readError;
+        }
+        // Файл не существует, используем пустой массив
       }
 
       // Добавляем новую подписку
       subscriptions.push(subscriptionData);
 
       // Сохраняем обратно
-      fs.writeFileSync(subscriptionsFile, JSON.stringify(subscriptions, null, 2));
+      await fsPromises.writeFile(subscriptionsFile, JSON.stringify(subscriptions, null, 2));
 
       console.log('✅ Server: Subscription activated and saved:', subscriptionData);
 
@@ -2550,49 +3214,37 @@ app.post('/api/payments/confirm', async (req, res) => {
 // Получить недавние платежи пользователя (для восстановления в случае потери paymentId)
 app.get('/api/payments/user/:userId/recent', async (req, res) => {
   try {
+    if (!db) {
+      return res.status(503).json({ error: 'Database not initialized' });
+    }
+
     const { userId } = req.params;
     const { limit = 5 } = req.query;
 
     console.log('💰 Server: Getting recent payments for user:', userId);
 
-    // В реальном приложении здесь должен быть запрос к БД
-    // Временное решение - возвращаем пустой массив
-    // Для тестирования можно добавить логику поиска в файле subscriptions.json
+    // Получаем недавние подписки пользователя из БД
+    const subscriptions = await db.all(`
+      SELECT payment_id, activated_at, amount, currency, status
+      FROM subscriptions
+      WHERE user_id = ?
+      ORDER BY activated_at DESC
+      LIMIT ?
+    `, [userId, parseInt(limit)]);
 
-    try {
-      const fs = await import('fs');
-      const path = await import('path');
+    console.log('💰 Server: Found user subscriptions:', subscriptions.length);
 
-      const subscriptionsFile = path.join(process.cwd(), 'data', 'subscriptions.json');
-
-      if (fs.existsSync(subscriptionsFile)) {
-        const data = fs.readFileSync(subscriptionsFile, 'utf8');
-        const subscriptions = JSON.parse(data || '[]');
-
-        // Находим подписки пользователя
-        const userSubscriptions = subscriptions
-          .filter(sub => sub.userId === userId)
-          .sort((a, b) => new Date(b.activatedAt) - new Date(a.activatedAt))
-          .slice(0, parseInt(limit));
-
-        console.log('💰 Server: Found user subscriptions:', userSubscriptions.length);
-
-        if (userSubscriptions.length > 0) {
-          // Возвращаем самый свежий платеж
-          const recentPayment = userSubscriptions[0];
-          res.json({
-            id: recentPayment.paymentId,
-            userId: recentPayment.userId,
-            amount: { value: recentPayment.amount, currency: recentPayment.currency },
-            status: 'succeeded',
-            paid: true,
-            activatedAt: recentPayment.activatedAt
-          });
-          return;
-        }
-      }
-    } catch (fileError) {
-      console.error('❌ Server: Error reading subscriptions file:', fileError);
+    if (subscriptions.length > 0) {
+      // Возвращаем самый свежий платеж
+      const recentPayment = subscriptions[0];
+      return res.json({
+        id: recentPayment.payment_id,
+        userId: parseInt(userId),
+        amount: { value: recentPayment.amount, currency: recentPayment.currency },
+        status: 'succeeded',
+        paid: true,
+        activatedAt: recentPayment.activated_at
+      });
     }
 
     // Если ничего не найдено, возвращаем null
@@ -2701,156 +3353,96 @@ app.post('/api/payments/create', async (req, res) => {
   }
 });
 
-// Проверка статуса платежа
-app.get('/api/payments/status/:paymentId', async (req, res) => {
-  try {
-    const { paymentId } = req.params;
-
-    if (!paymentId) {
-      return res.status(400).json({ error: 'Payment ID is required' });
-    }
-
-    // Импортируем YooKassaService
-    const { YooKassaService } = await import('./src/services/yookassa.js');
-
-    const payment = await YooKassaService.getPaymentStatus(paymentId);
-
-    logToFile('INFO', 'Payment status checked', {
-      paymentId: payment.id,
-      status: payment.status,
-      paid: payment.paid
-    });
-
-    res.json({
-      success: true,
-      paymentId: payment.id,
-      status: payment.status,
-      paid: payment.paid,
-      amount: payment.amount.value,
-      currency: payment.amount.currency,
-      metadata: payment.metadata
-    });
-
-  } catch (error) {
-    logToFile('ERROR', 'Payment status check error', {
-      error: error.message,
-      stack: error.stack,
-      paymentId: req.params.paymentId
-    });
-    
-    res.status(500).json({ 
-      error: 'Payment status check failed',
-      details: error.message 
-    });
-  }
-});
-
-// Получить последний платеж пользователя (для восстановления после возврата с YooKassa)
-app.get('/api/payments/user/:userId/recent', async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
-    }
-
-    console.log('🔍 [Payment] Looking for recent payment for user:', userId);
-
-    // Читаем логи платежей для поиска последнего платежа
-    const fs = await import('fs').then(m => m.promises);
-    const path = await import('path').then(m => m.default);
-    const logsDir = path.join(process.cwd(), 'logs');
-
-    // Ищем информацию о платежах в логах
-    try {
-      const todayLog = path.join(logsDir, new Date().toISOString().split('T')[0] + '.log');
-      
-      if (fs.stat(todayLog).catch(() => null)) {
-        const logContent = await fs.readFile(todayLog, 'utf8');
-        
-        // Ищем последний созданный платеж для этого пользователя
-        const paymentMatches = logContent.matchAll(/"userId":"([^"]*)".*?"paymentId":"([^"]*)"/g);
-        
-        let lastPayment = null;
-        for (const match of paymentMatches) {
-          if (match[1] === userId) {
-            lastPayment = { id: match[2], userId: match[1] };
-          }
-        }
-
-        if (lastPayment) {
-          console.log('✅ [Payment] Found recent payment:', lastPayment);
-          return res.json({
-            success: true,
-            id: lastPayment.id,
-            userId: lastPayment.userId
-          });
-        }
-      }
-    } catch (logError) {
-      console.warn('⚠️ [Payment] Could not search logs:', logError);
-    }
-
-    // Если не нашли в логах, возвращаем ошибку
-    res.status(404).json({ 
-      error: 'No recent payment found for user',
-      userId 
-    });
-
-  } catch (error) {
-    console.error('❌ [Payment] Error getting recent payment:', error);
-    res.status(500).json({ 
-      error: 'Failed to get recent payment',
-      details: error.message 
-    });
-  }
-});
-
 // ===== YOOKASSA WEBHOOK HANDLER =====
 
 // Webhook для обработки уведомлений от YooKassa
 app.post('/api/payments/webhook', async (req, res) => {
+  let signatureVerified = false;
+
   try {
     // Парсим raw JSON body для webhook
-    const webhookData = JSON.parse(req.body.toString());
+    const rawBody = req.body.toString();
+    const webhookData = JSON.parse(rawBody);
     const paymentId = webhookData.object?.id;
+    const eventType = webhookData.event;
     const status = webhookData.object?.status;
     const userId = webhookData.object?.metadata?.userId;
 
     console.log('🔗 [Webhook] Received YooKassa webhook:', {
       paymentId,
+      eventType,
       status,
       userId,
-      event: webhookData.event,
       timestamp: new Date().toISOString()
     });
 
-    // Проверяем подпись для безопасности (обязательно для продакшена!)
+    // ===== MANDATORY SIGNATURE VERIFICATION IN PRODUCTION =====
     const signature = req.headers['x-yookassa-signature'];
-    if (signature && YOOKASSA_CONFIG.secretKey) {
-      const isValidSignature = verifySignature(req.body, signature, YOOKASSA_CONFIG.secretKey);
-      if (!isValidSignature) {
-        console.log('❌ [Webhook] Invalid signature received');
-        logToFile('ERROR', 'Invalid webhook signature', { paymentId });
-        return res.status(401).json({ error: 'Invalid signature' });
-      }
-      console.log('✅ [Webhook] Signature verified successfully');
-    } else {
-      console.log('⚠️ [Webhook] Signature verification skipped (no signature or secret key)');
+    if (!signature) {
+      console.error('❌ [Webhook] Missing signature header');
+      logToFile('ERROR', 'Missing webhook signature', { paymentId });
+      return res.status(400).json({ error: 'Missing signature' });
     }
 
-    if (!paymentId || !status) {
-      logToFile('ERROR', 'Invalid webhook data', webhookData);
+    if (!YOOKASSA_CONFIG.secretKey) {
+      console.error('❌ [Webhook] YOOKASSA_SECRET_KEY not configured');
+      logToFile('ERROR', 'YOOKASSA_SECRET_KEY not configured', { paymentId });
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+
+    const isValidSignature = verifySignature(Buffer.from(rawBody), signature, YOOKASSA_CONFIG.secretKey);
+    if (!isValidSignature) {
+      console.error('❌ [Webhook] Invalid signature received');
+      logToFile('ERROR', 'Invalid webhook signature', { paymentId, signature });
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+
+    signatureVerified = true;
+    console.log('✅ [Webhook] Signature verified successfully');
+
+    if (!paymentId) {
+      logToFile('ERROR', 'Invalid webhook data - missing paymentId', webhookData);
       return res.status(400).json({ error: 'Invalid webhook data' });
     }
 
-    // Логируем событие платежа
-    logToFile('INFO', 'Payment webhook received', {
-      paymentId,
+    // ===== IDEMPOTENCY CHECK =====
+    const eventId = `${eventType}:${paymentId}`;
+    try {
+      // Check if this event was already processed
+      const existingEvent = await db.get(
+        'SELECT id FROM payment_events WHERE payment_id = ? AND event_type = ?',
+        [eventId, eventType]
+      );
+
+      if (existingEvent) {
+        console.log('⚠️ [Webhook] Event already processed (idempotency):', eventId);
+        return res.status(200).json({ received: true, idempotent: true });
+      }
+    } catch (dbError) {
+      console.error('❌ [Webhook] Database error during idempotency check:', dbError);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    // ===== RECORD EVENT IN DATABASE =====
+    const processedAt = new Date().toISOString();
+    try {
+      await db.run(
+        'INSERT INTO payment_events (payment_id, event_type, event_data, signature_verified, processed_at, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [eventId, eventType, JSON.stringify(webhookData), signatureVerified, processedAt, processedAt]
+      );
+      console.log('💾 [Webhook] Event recorded in database:', eventId);
+    } catch (dbError) {
+      console.error('❌ [Webhook] Failed to record event:', dbError);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    // ===== PROCESS PAYMENT EVENT =====
+    logToFile('INFO', 'Payment webhook processed', {
+      paymentId: eventId,
+      eventType,
       status,
       userId,
-      event: webhookData.event,
-      paid: webhookData.object?.paid,
+      signatureVerified,
       amount: webhookData.object?.amount
     });
 
@@ -2858,42 +3450,82 @@ app.post('/api/payments/webhook', async (req, res) => {
     if (status === 'succeeded' && userId) {
       console.log('✅ [Webhook] Payment succeeded for user:', userId);
 
-      // Здесь можно активировать подписку для пользователя
-      // Например, сохранить в базу данных информацию о подписке
-
-      logToFile('INFO', 'Premium subscription activated', {
-        userId,
-        paymentId,
-        activatedAt: new Date().toISOString()
-      });
-
-      // Можно отправить email уведомление пользователю
       try {
-        // Импортируем email сервис для отправки уведомления
-        const { CustomEmailService } = await import('./src/services/custom-email.js');
-        await CustomEmailService.sendPaymentSuccessNotification(userId, paymentId);
-        console.log('📧 [Webhook] Success notification sent to user:', userId);
-      } catch (emailError) {
-        console.error('📧 [Webhook] Failed to send notification:', emailError);
-        // Не возвращаем ошибку, так как платеж уже обработан
+        // Активируем подписку в БД
+        const subscriptionData = {
+          user_id: parseInt(userId),
+          payment_id: eventId,
+          activated_at: processedAt,
+          expires_at: null, // Бессрочная подписка
+          amount: webhookData.object?.amount?.value || 0,
+          currency: webhookData.object?.amount?.currency || 'RUB',
+          status: 'active',
+          created_at: processedAt,
+          updated_at: processedAt
+        };
+
+        // Проверяем, нет ли уже активной подписки
+        const existingSubscription = await db.get(
+          'SELECT id FROM subscriptions WHERE user_id = ? AND status = ?',
+          [userId, 'active']
+        );
+
+        if (existingSubscription) {
+          // Продлеваем существующую подписку
+          await db.run(
+            'UPDATE subscriptions SET updated_at = ?, payment_id = ? WHERE id = ?',
+            [processedAt, eventId, existingSubscription.id]
+          );
+          console.log('🔄 [Subscription] Extended existing subscription for user:', userId);
+        } else {
+          // Создаем новую подписку
+          await db.run(`
+            INSERT INTO subscriptions (user_id, payment_id, activated_at, expires_at, amount, currency, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            subscriptionData.user_id,
+            subscriptionData.payment_id,
+            subscriptionData.activated_at,
+            subscriptionData.expires_at,
+            subscriptionData.amount,
+            subscriptionData.currency,
+            subscriptionData.status,
+            subscriptionData.created_at,
+            subscriptionData.updated_at
+          ]);
+          console.log('✅ [Subscription] Created new subscription for user:', userId);
+        }
+
+        logToFile('INFO', 'Premium subscription activated', subscriptionData);
+
+        // Отправляем email уведомление
+        try {
+          const { CustomEmailService } = await import('./src/services/custom-email.js');
+          await CustomEmailService.sendPaymentSuccessNotification(userId, paymentId);
+          console.log('📧 [Webhook] Success notification sent to user:', userId);
+        } catch (emailError) {
+          console.error('📧 [Webhook] Failed to send notification:', emailError);
+        }
+
+      } catch (subscriptionError) {
+        console.error('❌ [Webhook] Failed to activate subscription:', subscriptionError);
+        logToFile('ERROR', 'Subscription activation failed', {
+          userId,
+          paymentId: eventId,
+          error: subscriptionError.message
+        });
       }
-    } else if (status === 'canceled' || status === 'failed') {
-      console.log('❌ [Webhook] Payment failed/canceled:', { paymentId, status, userId });
-      logToFile('WARNING', 'Payment failed or canceled', {
-        paymentId,
-        status,
-        userId
-      });
     }
 
     // Возвращаем 200 OK для подтверждения получения webhook
-    res.status(200).json({ received: true });
+    res.status(200).json({ received: true, processed: true });
 
   } catch (error) {
     console.error('💥 [Webhook] Error processing webhook:', error);
     logToFile('ERROR', 'Webhook processing error', {
       error: error.message,
       stack: error.stack,
+      signatureVerified,
       body: req.body
     });
 
@@ -3018,7 +3650,7 @@ app.post('/api/smtp/stop', async (req, res) => {
 });
 
 // Получение конфигурации аутентификации
-app.get('/api/smtp/auth-config', async (req, res) => {
+app.get('/api/smtp/auth-config', authenticateToken, requireRole('admin'), async (req, res) => {
   try {
     const { CustomSMTPServer } = await import('./src/services/custom-smtp-server.js');
     
@@ -3042,7 +3674,7 @@ app.get('/api/smtp/auth-config', async (req, res) => {
 });
 
 // Обновление конфигурации аутентификации
-app.post('/api/smtp/auth-config', async (req, res) => {
+app.post('/api/smtp/auth-config', authenticateToken, requireRole('admin'), async (req, res) => {
   try {
     const { username, password, authEnabled } = req.body;
     

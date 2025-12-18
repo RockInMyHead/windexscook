@@ -23,6 +23,7 @@ import {
   Save
 } from "lucide-react";
 import { OpenAIService, Recipe } from "@/services/openai";
+import { RecipeDisplay } from "@/components/ui/recipe-display";
 import { CuisineSelector } from "@/components/ui/cuisine-selector";
 import { Header } from "@/components/header";
 import { AuthModal } from "@/components/ui/auth-modal";
@@ -497,50 +498,17 @@ export const MyRecipes = () => {
               </Card>
 
               {/* Generated Recipe Display */}
-              {recipeText && (
-                <Card className="bg-gradient-card border-border/50 mt-6">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <ChefHat className="w-5 h-5 text-primary" />
-                      Сгенерированный рецепт
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="prose prose-sm max-w-none dark:prose-invert">
-                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                        {recipeText}
-                      </div>
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-4 border-t">
-                      <Button
-                        onClick={handleSaveGeneratedRecipe}
-                        className="bg-gradient-primary hover:opacity-90 transition-opacity flex items-center gap-2"
-                        size="sm"
-                      >
-                        <Save className="h-4 w-4" />
-                        Сохранить рецепт
-                      </Button>
-                      <Button
-                        onClick={handleGenerateNew}
-                        variant="outline"
-                        className="flex items-center gap-2"
-                        size="sm"
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        Создать новый
-                      </Button>
-                      <Button
-                        onClick={handleCloseRecipe}
-                        variant="ghost"
-                        className="flex items-center gap-2"
-                        size="sm"
-                      >
-                        <X className="h-4 w-4" />
-                        Закрыть
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+              {generatedRecipe && (
+                <RecipeDisplay
+                  recipe={generatedRecipe}
+                  onClose={handleCloseRecipe}
+                  onGenerateNew={handleGenerateNew}
+                  onRegister={() => {}}
+                  onLogin={() => {}}
+                  onSave={handleSaveGeneratedRecipe}
+                  showSaveButton={true}
+                  asDialog={false}
+                />
               )}
             </TabsContent>
 
